@@ -7,6 +7,7 @@ const { buildOpenApiSpec } = require("./openapi");
 
 const db = seed();
 const app = express();
+app.set("trust proxy", true); // Vercel terminates TLS upstream; trust X-Forwarded-Proto for req.protocol
 app.use(cors());
 app.use(express.json());
 
