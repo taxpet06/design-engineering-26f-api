@@ -12,10 +12,11 @@ app.get("/", (_req, res) => {
   res.json({
     name: "Design Engineering 26F — student data API",
     resources: Object.keys(db),
-    docs: "GET each resource for a list, /:id for one. See /students/:id/schedule, /grades, /gpa, /transcript, and /sections/:id/roster for joined views.",
+    docs: "GET each resource for a list, /:id for one. Joined views: /students/:id/schedule, /grades, /gpa, /transcript, /history, /workshops, /clubs, /wellness/summary; /sections/:id/roster, /sections/:id/discussion; /workshops/:id/roster.",
   });
 });
 
+app.use("/terms", resourceRouter(db, "terms", { required: ["code", "label", "start_date", "end_date"] }));
 app.use("/departments", resourceRouter(db, "departments", { required: ["name", "code"] }));
 app.use("/instructors", resourceRouter(db, "instructors", { required: ["first_name", "last_name", "department"] }));
 app.use("/students", resourceRouter(db, "students", { required: ["first_name", "last_name", "email"] }));
@@ -25,6 +26,16 @@ app.use("/enrollments", resourceRouter(db, "enrollments", { required: ["student_
 app.use("/assignments", resourceRouter(db, "assignments", { required: ["section_id", "title", "points_possible"] }));
 app.use("/submissions", resourceRouter(db, "submissions", { required: ["assignment_id", "student_id", "score"] }));
 app.use("/announcements", resourceRouter(db, "announcements", { required: ["section_id", "title", "body"] }));
+app.use("/discussion-posts", resourceRouter(db, "discussion_posts", { required: ["section_id", "author_type", "author_id", "body"] }));
+app.use("/workshops", resourceRouter(db, "workshops", { required: ["title", "category", "date"] }));
+app.use("/workshop-registrations", resourceRouter(db, "workshop_registrations", { required: ["student_id", "workshop_id"] }));
+app.use("/wellness-logs", resourceRouter(db, "wellness_logs", { required: ["student_id", "date", "sleep_hours", "mood"] }));
+app.use("/clubs", resourceRouter(db, "clubs", { required: ["name", "category"] }));
+app.use("/club-memberships", resourceRouter(db, "club_memberships", { required: ["student_id", "club_id"] }));
+app.use("/dining-visits", resourceRouter(db, "dining_visits", { required: ["student_id", "date", "meal", "location"] }));
+app.use("/library-checkouts", resourceRouter(db, "library_checkouts", { required: ["student_id", "book_title", "checked_out_at"] }));
+app.use("/study-groups", resourceRouter(db, "study_groups", { required: ["section_id", "name"] }));
+app.use("/study-group-members", resourceRouter(db, "study_group_members", { required: ["study_group_id", "student_id"] }));
 
 mountComputedRoutes(app, db);
 

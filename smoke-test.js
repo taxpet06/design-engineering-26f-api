@@ -50,6 +50,23 @@ test("rejects a POST missing required fields", async () => {
   assert.strictEqual(res.status, 400);
 });
 
+test("threads a section's discussion posts with nested replies", async () => {
+  const sections = await fetch(`${base}/sections?term=26F`).then((r) => r.json());
+  const withPosts = await Promise.all(
+    sections.slice(0, 15).map((s) => fetch(`${base}/sections/${s.id}/discussion`).then((r) => r.json()))
+  );
+  const found = withPosts.find((posts) => posts.some((p) => p.replies.length > 0));
+  assert.ok(found, "expected at least one threaded discussion in the first 15 current-term sections");
+});
+
+test("computes a student's wellness summary", async () => {
+  const res = await fetch(`${base}/students/1/wellness/summary`);
+  const body = await res.json();
+  assert.strictEqual(res.status, 200);
+  assert.ok(body.entries > 0);
+  assert.ok(typeof body.avg_sleep_hours === "number");
+});
+
 test("full enrollment lifecycle: create, patch, delete", async () => {
   const created = await fetch(`${base}/enrollments`, {
     method: "POST",

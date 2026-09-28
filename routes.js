@@ -148,6 +148,80 @@ function mountComputedRoutes(app, db) {
       .map((e) => ({ ...db.students.find((s) => s.id === e.student_id), status: e.status, final_grade: e.final_grade }));
     res.json(roster);
   });
+
+  // What classes a student took, grouped by term — answers "what did they take when".
+  app.get("/students/:id/history", (req, res) => {
+    const studentId = Number(req.params.id);
+    const student = db.students.find((s) => s.id === studentId);
+    if (!student) return res.status(404).json({ error: `student ${studentId} not found` });
+    const byTerm = {};
+    db.enrollments
+      .filter((e) => e.student_id === studentId)
+      .map((e) => enrollmentDetail(db, e))
+      .forEach((e) => {
+        const term = e.section ? e.section.term : "unknown";
+        (byTerm[term] ||= []).push(e);
+      });
+    res.json(byTerm);
+  });
+
+  app.get("/students/:id/workshops", (req, res) => {
+    const studentId = Number(req.params.id);
+    const student = db.students.find((s) => s.id === studentId);
+    if (!student) return res.status(404).json({ error: `student ${studentId} not found` });
+    const registrations = db.workshop_registrations
+      .filter((r) => r.student_id === studentId)
+      .map((r) => ({ ...r, workshop: db.workshops.find((w) => w.id === r.workshop_id) }));
+    res.json(registrations);
+  });
+
+  app.get("/students/:id/clubs", (req, res) => {
+    const studentId = Number(req.params.id);
+    const student = db.students.find((s) => s.id === studentId);
+    if (!student) return res.status(404).json({ error: `student ${studentId} not found` });
+    const memberships = db.club_memberships
+      .filter((m) => m.student_id === studentId)
+      .map((m) => ({ ...m, club: db.clubs.find((c) => c.id === m.club_id) }));
+    res.json(memberships);
+  });
+
+  app.get("/students/:id/wellness/summary", (req, res) => {
+    const studentId = Number(req.params.id);
+    const student = db.students.find((s) => s.id === studentId);
+    if (!student) return res.status(404).json({ error: `student ${studentId} not found` });
+    const logs = db.wellness_logs.filter((l) => l.student_id === studentId);
+    if (!logs.length) return res.json({ student_id: studentId, entries: 0, avg_sleep_hours: null, avg_stress_level: null, mood_counts: {} });
+    const avg = (nums) => Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100;
+    const mood_counts = logs.reduce((acc, l) => ((acc[l.mood] = (acc[l.mood] || 0) + 1), acc), {});
+    res.json({
+      student_id: studentId,
+      entries: logs.length,
+      avg_sleep_hours: avg(logs.map((l) => l.sleep_hours)),
+      avg_stress_level: avg(logs.map((l) => l.stress_level)),
+      mood_counts,
+    });
+  });
+
+  // Threaded view of a section's discussion board — top-level posts with replies nested.
+  app.get("/sections/:id/discussion", (req, res) => {
+    const sectionId = Number(req.params.id);
+    const section = db.sections.find((s) => s.id === sectionId);
+    if (!section) return res.status(404).json({ error: `section ${sectionId} not found` });
+    const all = db.discussion_posts.filter((p) => p.section_id === sectionId);
+    const topLevel = all.filter((p) => !p.parent_id);
+    const withReplies = topLevel.map((p) => ({ ...p, replies: all.filter((r) => r.parent_id === p.id) }));
+    res.json(withReplies);
+  });
+
+  app.get("/workshops/:id/roster", (req, res) => {
+    const workshopId = Number(req.params.id);
+    const workshop = db.workshops.find((w) => w.id === workshopId);
+    if (!workshop) return res.status(404).json({ error: `workshop ${workshopId} not found` });
+    const roster = db.workshop_registrations
+      .filter((r) => r.workshop_id === workshopId)
+      .map((r) => ({ ...db.students.find((s) => s.id === r.student_id), status: r.status }));
+    res.json(roster);
+  });
 }
 
 module.exports = { resourceRouter, mountComputedRoutes };
