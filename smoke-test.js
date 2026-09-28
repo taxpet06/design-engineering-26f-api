@@ -67,6 +67,16 @@ test("computes a student's wellness summary", async () => {
   assert.ok(typeof body.avg_sleep_hours === "number");
 });
 
+test("serves a valid OpenAPI spec covering every resource", async () => {
+  const res = await fetch(`${base}/openapi.json`);
+  const spec = await res.json();
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(spec.openapi, "3.0.3");
+  assert.ok(spec.paths["/students"].get, "expected /students in the generated spec");
+  assert.ok(spec.paths["/students/{id}/profile"].get, "expected computed routes in the generated spec");
+  assert.ok(Object.keys(spec.paths).length > 80);
+});
+
 test("aggregates a student's full profile", async () => {
   const res = await fetch(`${base}/students/1/profile`);
   const body = await res.json();
