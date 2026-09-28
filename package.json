@@ -1,0 +1,17 @@
+{
+  "name": "design-engineering-26f-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fake student-data REST API for Design Engineering 26F (Bruno/API-design exercises)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test smoke-test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
