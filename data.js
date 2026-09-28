@@ -144,6 +144,95 @@ const CLUB_CATALOG = [
 ];
 const CLUB_MEETING_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sun"];
 
+const DORMS = [
+  { name: "North Hall", type: "Traditional" },
+  { name: "Massachusetts Row", type: "Traditional" },
+  { name: "River Cluster", type: "Suite" },
+  { name: "Fahey/McLane", type: "Traditional" },
+  { name: "East Wheelock", type: "Suite" },
+  { name: "Ledyard Apartments", type: "Apartment" },
+  { name: "Ravine Lodge Annex", type: "Affinity" },
+  { name: "Woodward", type: "Traditional" },
+  { name: "New Hampshire Hall", type: "Traditional" },
+  { name: "Choates", type: "Traditional" },
+];
+
+const CAMPUS_JOBS = [
+  { title: "Library Circulation Assistant", department: "Library" },
+  { title: "Dining Hall Server", department: "Dining Services" },
+  { title: "IT Help Desk Consultant", department: "IT" },
+  { title: "Research Assistant (paid)", department: "Academic" },
+  { title: "Admissions Tour Guide", department: "Admissions" },
+  { title: "Fitness Center Attendant", department: "Recreation" },
+  { title: "Peer Tutor", department: "Academic Skills Center" },
+  { title: "Mailroom Clerk", department: "Mail Services" },
+  { title: "Box Office Assistant", department: "Hopkins Center" },
+  { title: "Sustainability Office Intern", department: "Sustainability" },
+];
+
+const EVENT_CATALOG = [
+  { title: "Fall Concert Series", category: "Concert" },
+  { title: "Guest Speaker: Tech Ethics", category: "Speaker" },
+  { title: "Homecoming Bonfire", category: "Social" },
+  { title: "International Food Festival", category: "Cultural" },
+  { title: "Career Fair", category: "Career" },
+  { title: "Comedy Night", category: "Social" },
+  { title: "Winter Carnival Kickoff", category: "Social" },
+  { title: "Alumni Panel: Life After Dartmouth", category: "Speaker" },
+  { title: "Poetry Slam", category: "Cultural" },
+  { title: "Film Screening: Student Shorts", category: "Cultural" },
+  { title: "A Cappella Jam", category: "Concert" },
+  { title: "Guest Speaker: Climate Policy", category: "Speaker" },
+];
+
+const RESEARCH_TEMPLATES = [
+  "Modeling {d} Systems",
+  "Computational Approaches to {d}",
+  "{d} and Society",
+  "Experimental Methods in {d}",
+  "Long-Term Trends in {d}",
+];
+const FUNDING_SOURCES = ["NSF Grant", "Dartmouth Class of 1980s Fund", "Neukom Institute", "Department Seed Grant", "NIH Grant", "Private Foundation Gift"];
+
+const SCHOLARSHIP_CATALOG = [
+  { name: "Dean's Merit Scholarship", type: "merit", amount: 5000 },
+  { name: "Dartmouth Grant", type: "need-based", amount: 12000 },
+  { name: "Presidential Scholars Award", type: "merit", amount: 8000 },
+  { name: "STEM Excellence Fellowship", type: "departmental", amount: 3000 },
+  { name: "Alumni Legacy Scholarship", type: "merit", amount: 4000 },
+  { name: "First-Generation Student Award", type: "need-based", amount: 6000 },
+  { name: "Community Impact Scholarship", type: "merit", amount: 2500 },
+];
+
+const GYM_FACILITIES = ["Alumni Gym", "Zimmerman Fitness Center", "Bregman Pool", "Boss Tennis Center", "Leverone Field House"];
+const GYM_ACTIVITIES = ["cardio", "weights", "swim", "climbing", "yoga", "basketball", "squash"];
+
+const INTRAMURAL_SPORTS = ["Soccer", "Basketball", "Volleyball", "Flag Football", "Dodgeball", "Softball"];
+const INTRAMURAL_TEAM_NAMES = ["Kemeny Krushers", "Fahey Ballers", "River Cluster Riptide", "Wheelock Warriors", "Choates Chargers", "McLane Mavericks", "Ravine Raptors", "North Park Ninjas", "Woodward Wolves", "Hitchcock Hawks"];
+
+const MENTOR_PROGRAMS = ["Peer Mentoring", "First-Gen Mentoring", "Women in STEM Mentoring", "International Student Mentoring", "Pre-Health Mentoring"];
+
+const LOST_ITEMS = ["Blue Hydro Flask water bottle", "TI-84 graphing calculator", "Black North Face jacket", "Pair of AirPods Pro", "Dartmouth ID card", "Textbook: Introduction to Algorithms", "Green umbrella", "Wireless mouse", "Keys with a carabiner", "Prescription glasses in a red case", "Grey beanie", "USB-C charging cable"];
+const LOST_LOCATIONS = ["Baker-Berry Library", "Class of 1953 Commons", "Kemeny Hall", "Alumni Gym", "Collis Center", "Novack Cafe", "Hopkins Center"];
+
+const PRINT_LOCATIONS = ["Baker-Berry Library", "Novack Cafe Print Station", "Kemeny Print Lab", "Berry Library Reference Desk"];
+
+const POSITIVE_REVIEW_TEMPLATES = [
+  (course) => `${course.code} completely changed how I think about ${course.department.toLowerCase()}. The workload is real but so worth it.`,
+  (course) => `One of the best courses I've taken. The professor for ${course.code} clearly cares about teaching, not just research.`,
+  (course) => `Loved ${course.code} — dense but fair, and the final project actually felt meaningful.`,
+];
+const MIXED_REVIEW_TEMPLATES = [
+  (course) => `${course.code} is solid if you keep up with the readings. Falls apart fast if you fall behind.`,
+  (course) => `Decent intro to the material, but the pacing in ${course.code} felt uneven — slow start, then a brutal last three weeks.`,
+  (course) => `${course.code} is worth taking for the topic, though the grading felt inconsistent between sections.`,
+];
+const NEGATIVE_REVIEW_TEMPLATES = [
+  (course) => `Wouldn't recommend ${course.code} unless it's required. Lectures didn't match what showed up on exams.`,
+  (course) => `Struggled in ${course.code} — office hours were hard to get into and feedback on assignments was minimal.`,
+  (course) => `${course.code} needs a serious syllabus rework. Too much crammed into too little time.`,
+];
+
 function buildInstructors(n) {
   const instructors = [];
   for (let i = 1; i <= n; i++) {
@@ -561,6 +650,284 @@ function buildStudyGroups(sections, enrollments) {
   return { groups, members };
 }
 
+function buildDorms() {
+  return DORMS.map((d, i) => ({ id: i + 1, name: d.name, type: d.type, capacity: pick([40, 80, 120, 200]) }));
+}
+
+function buildRoomAssignments(students, dorms) {
+  const assignments = [];
+  let id = 1;
+  const onCampus = students.filter(() => chance(0.85)); // some students live off campus
+  for (const student of onCampus) {
+    assignments.push({
+      id: id++,
+      student_id: student.id,
+      dorm_id: pick(dorms).id,
+      room_number: `${randInt(1, 4)}${String(randInt(1, 30)).padStart(2, "0")}`,
+      roommate_student_id: chance(0.6) ? pick(students.filter((s) => s.id !== student.id)).id : null,
+      term: CURRENT_TERM,
+    });
+  }
+  return assignments;
+}
+
+function buildCampusJobs() {
+  return CAMPUS_JOBS.map((j, i) => ({
+    id: i + 1,
+    title: j.title,
+    department: j.department,
+    hourly_rate: pick([13.5, 14, 15, 16.5, 18]),
+    hours_per_week: pick([5, 8, 10, 12]),
+  }));
+}
+
+function buildJobAssignments(students, campusJobs, instructors) {
+  const assignments = [];
+  let id = 1;
+  for (const student of students) {
+    if (chance(0.55)) continue; // most students don't hold a campus job
+    const job = pick(campusJobs);
+    assignments.push({
+      id: id++,
+      student_id: student.id,
+      campus_job_id: job.id,
+      supervisor_instructor_id: chance(0.5) ? pick(instructors).id : null,
+      hours_per_week: job.hours_per_week,
+      term: CURRENT_TERM,
+      start_date: isoBetween(CURRENT_TERM_DEF.start_date, isoDaysAgo(0)),
+    });
+  }
+  return assignments;
+}
+
+function buildEvents(n) {
+  const chosen = pickN(EVENT_CATALOG, Math.min(n, EVENT_CATALOG.length));
+  return chosen.map((e, i) => ({
+    id: i + 1,
+    title: e.title,
+    category: e.category,
+    date: isoBetween(CURRENT_TERM_DEF.start_date, CURRENT_TERM_DEF.end_date),
+    location: pick(WORKSHOP_LOCATIONS),
+    capacity: pick([50, 100, 200, 400]),
+  }));
+}
+
+function buildEventRsvps(students, events) {
+  const rsvps = [];
+  let id = 1;
+  for (const student of students) {
+    if (chance(0.35)) continue;
+    const chosen = pickN(events, randInt(1, 3));
+    for (const event of chosen) {
+      rsvps.push({ id: id++, student_id: student.id, event_id: event.id, status: pick(["going", "going", "maybe", "declined", "attended"]) });
+    }
+  }
+  return rsvps;
+}
+
+function buildCourseReviews(students, courses, sections, enrollments) {
+  const reviews = [];
+  let id = 1;
+  const completed = enrollments.filter((e) => e.status === "completed" && e.final_grade);
+  for (const enrollment of completed) {
+    if (chance(0.6)) continue; // not everyone leaves a review
+    const section = sections.find((s) => s.id === enrollment.section_id);
+    const course = section && courses.find((c) => c.id === section.course_id);
+    if (!course) continue;
+    const gradePoints = GRADE_POINTS[enrollment.final_grade];
+    const rating = gradePoints >= 3.3 ? randInt(4, 5) : gradePoints >= 2.0 ? randInt(3, 4) : randInt(1, 3);
+    const template = rating >= 4 ? pick(POSITIVE_REVIEW_TEMPLATES) : rating === 3 ? pick(MIXED_REVIEW_TEMPLATES) : pick(NEGATIVE_REVIEW_TEMPLATES);
+    reviews.push({
+      id: id++,
+      student_id: enrollment.student_id,
+      course_id: course.id,
+      rating,
+      review_text: template(course),
+      term_taken: section.term,
+    });
+  }
+  return reviews;
+}
+
+function buildTextbooks(courses) {
+  const textbooks = [];
+  let id = 1;
+  const TEXTBOOK_KINDS = ["Concepts", "Fundamentals", "Principles", "Handbook", "Companion", "Casebook"];
+  for (const course of courses) {
+    const count = randInt(1, 3);
+    for (let i = 0; i < count; i++) {
+      textbooks.push({
+        id: id++,
+        course_id: course.id,
+        title: `${course.department} ${pick(TEXTBOOK_KINDS)}`,
+        author: `${pick(FIRST_NAMES)[0]}. ${pick(LAST_NAMES)}`,
+        price: pick([39.99, 59.99, 79.99, 99.5, 124.0]),
+        required: i === 0 ? true : chance(0.4),
+      });
+    }
+  }
+  return textbooks;
+}
+
+function buildResearchProjects(instructors, n) {
+  const projects = [];
+  for (let i = 1; i <= n; i++) {
+    const dept = pick(DEPARTMENTS);
+    const deptInstructors = instructors.filter((ins) => ins.department === dept.name);
+    projects.push({
+      id: i,
+      title: pick(RESEARCH_TEMPLATES).replace("{d}", dept.name),
+      pi_instructor_id: (deptInstructors.length ? pick(deptInstructors) : pick(instructors)).id,
+      department: dept.name,
+      funding_source: pick(FUNDING_SOURCES),
+    });
+  }
+  return projects;
+}
+
+function buildResearchAssistants(students, projects) {
+  const assistants = [];
+  let id = 1;
+  for (const student of students) {
+    if (chance(0.8)) continue; // research assistantships are competitive
+    assistants.push({
+      id: id++,
+      student_id: student.id,
+      research_project_id: pick(projects).id,
+      hours_per_week: pick([5, 8, 10, 15]),
+      start_date: isoDaysAgo(randInt(20, 300)),
+    });
+  }
+  return assistants;
+}
+
+function buildScholarships() {
+  return SCHOLARSHIP_CATALOG.map((s, i) => ({ id: i + 1, name: s.name, type: s.type, amount: s.amount }));
+}
+
+function buildScholarshipAwards(students, scholarships) {
+  const awards = [];
+  let id = 1;
+  for (const student of students) {
+    if (chance(0.75)) continue;
+    const scholarship = pick(scholarships);
+    awards.push({ id: id++, student_id: student.id, scholarship_id: scholarship.id, term: CURRENT_TERM, amount: scholarship.amount });
+  }
+  return awards;
+}
+
+function buildGymCheckins(students) {
+  const checkins = [];
+  let id = 1;
+  for (const student of students) {
+    if (chance(0.4)) continue; // not everyone hits the gym
+    const count = randInt(5, 25);
+    for (let i = 0; i < count; i++) {
+      checkins.push({
+        id: id++,
+        student_id: student.id,
+        date: isoDaysAgo(randInt(0, 40)),
+        facility: pick(GYM_FACILITIES),
+        activity: pick(GYM_ACTIVITIES),
+      });
+    }
+  }
+  return checkins;
+}
+
+function buildIntramuralTeams(students, n) {
+  const teams = [];
+  const names = pickN(INTRAMURAL_TEAM_NAMES, Math.min(n, INTRAMURAL_TEAM_NAMES.length));
+  names.forEach((name, i) => {
+    teams.push({ id: i + 1, name, sport: pick(INTRAMURAL_SPORTS), captain_student_id: pick(students).id });
+  });
+  return teams;
+}
+
+function buildIntramuralTeamMembers(students, teams) {
+  const members = [];
+  let id = 1;
+  for (const team of teams) {
+    const roster = pickN(students, randInt(6, 10));
+    for (const student of roster) {
+      members.push({ id: id++, team_id: team.id, student_id: student.id });
+    }
+  }
+  return members;
+}
+
+function buildIntramuralMatches(teams) {
+  const matches = [];
+  let id = 1;
+  for (const team of teams) {
+    const opponents = teams.filter((t) => t.id !== team.id && t.sport === team.sport);
+    const played = pickN(opponents, Math.min(opponents.length, randInt(1, 3)));
+    for (const opponent of played) {
+      if (matches.some((m) => (m.team_a_id === opponent.id && m.team_b_id === team.id))) continue; // avoid exact duplicate reverse pairing
+      matches.push({
+        id: id++,
+        team_a_id: team.id,
+        team_b_id: opponent.id,
+        sport: team.sport,
+        date: isoDaysAgo(randInt(0, 40)),
+        score_a: randInt(0, 5),
+        score_b: randInt(0, 5),
+      });
+    }
+  }
+  return matches;
+}
+
+function buildMentorMatches(students) {
+  const upperclassmen = students.filter((s) => s.year === "Junior" || s.year === "Senior");
+  const underclassmen = students.filter((s) => s.year === "Freshman" || s.year === "Sophomore");
+  const matches = [];
+  let id = 1;
+  const mentees = pickN(underclassmen, Math.min(underclassmen.length, Math.floor(underclassmen.length * 0.5)));
+  for (const mentee of mentees) {
+    if (!upperclassmen.length) break;
+    matches.push({ id: id++, mentor_student_id: pick(upperclassmen).id, mentee_student_id: mentee.id, program: pick(MENTOR_PROGRAMS) });
+  }
+  return matches;
+}
+
+function buildLostAndFound(students, n) {
+  const items = [];
+  for (let i = 1; i <= n; i++) {
+    const claimed = chance(0.4);
+    items.push({
+      id: i,
+      item_description: pick(LOST_ITEMS),
+      location_found: pick(LOST_LOCATIONS),
+      date_found: isoDaysAgo(randInt(0, 60)),
+      claimed,
+      claimed_by_student_id: claimed ? pick(students).id : null,
+    });
+  }
+  return items;
+}
+
+function buildPrintingJobs(students) {
+  const jobs = [];
+  let id = 1;
+  for (const student of students) {
+    if (chance(0.5)) continue;
+    const count = randInt(1, 8);
+    for (let i = 0; i < count; i++) {
+      const pages = randInt(1, 40);
+      jobs.push({
+        id: id++,
+        student_id: student.id,
+        date: isoDaysAgo(randInt(0, 40)),
+        pages,
+        location: pick(PRINT_LOCATIONS),
+        cost: Math.round(pages * 0.05 * 100) / 100,
+      });
+    }
+  }
+  return jobs;
+}
+
 function seed() {
   const instructors = buildInstructors(24);
   const students = buildStudents(90);
@@ -579,6 +946,25 @@ function seed() {
   const dining_visits = buildDiningVisits(students);
   const library_checkouts = buildLibraryCheckouts(students);
   const { groups: study_groups, members: study_group_members } = buildStudyGroups(sections, enrollments);
+  const dorms = buildDorms();
+  const room_assignments = buildRoomAssignments(students, dorms);
+  const campus_jobs = buildCampusJobs();
+  const job_assignments = buildJobAssignments(students, campus_jobs, instructors);
+  const events = buildEvents(12);
+  const event_rsvps = buildEventRsvps(students, events);
+  const course_reviews = buildCourseReviews(students, courses, sections, enrollments);
+  const textbooks = buildTextbooks(courses);
+  const research_projects = buildResearchProjects(instructors, 20);
+  const research_assistants = buildResearchAssistants(students, research_projects);
+  const scholarships = buildScholarships();
+  const scholarship_awards = buildScholarshipAwards(students, scholarships);
+  const gym_checkins = buildGymCheckins(students);
+  const intramural_teams = buildIntramuralTeams(students, 10);
+  const intramural_team_members = buildIntramuralTeamMembers(students, intramural_teams);
+  const intramural_matches = buildIntramuralMatches(intramural_teams);
+  const mentor_matches = buildMentorMatches(students);
+  const lost_and_found_items = buildLostAndFound(students, 30);
+  const printing_jobs = buildPrintingJobs(students);
 
   return {
     terms: TERM_DEFS.map((t, i) => ({ id: i + 1, ...t, is_current: t.code === CURRENT_TERM })),
@@ -601,6 +987,25 @@ function seed() {
     library_checkouts,
     study_groups,
     study_group_members,
+    dorms,
+    room_assignments,
+    campus_jobs,
+    job_assignments,
+    events,
+    event_rsvps,
+    course_reviews,
+    textbooks,
+    research_projects,
+    research_assistants,
+    scholarships,
+    scholarship_awards,
+    gym_checkins,
+    intramural_teams,
+    intramural_team_members,
+    intramural_matches,
+    mentor_matches,
+    lost_and_found_items,
+    printing_jobs,
   };
 }
 

@@ -222,6 +222,81 @@ function mountComputedRoutes(app, db) {
       .map((r) => ({ ...db.students.find((s) => s.id === r.student_id), status: r.status }));
     res.json(roster);
   });
+
+  app.get("/courses/:id/rating", (req, res) => {
+    const courseId = Number(req.params.id);
+    const course = db.courses.find((c) => c.id === courseId);
+    if (!course) return res.status(404).json({ error: `course ${courseId} not found` });
+    const reviews = db.course_reviews.filter((r) => r.course_id === courseId);
+    const avg_rating = reviews.length ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 100) / 100 : null;
+    res.json({ course_id: courseId, review_count: reviews.length, avg_rating });
+  });
+
+  app.get("/events/:id/attendees", (req, res) => {
+    const eventId = Number(req.params.id);
+    const event = db.events.find((e) => e.id === eventId);
+    if (!event) return res.status(404).json({ error: `event ${eventId} not found` });
+    const attendees = db.event_rsvps
+      .filter((r) => r.event_id === eventId)
+      .map((r) => ({ ...db.students.find((s) => s.id === r.student_id), status: r.status }));
+    res.json(attendees);
+  });
+
+  app.get("/intramural-teams/:id/record", (req, res) => {
+    const teamId = Number(req.params.id);
+    const team = db.intramural_teams.find((t) => t.id === teamId);
+    if (!team) return res.status(404).json({ error: `intramural team ${teamId} not found` });
+    const matches = db.intramural_matches.filter((m) => m.team_a_id === teamId || m.team_b_id === teamId);
+    const record = matches.reduce(
+      (acc, m) => {
+        const [own, opp] = m.team_a_id === teamId ? [m.score_a, m.score_b] : [m.score_b, m.score_a];
+        if (own > opp) acc.wins++;
+        else if (own < opp) acc.losses++;
+        else acc.ties++;
+        return acc;
+      },
+      { wins: 0, losses: 0, ties: 0 }
+    );
+    res.json({ team_id: teamId, games_played: matches.length, ...record });
+  });
+
+  // Everything the app knows about one student, in a single call — a realistic
+  // "student dashboard" endpoint for designing a flow around rather than 15 requests.
+  app.get("/students/:id/profile", (req, res) => {
+    const studentId = Number(req.params.id);
+    const student = db.students.find((s) => s.id === studentId);
+    if (!student) return res.status(404).json({ error: `student ${studentId} not found` });
+
+    const room = db.room_assignments.find((r) => r.student_id === studentId && r.term === CURRENT_TERM);
+    const job = db.job_assignments.find((j) => j.student_id === studentId && j.term === CURRENT_TERM);
+    const research = db.research_assistants
+      .filter((r) => r.student_id === studentId)
+      .map((r) => ({ ...r, project: db.research_projects.find((p) => p.id === r.research_project_id) }));
+    const scholarshipAwards = db.scholarship_awards
+      .filter((a) => a.student_id === studentId)
+      .map((a) => ({ ...a, scholarship: db.scholarships.find((s) => s.id === a.scholarship_id) }));
+    const clubs = db.club_memberships
+      .filter((m) => m.student_id === studentId)
+      .map((m) => ({ ...m, club: db.clubs.find((c) => c.id === m.club_id) }));
+    const workshops = db.workshop_registrations
+      .filter((r) => r.student_id === studentId)
+      .map((r) => ({ ...r, workshop: db.workshops.find((w) => w.id === r.workshop_id) }));
+    const intramuralTeams = db.intramural_team_members
+      .filter((m) => m.student_id === studentId)
+      .map((m) => db.intramural_teams.find((t) => t.id === m.team_id));
+
+    res.json({
+      student,
+      gpa: gpaFor(db, studentId),
+      housing: room ? { ...room, dorm: db.dorms.find((d) => d.id === room.dorm_id) } : null,
+      campus_job: job ? { ...job, job: db.campus_jobs.find((j) => j.id === job.campus_job_id) } : null,
+      research,
+      scholarships: scholarshipAwards,
+      clubs,
+      workshops,
+      intramural_teams: intramuralTeams,
+    });
+  });
 }
 
 module.exports = { resourceRouter, mountComputedRoutes };

@@ -67,6 +67,16 @@ test("computes a student's wellness summary", async () => {
   assert.ok(typeof body.avg_sleep_hours === "number");
 });
 
+test("aggregates a student's full profile", async () => {
+  const res = await fetch(`${base}/students/1/profile`);
+  const body = await res.json();
+  assert.strictEqual(res.status, 200);
+  assert.ok(body.student && body.student.id === 1);
+  assert.ok(Array.isArray(body.clubs));
+  assert.ok(Array.isArray(body.research));
+  assert.ok("housing" in body && "campus_job" in body);
+});
+
 test("full enrollment lifecycle: create, patch, delete", async () => {
   const created = await fetch(`${base}/enrollments`, {
     method: "POST",
