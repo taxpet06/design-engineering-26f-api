@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Design Engineering 26F — Session 1</title>
+<title>Design Engineering 26F · Session 1</title>
 <style>
   :root{
     --bg:#0e1210; --panel:#151b18; --ink:#eef3ef; --muted:#9fb0a7;
@@ -61,14 +61,14 @@
   <section class="slide active center">
     <div class="kicker">DALI · Design Engineering 26F</div>
     <h1>Design Engineering</h1>
-    <p class="lead">Session 1 — Agentic Coding &amp; Git</p>
+    <p class="lead">Session 1: Agentic Coding &amp; Git</p>
     <p class="lead">Petros Taxiarchis · September 29, 2026</p>
   </section>
 
   <section class="slide">
     <div class="kicker">Welcome</div>
     <h2>What this course actually is</h2>
-    <p class="lead">Software engineering with coding agents — not "typing code," and not "let the AI do it and hope."</p>
+    <p class="lead">Software engineering with coding agents: not "typing code," and not "let the AI do it and hope."</p>
     <ul class="tight">
       <li>Choose a stack, and defend the choice</li>
       <li>Design and test APIs (Bruno)</li>
@@ -78,7 +78,7 @@
       <li>Run multi-agent workflows</li>
       <li>Ship something real</li>
     </ul>
-    <p class="lead">Design isn't a separate track here — it's handled the way engineers handle it: by loading the right skill (impeccable, Emil Kowalski's design skill, svg-animations) and judging what comes out.</p>
+    <p class="lead">Design isn't a separate track here: it's handled the way engineers handle it, by loading the right skill (impeccable, Emil Kowalski's design skill, svg-animations) and judging what comes out.</p>
   </section>
 
   <section class="slide">
@@ -98,7 +98,6 @@
         <h3>To get the certificate</h3>
         <ul class="tight">
           <li>At most 2 absences</li>
-          <li>Homework submitted each week</li>
           <li>Present in Session 6</li>
         </ul>
       </div>
@@ -107,7 +106,7 @@
 
   <section class="slide">
     <div class="kicker">The big picture</div>
-    <h2>Where we're headed — six sessions</h2>
+    <h2>Where we're headed: six sessions</h2>
     <div class="roadmap">
       <div class="row now"><div class="num">01</div><div>Agentic Coding &amp; Git <span class="pill">today</span></div></div>
       <div class="row"><div class="num">02</div><div>Stack Choices &amp; System Architecture</div></div>
@@ -122,7 +121,7 @@
     <div class="kicker">By the end of the course</div>
     <h2>What you'll be able to do</h2>
     <ul class="tight">
-      <li>Use a coding agent deliberately — supervise and verify it, not just accept what it outputs</li>
+      <li>Use a coding agent deliberately: supervise and verify it, not just accept what it outputs</li>
       <li>Use git well enough to undo anything an agent does to your code</li>
       <li>Defend a stack choice in writing (an ADR), instead of picking one by vibes</li>
       <li>Write specs and skills that steer an agent's behavior</li>
@@ -136,18 +135,18 @@
     <div class="kicker">Today</div>
     <h2>Session 1 agenda</h2>
     <ul class="tight">
-      <li>Install together, as a class — no one does this as homework</li>
-      <li>GitHub crash course</li>
-      <li>Terminal / Linux basics</li>
+      <li>Install together, as a class</li>
+      <li>GitHub crash course, including branching and merging</li>
+      <li>Terminal / Linux basics, including cloning and running a project</li>
       <li>Setting up Claude Code</li>
       <li>Meet the live prototype + the GitHub repo</li>
       <li>Team activity: explore it, then design one page</li>
-      <li>Wrap-up + homework</li>
+      <li>Wrap-up</li>
     </ul>
   </section>
 
   <section class="slide">
-    <div class="kicker">Let's install — together, right now</div>
+    <div class="kicker">Let's install, together, right now</div>
     <h2>Everyone gets this running before we move on</h2>
     <div class="grid">
       <div class="card">
@@ -156,7 +155,7 @@
           <li>Node.js (LTS)</li>
           <li>git</li>
           <li>VS Code or Cursor</li>
-          <li>Claude Code — install and sign in</li>
+          <li>Claude Code: install and sign in</li>
           <li>Bruno</li>
           <li>A GitHub account</li>
         </ul>
@@ -167,7 +166,7 @@
           <li>Postgres</li>
           <li>A database GUI</li>
         </ul>
-        <p class="lead" style="font-size:.9em;">Our shared prototype has no database yet — it's in-memory data. These come back for real in Session 5.</p>
+        <p class="lead" style="font-size:.9em;">Our shared prototype has no database yet. It's in-memory data, and those come back for real in Session 5.</p>
       </div>
     </div>
   </section>
@@ -185,12 +184,12 @@
 
   <section class="slide">
     <div class="kicker">Foundations</div>
-    <h2>Git &amp; GitHub — commands you'll actually use</h2>
+    <h2>Git &amp; GitHub: commands you'll actually use</h2>
     <ul class="tight">
-      <li><span class="mono">git status</span> — what changed?</li>
-      <li><span class="mono">git add .</span> — stage those changes</li>
-      <li><span class="mono">git commit -m "message"</span> — save a checkpoint</li>
-      <li><span class="mono">git push</span> / <span class="mono">git pull</span> — sync with GitHub</li>
+      <li><span class="mono">git status</span>: what changed?</li>
+      <li><span class="mono">git add .</span>: stage those changes</li>
+      <li><span class="mono">git commit -m "message"</span>: save a checkpoint</li>
+      <li><span class="mono">git push</span> / <span class="mono">git pull</span>: sync with GitHub</li>
       <li>Branch → change → commit → open a pull request → merge</li>
     </ul>
     <p class="lead">Rule of thumb we'll repeat all course: <strong>commit before you let an agent touch anything.</strong></p>
@@ -198,14 +197,62 @@
 
   <section class="slide">
     <div class="kicker">Foundations</div>
+    <h2>How branching &amp; merging works</h2>
+    <svg viewBox="0 0 900 260" width="100%" style="max-width:56em;height:auto;" role="img" aria-label="Diagram of a feature branch splitting off main, taking two commits, then merging back into main">
+      <line x1="60" y1="205" x2="840" y2="205" stroke="#26302b" stroke-width="3"/>
+      <path d="M 260 205 C 300 205, 300 105, 340 105" fill="none" stroke="#4fd1a5" stroke-width="3"/>
+      <line x1="340" y1="105" x2="520" y2="105" stroke="#4fd1a5" stroke-width="3"/>
+      <path d="M 520 105 C 560 105, 560 205, 600 205" fill="none" stroke="#4fd1a5" stroke-width="3"/>
+      <circle cx="140" cy="205" r="9" fill="#00693e" stroke="#eef3ef" stroke-width="2"/>
+      <circle cx="260" cy="205" r="9" fill="#00693e" stroke="#eef3ef" stroke-width="2"/>
+      <circle cx="600" cy="205" r="11" fill="#ffcf6b" stroke="#eef3ef" stroke-width="2"/>
+      <circle cx="760" cy="205" r="9" fill="#00693e" stroke="#eef3ef" stroke-width="2"/>
+      <circle cx="380" cy="105" r="9" fill="#4fd1a5" stroke="#eef3ef" stroke-width="2"/>
+      <circle cx="460" cy="105" r="9" fill="#4fd1a5" stroke="#eef3ef" stroke-width="2"/>
+      <text x="70" y="235" fill="#9fb0a7" font-size="20">main</text>
+      <text x="340" y="75" fill="#4fd1a5" font-size="20">feature/add-login</text>
+      <text x="565" y="245" fill="#ffcf6b" font-size="18">merge commit</text>
+    </svg>
+    <ul class="tight">
+      <li>Branching off <span class="mono">main</span> lets you work without disturbing it</li>
+      <li>Your commits pile up on that branch while <span class="mono">main</span> stays untouched</li>
+      <li>Merging replays your branch's commits back into <span class="mono">main</span> in one merge commit</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Foundations</div>
     <h2>Terminal basics</h2>
     <ul class="tight">
-      <li><span class="mono">pwd</span> — where am I?</li>
-      <li><span class="mono">ls</span> — what's here?</li>
-      <li><span class="mono">cd folder-name</span> — go into a folder (<span class="mono">cd ..</span> goes up)</li>
-      <li><span class="mono">mkdir name</span> — make a folder</li>
-      <li><span class="mono">node file.js</span> / <span class="mono">npm run dev</span> — run something</li>
+      <li><span class="mono">pwd</span>: where am I?</li>
+      <li><span class="mono">ls</span>: what's here?</li>
+      <li><span class="mono">cd folder-name</span>: go into a folder (<span class="mono">cd ..</span> goes up)</li>
+      <li><span class="mono">mkdir name</span>: make a folder</li>
+      <li><span class="mono">cat file</span>: print a file's contents</li>
       <li>Environment variables: settings your program reads from outside the code (e.g. secrets, ports)</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Foundations</div>
+    <h2>Cloning a project</h2>
+    <ul class="tight">
+      <li><span class="mono">git clone &lt;repo-url&gt;</span>: downloads a full copy of a repo, history included, into a new folder</li>
+      <li>GitHub gives you that URL from the green "Code" button on any repo page</li>
+      <li><span class="mono">cd</span> into the new folder once it's done</li>
+      <li>From there it's a normal local git repo: commit, branch, push, pull, all of it</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Foundations</div>
+    <h2>Clone &amp; run this project</h2>
+    <ul class="tight">
+      <li><span class="mono">git clone https://github.com/taxpet06/design-engineering-26f-api.git</span></li>
+      <li><span class="mono">cd design-engineering-26f-api</span></li>
+      <li><span class="mono">npm install</span>: downloads its dependencies</li>
+      <li><span class="mono">npm run dev</span>: starts the server locally</li>
+      <li>Open <span class="mono">http://localhost:3000</span> in a browser: same API, running on your machine</li>
     </ul>
   </section>
 
@@ -214,7 +261,7 @@
     <h2>Setting up Claude Code</h2>
     <ul class="tight">
       <li>Install the CLI, then sign in with your account</li>
-      <li>It asks before it edits or runs anything — you stay in control (permission modes)</li>
+      <li>It asks before it edits or runs anything: you stay in control (permission modes)</li>
       <li>Today: just get it installed and signed in</li>
       <li>We'll go deep on how it actually works right after this activity</li>
     </ul>
@@ -226,8 +273,8 @@
     <ul class="tight">
       <li>Live API: <span class="mono">api-backend-zeta-five.vercel.app</span></li>
       <li>GitHub repo: <span class="mono">github.com/taxpet06/design-engineering-26f-api</span></li>
-      <li>A fake Dartmouth "student life" API — students, courses, grades, clubs, events, housing, dining, research, and more</li>
-      <li>No frontend yet, and no real database — it's in-memory data, regenerated fresh on every restart. That's fine for what we're doing today.</li>
+      <li>A fake Dartmouth "student life" API: students, courses, grades, clubs, events, housing, dining, research, and more</li>
+      <li>No frontend yet, and no real database. It's in-memory data, regenerated fresh on every restart, which is fine for what we're doing today.</li>
     </ul>
   </section>
 
@@ -244,8 +291,8 @@
     <div class="kicker">In-class activity</div>
     <h2>Explore, in your team</h2>
     <ul class="tight">
-      <li>Open the live URL and click around a few endpoints — try <span class="mono">/students</span>, <span class="mono">/courses/:id/rating</span>, <span class="mono">/students/:id/profile</span></li>
-      <li>Skim the GitHub repo — read the README to see what each file does</li>
+      <li>Open the live URL and click around a few endpoints: try <span class="mono">/students</span>, <span class="mono">/courses/:id/rating</span>, <span class="mono">/students/:id/profile</span></li>
+      <li>Skim the GitHub repo, and read the README to see what each file does</li>
       <li>Discuss: who would actually use a page built on this data, and what's the one thing they came here to do?</li>
     </ul>
   </section>
@@ -254,12 +301,12 @@
     <div class="kicker">In-class activity</div>
     <h2>Guidelines for designing your team's page</h2>
     <ul class="tight">
-      <li>Pick <strong>one page</strong> of the eventual class website — not the whole site</li>
-      <li>You don't have to use all the data available — pick only what your page actually needs</li>
+      <li>Pick <strong>one page</strong> of the eventual class website, not the whole site</li>
+      <li>You don't have to use all the data available: pick only what your page actually needs</li>
       <li>Name the page's <strong>one core user flow</strong>, start to finish</li>
       <li>List which API endpoints that flow would call</li>
       <li>Think through its states: empty, loading, error, too many / too few results</li>
-      <li>Sketch it — paper, Figma, or just words. We'll build with agents in later sessions.</li>
+      <li>Sketch it: paper, Figma, or just words. We'll build with agents in later sessions.</li>
     </ul>
   </section>
 
@@ -276,16 +323,16 @@
 
   <section class="slide">
     <div class="kicker">Wrap-up</div>
-    <h2>Homework / next time</h2>
+    <h2>Next time</h2>
     <ul class="tight">
       <li>Finish any installs you didn't get to</li>
-      <li>Bring your team's one-pager</li>
+      <li>Your team's one-pager carries into next session</li>
       <li>Session 2: Stack Choices &amp; System Architecture</li>
     </ul>
   </section>
 
   <div class="footer">
-    <span>Design Engineering 26F — Session 1</span>
+    <span>Design Engineering 26F · Session 1</span>
     <span id="counter">1 / 17</span>
   </div>
 </div>
