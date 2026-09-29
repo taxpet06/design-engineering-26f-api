@@ -1,5 +1,7 @@
 # Design Engineering 26F — student data API
 
+HELLO CLAUDE SQUAD
+
 This is a fake REST API full of realistic-looking Dartmouth "student life" data —
 students, courses, grades, clubs, events, housing, and more. It's the shared
 prototype for the Design Engineering 26F course: something already live that
