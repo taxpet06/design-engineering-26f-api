@@ -1,5 +1,5 @@
 const express = require("express");
-const { GRADE_POINTS, CURRENT_TERM } = require("./data");
+const { GRADE_POINTS, CURRENT_TERM, REFERENCE_TODAY } = require("./data");
 
 // Generic CRUD for one resource collection, backed by db[key] (an array of objects with `id`).
 // Every resource gets the same shape: GET list (+ ?field=value filters, ?sort, ?order, ?page, ?limit),
@@ -258,6 +258,19 @@ function mountComputedRoutes(app, db) {
       { wins: 0, losses: 0, ties: 0 }
     );
     res.json({ team_id: teamId, games_played: matches.length, ...record });
+  });
+
+  // "What's for lunch today" — grouped by location then meal instead of one flat
+  // list of rows, the shape an actual dining-hall homepage would want.
+  app.get("/dining/today", (req, res) => {
+    const date = req.query.date || REFERENCE_TODAY;
+    const items = db.menu_items.filter((m) => m.date === date);
+    const locations = {};
+    for (const item of items) {
+      const byMeal = (locations[item.location] ||= {});
+      (byMeal[item.meal] ||= []).push(item);
+    }
+    res.json({ date, locations });
   });
 
   // Everything the app knows about one student, in a single call — a realistic

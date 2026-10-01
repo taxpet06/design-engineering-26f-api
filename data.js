@@ -23,6 +23,7 @@ const randInt = (min, max) => min + Math.floor(rand() * (max - min + 1));
 const chance = (p) => rand() < p;
 
 const REFERENCE_DATE = new Date("2026-09-27T00:00:00Z");
+const REFERENCE_TODAY = REFERENCE_DATE.toISOString().slice(0, 10);
 const isoDaysAgo = (daysAgo) => new Date(REFERENCE_DATE.getTime() - daysAgo * 86400000).toISOString().slice(0, 10);
 const isoBetween = (startISO, endISO) => {
   const start = new Date(startISO).getTime();
@@ -82,6 +83,20 @@ const MOODS = ["energized", "content", "tired", "stressed", "anxious", "calm", "
 
 const DINING_LOCATIONS = ["Class of 1953 Commons", "Courtyard Cafe", "Novack Cafe", "Fern's", "King Arthur Flour Cafe", "Late Night Collis"];
 const MEALS = ["breakfast", "lunch", "dinner", "late-night"];
+const LATE_NIGHT_LOCATIONS = ["Late Night Collis", "Novack Cafe"]; // not every dining hall stays open that late
+
+const MENU_STATIONS = ["Grill", "Salad Bar", "Pizza & Pasta", "Deli", "Vegan & Vegetarian", "International", "Soup", "Dessert"];
+const DISHES_BY_STATION = {
+  "Grill": ["Grilled Chicken Breast", "Cheeseburger", "Veggie Burger", "BBQ Pulled Pork", "Grilled Salmon"],
+  "Salad Bar": ["Build-Your-Own Salad", "Greek Salad", "Caesar Salad", "Quinoa Bowl"],
+  "Pizza & Pasta": ["Margherita Pizza", "Pepperoni Pizza", "Penne Alfredo", "Spaghetti Marinara"],
+  "Deli": ["Turkey Club Sandwich", "Italian Sub", "Grilled Cheese", "Veggie Wrap"],
+  "Vegan & Vegetarian": ["Tofu Stir-Fry", "Chickpea Curry", "Roasted Vegetable Medley", "Black Bean Tacos"],
+  "International": ["Chicken Tikka Masala", "Pad Thai", "Beef Pho", "Falafel Plate"],
+  "Soup": ["Tomato Basil Soup", "Chicken Noodle Soup", "Minestrone", "Butternut Squash Soup"],
+  "Dessert": ["Chocolate Chip Cookie", "Soft Serve Ice Cream", "Fruit Salad", "Brownie"],
+};
+const DIETARY_TAGS_POOL = ["vegetarian", "vegan", "gluten-free", "contains-nuts", "halal"];
 
 const BOOKS = [
   { title: "Structure and Interpretation of Computer Programs", author: "Abelson & Sussman" },
@@ -597,6 +612,35 @@ function buildDiningVisits(students) {
   return visits;
 }
 
+// Daily dining menu: a few days back through a few days ahead, at every location,
+// for whichever meals that location actually serves.
+function buildMenuItems() {
+  const items = [];
+  let id = 1;
+  for (let daysAgo = 3; daysAgo >= -3; daysAgo--) {
+    const date = isoDaysAgo(daysAgo);
+    for (const location of DINING_LOCATIONS) {
+      for (const meal of MEALS) {
+        if (meal === "late-night" && !LATE_NIGHT_LOCATIONS.includes(location)) continue;
+        const stations = pickN(MENU_STATIONS, randInt(3, 5));
+        for (const station of stations) {
+          items.push({
+            id: id++,
+            location,
+            date,
+            meal,
+            station,
+            name: pick(DISHES_BY_STATION[station]),
+            dietary_tags: pickN(DIETARY_TAGS_POOL, randInt(0, 2)),
+            calories: randInt(180, 820),
+          });
+        }
+      }
+    }
+  }
+  return items;
+}
+
 function buildLibraryCheckouts(students) {
   const checkouts = [];
   let id = 1;
@@ -944,6 +988,7 @@ function seed() {
   const clubs = buildClubs();
   const club_memberships = buildClubMemberships(students, clubs);
   const dining_visits = buildDiningVisits(students);
+  const menu_items = buildMenuItems();
   const library_checkouts = buildLibraryCheckouts(students);
   const { groups: study_groups, members: study_group_members } = buildStudyGroups(sections, enrollments);
   const dorms = buildDorms();
@@ -984,6 +1029,7 @@ function seed() {
     clubs,
     club_memberships,
     dining_visits,
+    menu_items,
     library_checkouts,
     study_groups,
     study_group_members,
@@ -1009,4 +1055,4 @@ function seed() {
   };
 }
 
-module.exports = { seed, GRADE_POINTS, CURRENT_TERM };
+module.exports = { seed, GRADE_POINTS, CURRENT_TERM, REFERENCE_TODAY };

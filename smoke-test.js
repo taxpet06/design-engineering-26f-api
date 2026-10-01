@@ -87,6 +87,16 @@ test("aggregates a student's full profile", async () => {
   assert.ok("housing" in body && "campus_job" in body);
 });
 
+test("returns today's dining menu grouped by location and meal", async () => {
+  const res = await fetch(`${base}/dining/today`);
+  const body = await res.json();
+  assert.strictEqual(res.status, 200);
+  const locations = Object.keys(body.locations);
+  assert.ok(locations.length > 0, "expected at least one dining location serving something today");
+  const firstMeal = Object.values(body.locations[locations[0]])[0];
+  assert.ok(Array.isArray(firstMeal) && firstMeal[0].name, "expected menu items with a dish name");
+});
+
 test("full enrollment lifecycle: create, patch, delete", async () => {
   const created = await fetch(`${base}/enrollments`, {
     method: "POST",

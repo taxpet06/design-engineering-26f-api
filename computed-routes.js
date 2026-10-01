@@ -16,4 +16,5 @@ module.exports = [
   { path: "/courses/{id}/rating", summary: "A course's average review rating" },
   { path: "/events/{id}/attendees", summary: "Students RSVP'd to an event" },
   { path: "/intramural-teams/{id}/record", summary: "An intramural team's win/loss/tie record" },
+  { path: "/dining/today", summary: "Today's dining menu at every location, grouped by meal (accepts ?date=YYYY-MM-DD for a different day)" },
 ];

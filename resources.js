@@ -18,6 +18,7 @@ module.exports = [
   { path: "/clubs", key: "clubs", required: ["name", "category"] },
   { path: "/club-memberships", key: "club_memberships", required: ["student_id", "club_id"] },
   { path: "/dining-visits", key: "dining_visits", required: ["student_id", "date", "meal", "location"] },
+  { path: "/menu-items", key: "menu_items", required: ["location", "date", "meal", "name"] },
   { path: "/library-checkouts", key: "library_checkouts", required: ["student_id", "book_title", "checked_out_at"] },
   { path: "/study-groups", key: "study_groups", required: ["section_id", "name"] },
   { path: "/study-group-members", key: "study_group_members", required: ["study_group_id", "student_id"] },

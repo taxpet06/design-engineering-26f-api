@@ -15,7 +15,7 @@ app.get("/", (_req, res) => {
   res.json({
     name: "Design Engineering 26F — student data API",
     resources: Object.keys(db),
-    docs: "GET each resource for a list, /:id for one. Joined views: /students/:id/profile (everything about one student), /schedule, /grades, /gpa, /transcript, /history, /workshops, /clubs, /wellness/summary; /sections/:id/roster, /sections/:id/discussion; /workshops/:id/roster; /courses/:id/rating; /events/:id/attendees; /intramural-teams/:id/record.",
+    docs: "GET each resource for a list, /:id for one. Joined views: /students/:id/profile (everything about one student), /schedule, /grades, /gpa, /transcript, /history, /workshops, /clubs, /wellness/summary; /sections/:id/roster, /sections/:id/discussion; /workshops/:id/roster; /courses/:id/rating; /events/:id/attendees; /intramural-teams/:id/record; /dining/today.",
     openapi: "/openapi.json — import this into Bruno/Postman/Insomnia to get every endpoint as a ready-made collection",
   });
 });
