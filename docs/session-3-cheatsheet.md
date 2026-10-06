@@ -5,6 +5,71 @@ Session 1. Nothing here asks you to change your setup.
 
 ---
 
+## 0. Use your Dartmouth Chat key with Claude Code
+
+Not needed if Claude Code already works for you. Source: Dartmouth Research Computing,
+https://rc.dartmouth.edu/ai/online-resources/connecting-ai-clients
+
+**Get the key:** Dartmouth Chat (chat.dartmouth.edu) -> profile picture -> Settings ->
+Account -> API Key. It starts with `sk-`. Treat it like a password: never paste it into a
+prompt, a slide, or a commit.
+
+**Put these settings in your project, not globally.** Create `.claude/settings.local.json`
+inside the project folder (if the file already exists, merge the keys in, don't paste a
+second `{}`):
+
+```json
+{
+  "apiKeyHelper": "<one of the two lines below>",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://chat.dartmouth.edu/api",
+    "ANTHROPIC_MODEL": "anthropic.claude-sonnet-4-6",
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+  }
+}
+```
+
+**macOS** (Dartmouth's documented way). Store the key in the keychain, paste it when prompted:
+
+```bash
+security add-generic-password -s "dartmouth-chat-api-key" -a ${USER} -w
+```
+
+then use this for `apiKeyHelper`:
+
+```text
+security find-generic-password -s \"dartmouth-chat-api-key\" -w
+```
+
+**Linux** (my adaptation, not from Dartmouth's page). Save the key in a file only you can read:
+
+```bash
+read -rs -p "Key: " K && printf '%s' "$K" > ~/.dartmouth-chat-key && chmod 600 ~/.dartmouth-chat-key; unset K
+```
+
+then use this for `apiKeyHelper`:
+
+```text
+cat ~/.dartmouth-chat-key
+```
+
+**Windows:** Dartmouth's page has no Windows steps. Ask in class.
+
+Then run `claude` in that folder. Check it isn't about to be committed: `git status`
+should not list `.claude/settings.local.json`. If it does, add it to `.gitignore`.
+
+Notes:
+- Models use Dartmouth's names (`anthropic.claude-sonnet-4-6`), not Anthropic's.
+- Dartmouth's settings turn off experimental features, so a few newer Claude Code
+  features may not work through the gateway.
+- Other agents Dartmouth supports with the same key: OpenCode, Kilo Code, Mistral Vibe.
+- Questions about keys and limits: research.computing@dartmouth.edu
+
+---
+
 ## 1. Start a safe session
 
 Run these in the `api-backend` folder, in your terminal (not inside Claude).
