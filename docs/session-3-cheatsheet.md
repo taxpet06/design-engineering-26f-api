@@ -125,7 +125,7 @@ Explain why it fails, in plain words. Point at the exact line. Don't change any 
 
 ## 4. A good `CLAUDE.md` (what the agent reads at the start of every session)
 
-You do not need to create this today. This is what one looks like for this repo, so you
+You do not need to create this today, and this repo does not have one. This is what one looks like for this repo, so you
 can see what "context engineering" means in practice.
 
 ```markdown
@@ -151,7 +151,7 @@ Fake Dartmouth student-data REST API. Express, in-memory data, deployed on Verce
 
 ---
 
-## 5. What a skill looks like (read-only, we only look at one today)
+## 5. What a skill looks like (an example only, not a file in this repo)
 
 A skill is a folder with a `SKILL.md`. The description is what the agent reads to decide
 whether the skill applies. The body is only loaded when it does.
