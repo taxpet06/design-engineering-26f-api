@@ -7,20 +7,43 @@ Session 1. Nothing here asks you to change your setup.
 
 ## 0. Use your Dartmouth Chat key with Claude Code
 
-Not needed if Claude Code already works for you. Source: Dartmouth Research Computing,
-https://rc.dartmouth.edu/ai/online-resources/connecting-ai-clients
+Skip this if Claude Code already works for you. Based on Dartmouth Research Computing's
+guide: https://rc.dartmouth.edu/ai/online-resources/connecting-ai-clients
 
-**Get the key:** Dartmouth Chat (chat.dartmouth.edu) -> profile picture -> Settings ->
-Account -> API Key. It starts with `sk-`. Treat it like a password: never paste it into a
-prompt, a slide, or a commit.
+You will: (1) copy your key, (2) save it somewhere private, (3) create one settings file
+in the project, (4) check it works. Run every command in your terminal (not inside Claude),
+one block at a time.
 
-**Put these settings in your project, not globally.** Create `.claude/settings.local.json`
-inside the project folder (if the file already exists, merge the keys in, don't paste a
-second `{}`):
+### Step 1: get your key
 
-```json
+In a browser: chat.dartmouth.edu -> your profile picture (bottom left) -> Settings ->
+Account -> API Key. Copy the key. It starts with `sk-`. It's a password: never paste it
+into a prompt, a slide, a chat, or a commit.
+
+### Step 2: go to the project
+
+```bash
+cd ~/path/to/api-backend      # wherever you cloned it in Session 1
+```
+
+If you have a `.claude/settings.local.json` already, stop and ask: the commands below
+replace it.
+
+### Step 3A: macOS
+
+Save the key in your keychain. It asks for the key (nothing shows as you paste), press return:
+
+```bash
+security add-generic-password -U -s "dartmouth-chat-api-key" -a "$USER" -w
+```
+
+Create the settings file:
+
+```bash
+mkdir -p .claude
+cat > .claude/settings.local.json << 'EOF'
 {
-  "apiKeyHelper": "<one of the two lines below>",
+  "apiKeyHelper": "security find-generic-password -s dartmouth-chat-api-key -w",
   "env": {
     "ANTHROPIC_BASE_URL": "https://chat.dartmouth.edu/api",
     "ANTHROPIC_MODEL": "anthropic.claude-sonnet-4-6",
@@ -30,43 +53,88 @@ second `{}`):
     "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
   }
 }
+EOF
 ```
 
-**macOS** (Dartmouth's documented way). Store the key in the keychain, paste it when prompted:
+Check the key is readable. This must print `sk-`:
 
 ```bash
-security add-generic-password -s "dartmouth-chat-api-key" -a ${USER} -w
+security find-generic-password -s dartmouth-chat-api-key -w | cut -c1-3
 ```
 
-then use this for `apiKeyHelper`:
+### Step 3B: Linux
 
-```text
-security find-generic-password -s \"dartmouth-chat-api-key\" -w
-```
-
-**Linux** (my adaptation, not from Dartmouth's page). Save the key in a file only you can read:
+(Dartmouth's page documents only macOS, so this is a Linux adaptation I haven't been
+able to test against their server.) Save the key in a file only you can read. It asks for
+the key (nothing shows as you paste), press return:
 
 ```bash
-read -rs -p "Key: " K && printf '%s' "$K" > ~/.dartmouth-chat-key && chmod 600 ~/.dartmouth-chat-key; unset K
+read -rs -p "Paste key: " K; echo; (umask 077; printf '%s' "$K" > ~/.dartmouth-chat-key); unset K
 ```
 
-then use this for `apiKeyHelper`:
+Create the settings file:
 
-```text
-cat ~/.dartmouth-chat-key
+```bash
+mkdir -p .claude
+cat > .claude/settings.local.json << 'EOF'
+{
+  "apiKeyHelper": "cat ~/.dartmouth-chat-key",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://chat.dartmouth.edu/api",
+    "ANTHROPIC_MODEL": "anthropic.claude-sonnet-4-6",
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+  }
+}
+EOF
 ```
 
-**Windows:** Dartmouth's page has no Windows steps. Ask in class.
+Check the key is readable. This must print `sk-`:
 
-Then run `claude` in that folder. Check it isn't about to be committed: `git status`
-should not list `.claude/settings.local.json`. If it does, add it to `.gitignore`.
+```bash
+cut -c1-3 ~/.dartmouth-chat-key
+```
 
-Notes:
-- Models use Dartmouth's names (`anthropic.claude-sonnet-4-6`), not Anthropic's.
-- Dartmouth's settings turn off experimental features, so a few newer Claude Code
-  features may not work through the gateway.
-- Other agents Dartmouth supports with the same key: OpenCode, Kilo Code, Mistral Vibe.
-- Questions about keys and limits: research.computing@dartmouth.edu
+### Step 3C: Windows
+
+Dartmouth's page has no Windows steps. Use WSL (Ubuntu) and follow 3B inside it, or ask in class.
+
+### Step 4: make sure the key can't be committed
+
+```bash
+git status
+```
+
+`.claude/settings.local.json` must NOT be listed. If it is, run
+`echo ".claude/settings.local.json" >> .gitignore`. Your key is not inside that file
+(it lives in the keychain or `~/.dartmouth-chat-key`), but keep it out of git anyway.
+
+### Step 5: run it
+
+```bash
+claude
+```
+
+Type `say hi in one sentence`. If you get a reply, it works. Type `/status` to see which
+model and endpoint you're on: it should say `chat.dartmouth.edu` and
+`anthropic.claude-sonnet-4-6`.
+
+### If something goes wrong
+
+| What you see | Try |
+|---|---|
+| `401` / "unauthorized" / "invalid API key" | The key is wrong or has stray spaces. Redo Step 3 (3A and 3B each overwrite the old key) |
+| "model not found" | Dartmouth may have renamed the model. Ask research.computing@dartmouth.edu for the current name, change `ANTHROPIC_MODEL` in `.claude/settings.local.json` |
+| `/status` shows a different login or endpoint | Run `/logout`, quit, run `claude` again in the same folder |
+| It works in one folder only | Correct: the settings live in that project's `.claude/` folder. Redo Step 3 in each project |
+| Timeouts | Wait and retry. The gateway can be slow |
+| Anything else | research.computing@dartmouth.edu, with the exact error text (never the key) |
+
+Notes: model names are Dartmouth's, not Anthropic's. Dartmouth's settings turn off
+experimental features, so a few newer Claude Code features may not work. The same key also
+works with OpenCode, Kilo Code and Mistral Vibe.
 
 ---
 
