@@ -45,8 +45,12 @@
     <p class="muted">Everything stays in this browser. <a href="#browse">Skip, just show me clubs</a></p>
     <form id="form">
       <label>Name <input name="name" autocomplete="name"></label>
-      <label>Current classes <span class="muted">(comma-separated, e.g. COSC 10, ECON 1)</span>
-        <input name="classes"></label>
+      <fieldset>
+        <legend>Current classes</legend>
+        <input id="courseFilter" type="search" placeholder="Filter by code or title (e.g. COSC, econ)…" aria-label="Filter classes">
+        <div id="courseChecks" class="checks"></div>
+        <label>Other classes <span class="muted">(not listed, comma-separated)</span> <input name="classes"></label>
+      </fieldset>
       <label>Class times <span class="muted">(optional, one per line, e.g. “COSC 10: Mon Wed Fri 10:10-11:15”) — lets us flag clubs that clash</span>
         <textarea name="times" rows="3"></textarea></label>
       <fieldset>
@@ -75,6 +79,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <footer class="muted">Sample data: club details are placeholders, not official information.</footer>
 <script src="clubs.js"></script>
+<script src="courses.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

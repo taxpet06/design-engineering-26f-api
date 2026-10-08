@@ -1,5 +1,6 @@
 const G = typeof window !== "undefined" ? window : globalThis;
 const CLUBS = G.CLUBS;
+const COURSES = G.COURSES || [];
 const BY_ID = new Map(CLUBS.map((c) => [c.id, c]));
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TABS = ["browse", "profile", "recs", "saved"];
@@ -337,7 +338,10 @@ function route() {
 // ---- profile form ----
 function fillForm() {
   const f = $("#form"), p = S.profile;
-  for (const k of ["name", "classes", "times", "bio"]) f.elements[k].value = typeof p[k] === "string" ? p[k] : "";
+  for (const k of ["name", "times", "bio"]) f.elements[k].value = typeof p[k] === "string" ? p[k] : "";
+  const have = list(p.classes), known = new Set(COURSES.map(([code]) => code));
+  f.elements.classes.value = have.filter((c) => !known.has(c.toUpperCase())).join(", ");
+  $("#courseChecks").innerHTML = COURSES.map(([code, title]) => `<label><input type="checkbox" name="course" value="${esc(code)}" ${have.some((c) => c.toUpperCase() === code) ? "checked" : ""}> ${esc(code)} — ${esc(title)}</label>`).join("");
   renderInterests(false);
   $("#clubChecks").innerHTML = CLUBS.map((c) => `<label><input type="checkbox" name="clubs" value="${c.id}" ${p.clubs.includes(c.id) ? "checked" : ""}> ${esc(c.name)}</label>`).join("");
 }
@@ -362,11 +366,13 @@ function init() {
   const clear = () => { $$(".filters input").forEach((i) => (i.value = "")); $$(".filters select").forEach((s) => (s.selectedIndex = 0)); $$("[data-f]").forEach((i) => (i.checked = false)); $("#sort").value = hasProfile() ? "match" : "name"; readFilters(); };
   $("#clearFilters").onclick = clear;
   $("#moreInterests").onclick = () => renderInterests(true);
-  $("#clubFilter").oninput = (e) => $$("#clubChecks label").forEach((l) => (l.hidden = !l.textContent.toLowerCase().includes(e.target.value.toLowerCase())));
+  const filterChecks = (input, box) => (input.oninput = (e) => $$(`${box} label`).forEach((l) => (l.hidden = !l.textContent.toLowerCase().includes(e.target.value.toLowerCase()))));
+  filterChecks($("#clubFilter"), "#clubChecks");
+  filterChecks($("#courseFilter"), "#courseChecks");
   $("#form").onsubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    S.profile = { name: fd.get("name").trim(), classes: fd.get("classes").trim(), times: fd.get("times"), bio: fd.get("bio").trim(), interests: fd.getAll("interests"), clubs: fd.getAll("clubs").map(Number) };
+    S.profile = { name: fd.get("name").trim(), classes: [...fd.getAll("course"), ...list(fd.get("classes"))].join(", "), times: fd.get("times"), bio: fd.get("bio").trim(), interests: fd.getAll("interests"), clubs: fd.getAll("clubs").map(Number) };
     persist();
     location.hash = "#recs";
   };
