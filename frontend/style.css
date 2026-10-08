@@ -1,0 +1,27 @@
+:root { --green: #00693e; --bg: #f7f8f6; --card: #fff; --ink: #1c1f1d; --muted: #666d68; --line: #dde2dd; }
+@media (prefers-color-scheme: dark) { :root { --bg: #121513; --card: #1b1f1c; --ink: #eef1ee; --muted: #9aa39d; --line: #2b312d; --green: #3fb27f; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+header { padding: 20px 16px 0; max-width: 960px; margin: auto; }
+h1 { margin: 0 0 12px; color: var(--green); font-size: 1.6rem; }
+nav { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+nav button { background: none; border: 0; padding: 10px 14px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; }
+nav button.active { color: var(--green); border-color: var(--green); font-weight: 600; }
+main { max-width: 960px; margin: auto; padding: 16px; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+input, select, textarea { width: 100%; padding: 10px; font: inherit; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: inherit; }
+.filters input { flex: 1 1 240px; width: auto; } .filters select { width: auto; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.card h3 { margin: 0; font-size: 1.05rem; }
+.card p { margin: 0; }
+.badge { font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--line); }
+.badge.serious { background: var(--green); color: #fff; }
+.meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.why { font-size: .85rem; color: var(--muted); }
+.muted { color: var(--muted); font-size: .85rem; font-weight: 400; }
+form { display: grid; gap: 14px; max-width: 560px; }
+label { display: grid; gap: 4px; font-weight: 600; }
+form button, .reroll { padding: 10px 16px; border: 0; border-radius: 8px; background: var(--green); color: #fff; font: inherit; cursor: pointer; justify-self: start; }
+#recs h2 { margin: 24px 0 4px; } #recs .sub { margin: 0 0 10px; color: var(--muted); }
+.empty { padding: 24px; text-align: center; color: var(--muted); }

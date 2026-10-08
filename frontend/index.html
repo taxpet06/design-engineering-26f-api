@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Club Finder</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Dartmouth Club Finder</h1>
+  <nav>
+    <button data-tab="browse" class="active">Browse</button>
+    <button data-tab="profile">My profile</button>
+    <button data-tab="recs">Recommended</button>
+  </nav>
+</header>
+<main>
+  <section id="browse">
+    <div class="filters">
+      <input id="q" type="search" placeholder="Search clubs, interests, tags…" aria-label="Search clubs">
+      <select id="cat" aria-label="Category"><option value="">All categories</option></select>
+    </div>
+    <p id="count" class="muted"></p>
+    <div id="list" class="grid"></div>
+  </section>
+
+  <section id="profile" hidden>
+    <form id="form">
+      <label>Name <input name="name" autocomplete="name"></label>
+      <label>Current classes <span class="muted">(comma-separated, e.g. COSC 10, ECON 1, ENGS 12)</span>
+        <input name="classes"></label>
+      <label>Clubs you're already in <span class="muted">(comma-separated)</span>
+        <input name="clubs" list="clubnames"></label>
+      <datalist id="clubnames"></datalist>
+      <label>About you <span class="muted">(interests, hobbies, goals)</span>
+        <textarea name="bio" rows="5" placeholder="I love hiking, building things, and want to get better at public speaking…"></textarea></label>
+      <button type="submit">Save &amp; get recommendations</button>
+    </form>
+  </section>
+
+  <section id="recs" hidden></section>
+</main>
+<script src="clubs.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
