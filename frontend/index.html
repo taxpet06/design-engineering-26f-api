@@ -3,70 +3,92 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Club Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bitter:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<header>
-  <h1>Dartmouth Club Finder</h1>
-  <nav aria-label="Sections">
-    <a href="#browse" data-tab="browse">Browse</a>
-    <a href="#profile" data-tab="profile">My profile</a>
-    <a href="#recs" data-tab="recs">Recommended</a>
-    <a href="#saved" data-tab="saved">Saved <span id="savedCount" class="count">0</span></a>
-  </nav>
+<header class="masthead">
+  <div class="wrap">
+    <h1><span class="school">Dartmouth</span> Club Finder</h1>
+    <nav aria-label="Sections">
+      <a href="#browse" data-tab="browse">Browse</a>
+      <a href="#profile" data-tab="profile">Profile</a>
+      <a href="#recs" data-tab="recs">Recommended</a>
+      <a href="#saved" data-tab="saved">Saved <span id="savedCount" class="count">0</span></a>
+    </nav>
+  </div>
 </header>
-<main id="main" tabindex="-1">
+<main id="main" class="wrap" tabindex="-1">
   <section id="browse" aria-labelledby="h-browse">
-    <h2 id="h-browse">Browse clubs</h2>
-    <div class="filters">
-      <input id="q" type="search" placeholder="Search clubs, interests, tags…" aria-label="Search clubs">
-      <select id="cat" aria-label="Category"><option value="">All categories</option></select>
-      <select id="kind" aria-label="Kind"><option value="">Serious &amp; fun</option><option value="serious">Serious only</option><option value="fun">Fun only</option></select>
-      <select id="day" aria-label="Meeting day"><option value="">Any day</option></select>
-      <select id="sort" aria-label="Sort"><option value="match">Sort: best match</option><option value="name">Sort: name</option><option value="day">Sort: day</option><option value="hours">Sort: hours (low first)</option></select>
+    <div class="intro">
+      <h2 id="h-browse">Every club, fine print first.</h2>
+      <p>Hours, cost and how to join are listed up front. Tap a club's number to circle it for your shortlist. All club details here are sample data.</p>
     </div>
-    <div class="chips" role="group" aria-label="Quick filters">
-      <label class="chip"><input type="checkbox" data-f="free"> Free</label>
-      <label class="chip"><input type="checkbox" data-f="noapp"> No application</label>
-      <label class="chip"><input type="checkbox" data-f="beginner"> Beginner friendly</label>
-      <label class="chip"><input type="checkbox" data-f="low"> Low time (≤3 h/wk)</label>
-      <label class="chip"><input type="checkbox" data-f="accepting"> Join now</label>
-      <label class="chip"><input type="checkbox" data-f="fits" id="fitsChip"> Fits my schedule</label>
-      <button type="button" id="clearFilters" class="secondary">Clear filters</button>
+    <div class="browse-layout">
+      <aside class="rail" aria-label="Search and filters">
+        <label class="search"><span class="sr">Search clubs</span>
+          <input id="q" type="search" placeholder="Search clubs, interests, tags" autocomplete="off"></label>
+        <details id="filterBox" class="filterbox" open>
+          <summary>Filters</summary>
+          <div class="field"><label for="cat">Category</label><select id="cat"><option value="">All categories</option></select></div>
+          <div class="field"><label for="kind">Kind</label><select id="kind"><option value="">Serious &amp; fun</option><option value="serious">Serious only</option><option value="fun">Fun only</option></select></div>
+          <div class="field"><label for="day">Meets on</label><select id="day"><option value="">Any day</option></select></div>
+          <div class="field"><label for="sort">Sort by</label><select id="sort"><option value="match">Best match</option><option value="name">Name</option><option value="day">Day</option><option value="hours">Hours, low first</option></select></div>
+          <fieldset class="toggles">
+            <legend>Only show</legend>
+            <label class="check"><input type="checkbox" data-f="free"> Free</label>
+            <label class="check"><input type="checkbox" data-f="noapp"> No application</label>
+            <label class="check"><input type="checkbox" data-f="beginner"> Beginner friendly</label>
+            <label class="check"><input type="checkbox" data-f="low"> 3 hours a week or less</label>
+            <label class="check"><input type="checkbox" data-f="accepting"> Open to join now</label>
+            <label class="check"><input type="checkbox" data-f="fits" id="fitsChip"> Fits my schedule</label>
+            <p id="fitsHint" class="hint" hidden>Add class times in your profile to use this.</p>
+          </fieldset>
+          <button type="button" id="clearFilters" class="secondary">Clear filters</button>
+        </details>
+      </aside>
+      <div class="results">
+        <p id="count" class="count-line" aria-live="polite"></p>
+        <div id="list" class="catalog"></div>
+      </div>
     </div>
-    <p id="count" class="muted" aria-live="polite"></p>
-    <div id="list" class="grid"></div>
   </section>
 
   <section id="profile" hidden aria-labelledby="h-profile">
-    <h2 id="h-profile">My profile</h2>
-    <p class="muted">Everything stays in this browser. <a href="#browse">Skip, just show me clubs</a></p>
+    <div class="intro">
+      <h2 id="h-profile">Tell us about you</h2>
+      <p>Everything stays in this browser. <a href="#browse">Skip and just browse</a></p>
+    </div>
     <form id="form">
-      <label>Name <input name="name" autocomplete="name"></label>
+      <label class="field-big">Name
+        <input name="name" autocomplete="name"></label>
       <fieldset>
         <legend>Current classes</legend>
-        <input id="courseFilter" type="search" placeholder="Filter by code or title (e.g. COSC, econ)…" aria-label="Filter classes">
+        <input id="courseFilter" type="search" placeholder="Filter by code or title, like COSC or econ" aria-label="Filter classes">
         <div id="courseChecks" class="checks"></div>
-        <label>Other classes <span class="muted">(not listed, comma-separated)</span> <input name="classes"></label>
+        <label class="field-big">Other classes <span class="hint">not listed, separated by commas</span> <input name="classes"></label>
       </fieldset>
-      <label>Class times <span class="muted">(optional, one per line, e.g. “COSC 10: Mon Wed Fri 10:10-11:15”) — lets us flag clubs that clash</span>
+      <label class="field-big">Class times <span class="hint">optional, one per line, like “COSC 10: Mon Wed Fri 10:10-11:15”. Lets us flag clubs that clash.</span>
         <textarea name="times" rows="3"></textarea></label>
       <fieldset>
         <legend>Pick 3 or more interests</legend>
         <div id="interestChips" class="chips"></div>
-        <button type="button" id="moreInterests" class="secondary">Show all</button>
+        <button type="button" id="moreInterests" class="secondary">Show all interests</button>
       </fieldset>
       <fieldset>
         <legend>Clubs you're already in</legend>
-        <input id="clubFilter" type="search" placeholder="Filter clubs…" aria-label="Filter your clubs">
+        <input id="clubFilter" type="search" placeholder="Filter clubs" aria-label="Filter your clubs">
         <div id="clubChecks" class="checks"></div>
       </fieldset>
-      <label>About you <span class="muted">(interests, hobbies, goals)</span>
-        <textarea name="bio" rows="4" placeholder="I love hiking, building things, and want to get better at public speaking…"></textarea></label>
+      <label class="field-big">About you <span class="hint">interests, hobbies, goals</span>
+        <textarea name="bio" rows="4" placeholder="I love hiking, building things, and want to get better at public speaking."></textarea></label>
       <div class="row">
-        <button type="submit">Save &amp; get recommendations</button>
+        <button type="submit">Save and get recommendations</button>
         <button type="button" id="clearProfile" class="secondary">Clear profile</button>
       </div>
     </form>
@@ -77,7 +99,7 @@
 </main>
 <dialog id="detail" aria-labelledby="detailTitle"></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-<footer class="muted">Sample data: club details are placeholders, not official information.</footer>
+<footer class="wrap">Sample data. Club details are placeholders, not official information.</footer>
 <script src="clubs.js"></script>
 <script src="courses.js"></script>
 <script src="app.js"></script>

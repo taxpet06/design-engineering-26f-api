@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-08T00:00:00Z",
+  "title": "Design System: Club Finder (The Marked-Up Catalog)",
+  "extensions": {
+    "colorMeta": {
+      "green": {"role": "primary", "displayName": "Dartmouth Green", "canonical": "#00693e", "tonalRamp": ["#0b3a29","#00492b","#00693e","#2a8a5e","#46b985","#7fd1a9","#b7e5cf","#e3f4eb"]},
+      "pen": {"role": "secondary", "displayName": "Ballpoint Pen", "canonical": "#1b3fae", "tonalRamp": ["#0e2166","#142f86","#1b3fae","#3f5fd0","#6a85e6","#92a9ff","#c3d0ff","#e8edff"]},
+      "highlighter": {"role": "tertiary", "displayName": "Highlighter", "canonical": "#f3df4a", "tonalRamp": ["#4a4408","#6c6310","#9a8d1a","#c8b72e","#f3df4a","#f7e97d","#fbf2ad","#fdf9dd"]},
+      "stamp": {"role": "tertiary", "displayName": "Stamp Red", "canonical": "#b3261e", "tonalRamp": ["#5a120e","#7f1b15","#b3261e","#d1493f","#ff8f84","#ffb3aa","#ffd4cf","#fff0ee"]},
+      "paper": {"role": "neutral", "displayName": "Newsprint", "canonical": "#e9ede8", "tonalRamp": ["#0e1512","#131b17","#28382f","#566359","#9aab9f","#c4cdc5","#e9ede8","#f6f8f4"]},
+      "ink": {"role": "neutral", "displayName": "Green-Black Ink", "canonical": "#14201a", "tonalRamp": ["#14201a","#2a382f","#3f4f44","#566359","#7a887e","#9aab9f","#c4cdc5","#e5ece6"]}
+    },
+    "typographyMeta": {
+      "headline": {"displayName": "Headline", "purpose": "Section titles, Bitter 800."},
+      "title": {"displayName": "Title", "purpose": "Club names and band headings, Bitter 700."},
+      "body": {"displayName": "Body", "purpose": "Archivo descriptions, UI and facts."}
+    },
+    "shadows": [
+      {"name": "detail-sheet", "value": "-12px 0 32px rgba(10,30,20,.22)", "purpose": "Club dialog over the page."},
+      {"name": "toast", "value": "0 6px 20px rgba(0,0,0,.28)", "purpose": "Undo toast."}
+    ],
+    "motion": [
+      {"name": "ease-out-quart", "value": "cubic-bezier(.22,1,.36,1)", "purpose": "Ring draw, dialog slide, toast rise."},
+      {"name": "state", "value": ".15s", "purpose": "Button and chip color transitions."}
+    ],
+    "breakpoints": [
+      {"name": "phone", "value": "480px"},
+      {"name": "sheet", "value": "640px"},
+      {"name": "entry-wide", "value": "720px"},
+      {"name": "browse-rail", "value": "860px"}
+    ]
+  },
+  "components": [
+    {"name": "Primary Button", "kind": "button", "refersTo": "button-primary", "description": "Main action.", "html": "<button class=\"ds-btn\">Save</button>", "css": ".ds-btn{min-height:44px;padding:8px 18px;font:600 .95rem Archivo,Arial,sans-serif;border:1px solid var(--green);border-radius:6px;background:var(--green);color:#fff;cursor:pointer;transition:background-color .15s}.ds-btn:hover{background:var(--green-deep)}.ds-btn:focus-visible{outline:3px solid var(--pen);outline-offset:2px}"},
+    {"name": "Search Input", "kind": "input", "refersTo": "input", "description": "Sheet-filled field.", "html": "<input class=\"ds-input\" type=\"search\" placeholder=\"Search clubs\">", "css": ".ds-input{width:100%;min-height:44px;padding:10px 12px;font:inherit;background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:6px}.ds-input:focus-visible{border-color:var(--pen);outline:3px solid var(--pen);outline-offset:2px}"},
+    {"name": "Chip", "kind": "chip", "refersTo": "chip", "description": "Pill toggle.", "html": "<span class=\"ds-chip\">Music</span>", "css": ".ds-chip{display:inline-flex;align-items:center;min-height:36px;padding:2px 14px;font:500 .92rem Archivo,Arial,sans-serif;border:1px solid var(--rule);border-radius:99px;background:var(--sheet);color:var(--ink)}"},
+    {"name": "Nav Tab", "kind": "nav", "refersTo": "nav-tab-current", "description": "Masthead index tab, current.", "html": "<div style=\"background:var(--green-deep);padding-top:16px\"><a class=\"ds-tab\" href=\"#\">Browse</a></div>", "css": ".ds-tab{display:inline-block;padding:10px 16px 13px;border-radius:8px 8px 0 0;background:var(--paper);color:var(--ink);font:700 1rem Archivo,Arial,sans-serif;text-decoration:none}"},
+    {"name": "Catalog Mark", "kind": "custom", "refersTo": "catalog-mark", "description": "Circled catalog number; pen ring draws when saved.", "html": "<button class=\"ds-mark\" aria-pressed=\"true\"><svg viewBox=\"0 0 48 48\" aria-hidden=\"true\"><path pathLength=\"1\" d=\"M26 5C37 4 45 13 44 25C43 37 33 45 22 44C10 43 3 34 4 22C5 11 14 4 29 6C33 7 35 8 36 9\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"/></svg><span>07</span></button>", "css": ".ds-mark{position:relative;width:52px;height:52px;border:0;border-radius:50%;background:none;color:var(--pen);display:grid;place-items:center;font:600 .95rem Archivo,Arial,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer}.ds-mark svg{position:absolute;inset:0;width:100%;height:100%}.ds-mark path{stroke-dasharray:1;stroke-dashoffset:0}"},
+    {"name": "Deadline Stamp", "kind": "custom", "refersTo": "stamp", "description": "Red rotated deadline stamp.", "html": "<span class=\"ds-stamp\">Apply by Oct 14</span>", "css": ".ds-stamp{display:inline-block;color:var(--stamp);font:700 .85rem Archivo,Arial,sans-serif;border:1.5px solid currentColor;border-radius:3px;padding:0 6px;transform:rotate(-1.2deg)}"}
+  ],
+  "narrative": {
+    "northStar": "The Marked-Up Catalog",
+    "overview": "The app is the fair-day catalog you annotate by hand, not a card-grid directory. A deep Dartmouth-green masthead with index tabs sits over cool newsprint; every club is a dense ruled entry, and the student's choices are pen marks.",
+    "keyCharacteristics": ["Green masthead with a folder-tab index", "Ruled entries under a 2px ink rule with circled catalog number", "Bitter slab for names, Archivo for UI, tabular numerals", "Flat; shadows only on overlays", "Light and dark via prefers-color-scheme"],
+    "rules": [
+      {"name": "The Four Marks Rule", "body": "Pen is the student's action, highlighter is a reason for a match, stamp is a deadline or conflict, green is the system. A color never takes another's job.", "section": "colors"},
+      {"name": "The Cool Paper Rule", "body": "The ground is green-tinted newsprint, never cream or warm white.", "section": "colors"},
+      {"name": "The Slab Names Rule", "body": "Club names and headings are Bitter; everything operational is Archivo.", "section": "typography"},
+      {"name": "The Tabular Rule", "body": "Catalog numbers, counts, hours and costs use tabular numerals.", "section": "typography"},
+      {"name": "The Flat Page Rule", "body": "Nothing on the page itself casts a shadow; only the dialog and toast do.", "section": "elevation"}
+    ],
+    "dos": ["Do keep the page on newsprint with sheet fills for inputs and panels.", "Do use pen blue for anything the student did, highlighter only behind explanation, stamp red only for deadlines and conflicts.", "Do build lists as ruled entries under a 2px ink rule, with tabular numerals.", "Do keep targets at 44px and the 3px pen focus outline.", "Do respect prefers-color-scheme and prefers-reduced-motion."],
+    "donts": ["Don't render clubs as equal-size cards or a gray screen with a single accent.", "Don't use cream or warm grounds.", "Don't use stamp red for decoration or non-urgent states.", "Don't add shadows to on-page elements; only overlays lift."]
+  }
+}
