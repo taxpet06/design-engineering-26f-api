@@ -7,40 +7,73 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header>
   <h1>Dartmouth Club Finder</h1>
-  <nav>
-    <button data-tab="browse" class="active">Browse</button>
-    <button data-tab="profile">My profile</button>
-    <button data-tab="recs">Recommended</button>
+  <nav aria-label="Sections">
+    <a href="#browse" data-tab="browse">Browse</a>
+    <a href="#profile" data-tab="profile">My profile</a>
+    <a href="#recs" data-tab="recs">Recommended</a>
+    <a href="#saved" data-tab="saved">Saved <span id="savedCount" class="count">0</span></a>
   </nav>
 </header>
-<main>
-  <section id="browse">
+<main id="main" tabindex="-1">
+  <section id="browse" aria-labelledby="h-browse">
+    <h2 id="h-browse">Browse clubs</h2>
     <div class="filters">
       <input id="q" type="search" placeholder="Search clubs, interests, tags…" aria-label="Search clubs">
       <select id="cat" aria-label="Category"><option value="">All categories</option></select>
+      <select id="kind" aria-label="Kind"><option value="">Serious &amp; fun</option><option value="serious">Serious only</option><option value="fun">Fun only</option></select>
+      <select id="day" aria-label="Meeting day"><option value="">Any day</option></select>
+      <select id="sort" aria-label="Sort"><option value="match">Sort: best match</option><option value="name">Sort: name</option><option value="day">Sort: day</option><option value="hours">Sort: hours (low first)</option></select>
     </div>
-    <p id="count" class="muted"></p>
+    <div class="chips" role="group" aria-label="Quick filters">
+      <label class="chip"><input type="checkbox" data-f="free"> Free</label>
+      <label class="chip"><input type="checkbox" data-f="noapp"> No application</label>
+      <label class="chip"><input type="checkbox" data-f="beginner"> Beginner friendly</label>
+      <label class="chip"><input type="checkbox" data-f="low"> Low time (≤3 h/wk)</label>
+      <label class="chip"><input type="checkbox" data-f="accepting"> Join now</label>
+      <label class="chip"><input type="checkbox" data-f="fits" id="fitsChip"> Fits my schedule</label>
+      <button type="button" id="clearFilters" class="secondary">Clear filters</button>
+    </div>
+    <p id="count" class="muted" aria-live="polite"></p>
     <div id="list" class="grid"></div>
   </section>
 
-  <section id="profile" hidden>
+  <section id="profile" hidden aria-labelledby="h-profile">
+    <h2 id="h-profile">My profile</h2>
+    <p class="muted">Everything stays in this browser. <a href="#browse">Skip, just show me clubs</a></p>
     <form id="form">
       <label>Name <input name="name" autocomplete="name"></label>
-      <label>Current classes <span class="muted">(comma-separated, e.g. COSC 10, ECON 1, ENGS 12)</span>
+      <label>Current classes <span class="muted">(comma-separated, e.g. COSC 10, ECON 1)</span>
         <input name="classes"></label>
-      <label>Clubs you're already in <span class="muted">(comma-separated)</span>
-        <input name="clubs" list="clubnames"></label>
-      <datalist id="clubnames"></datalist>
+      <label>Class times <span class="muted">(optional, one per line, e.g. “COSC 10: Mon Wed Fri 10:10-11:15”) — lets us flag clubs that clash</span>
+        <textarea name="times" rows="3"></textarea></label>
+      <fieldset>
+        <legend>Pick 3 or more interests</legend>
+        <div id="interestChips" class="chips"></div>
+        <button type="button" id="moreInterests" class="secondary">Show all</button>
+      </fieldset>
+      <fieldset>
+        <legend>Clubs you're already in</legend>
+        <input id="clubFilter" type="search" placeholder="Filter clubs…" aria-label="Filter your clubs">
+        <div id="clubChecks" class="checks"></div>
+      </fieldset>
       <label>About you <span class="muted">(interests, hobbies, goals)</span>
-        <textarea name="bio" rows="5" placeholder="I love hiking, building things, and want to get better at public speaking…"></textarea></label>
-      <button type="submit">Save &amp; get recommendations</button>
+        <textarea name="bio" rows="4" placeholder="I love hiking, building things, and want to get better at public speaking…"></textarea></label>
+      <div class="row">
+        <button type="submit">Save &amp; get recommendations</button>
+        <button type="button" id="clearProfile" class="secondary">Clear profile</button>
+      </div>
     </form>
   </section>
 
-  <section id="recs" hidden></section>
+  <section id="recs" hidden aria-labelledby="h-recs"></section>
+  <section id="saved" hidden aria-labelledby="h-saved"></section>
 </main>
+<dialog id="detail" aria-labelledby="detailTitle"></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<footer class="muted">Sample data: club details are placeholders, not official information.</footer>
 <script src="clubs.js"></script>
 <script src="app.js"></script>
 </body>
