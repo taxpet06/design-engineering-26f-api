@@ -57,8 +57,8 @@ button, .btn { display: inline-flex; align-items: center; justify-content: cente
 @media (prefers-color-scheme: dark) { button, .btn { color: #07140d; } }
 button:hover, .btn:hover { background: var(--green-deep); border-color: var(--green-deep); color: #fff; }
 button:active { transform: translateY(1px); }
-button.secondary { background: transparent; color: var(--ink); border-color: var(--rule); }
-button.secondary:hover { background: var(--sheet); border-color: var(--soft); color: var(--ink); }
+button.secondary, .btn.secondary { background: transparent; color: var(--ink); border-color: var(--rule); }
+button.secondary:hover, .btn.secondary:hover { background: var(--sheet); border-color: var(--soft); color: var(--ink); }
 button.text, button.link { min-height: 0; padding: 2px 0; border: 0; background: none; color: var(--ink); text-align: left; }
 button.text { color: var(--green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 button.link { font: inherit; font-weight: inherit; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 4px; }

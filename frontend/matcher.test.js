@@ -27,3 +27,11 @@ test("schedule conflicts", () => {
   assert.deepEqual(A.conflicts({ day: "Tue", time: "19:00-21:00" }, busy), ["ECON 1"]);
   assert.deepEqual(A.conflicts({ day: "Tue", time: "19:30-21:00" }, busy), []);
 });
+
+test("Google Calendar links", () => {
+  const u = new URL(A.gcalMeeting({ name: "X", desc: "d", day: "Tue", time: "19:00-21:00" }, new Date(2026, 9, 13)));
+  assert.equal(u.searchParams.get("dates"), "20261013T190000/20261013T210000");
+  assert.equal(u.searchParams.get("recur"), "RRULE:FREQ=WEEKLY;COUNT=6"); // Oct 13 through Nov 17
+  assert.equal(new URL(A.gcalDeadline({ name: "X", join: "audition", deadline: "2026-10-31" })).searchParams.get("dates"), "20261031/20261101");
+  assert.equal(A.gcalMeeting({ name: "X", desc: "d", day: "Tue" }), null);
+});

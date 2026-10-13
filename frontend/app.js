@@ -123,6 +123,27 @@ function conflicts(c, busy) {
   return [...new Set(busy.filter((b) => b.day === c.day && b.start < e && s < b.end).map((b) => b.label))];
 }
 
+// ---- Google Calendar links (no sign-in: opens a pre-filled "new event" page) ----
+const TERM_END = "2026-11-20"; // shortcut: Fall 2026 end per the API's terms, update each term
+const DAY_IDX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+const p2 = (n) => String(n).padStart(2, "0");
+const ymd = (d) => `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
+const gcal = (p) => "https://calendar.google.com/calendar/render?" + new URLSearchParams({ action: "TEMPLATE", ctz: "America/New_York", ...p });
+function gcalMeeting(c, now = new Date()) {
+  const t = c.time?.match(TIME_RE);
+  if (!t || !(c.day in DAY_IDX)) return null;
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  d.setDate(d.getDate() + ((DAY_IDX[c.day] - d.getDay() + 7) % 7));
+  const at = (h, m) => `${ymd(d)}T${p2(h)}${m}00`;
+  const weeks = Math.max(1, Math.floor((new Date(TERM_END + "T23:59:00") - d) / (7 * 864e5)) + 1);
+  return gcal({ text: `${c.name} meeting`, dates: `${at(t[1], t[2])}/${at(t[3], t[4])}`, recur: `RRULE:FREQ=WEEKLY;COUNT=${weeks}`, details: `${c.desc}\n(Sample data: confirm the real meeting time.)` });
+}
+function gcalDeadline(c) {
+  if (!c.deadline) return null;
+  const end = new Date(c.deadline + "T12:00"); end.setDate(end.getDate() + 1); // all-day end date is exclusive
+  return gcal({ text: `${c.name}: ${c.join} deadline`, dates: `${c.deadline.replace(/-/g, "")}/${ymd(end)}` });
+}
+
 // ---- display helpers ----
 const hoursLabel = (h) => (h <= 2 ? "Low" : h <= 5 ? "Medium" : "High");
 const cost = (c) => (c.dues === 0 ? "Free" : `$${c.dues}/yr`);
@@ -257,7 +278,7 @@ function renderSaved() {
         <div class="loadbar" role="img" aria-label="${total} of 15 weekly hours">${bar}</div>
         <p class="hint">${total > 10 ? "That's a lot. Most students do 2 to 3 activities." : "Each block is one hour a week."}</p></div>
       <div class="row noprint"><button type="button" id="print">Print checklist</button><button type="button" class="secondary" id="shareList">Share this list</button></div>
-      ${deadlines.length ? `<div class="band"><h3>Deadlines</h3></div><ul class="deadlines">${deadlines.map((c) => `<li><span>${esc(c.name)}</span><span class="stamp">${esc(deadlineText(c))}</span></li>`).join("")}</ul>` : ""}
+      ${deadlines.length ? `<div class="band"><h3>Deadlines</h3></div><ul class="deadlines">${deadlines.map((c) => `<li><span>${esc(c.name)}</span><span><span class="stamp">${esc(deadlineText(c))}</span> ${deadlineText(c) === "Deadline passed" ? "" : `<a href="${esc(gcalDeadline(c))}" target="_blank" rel="noopener">Add to Google Calendar</a>`}</span></li>`).join("")}</ul>` : ""}
       <div class="band"><h3>Your clubs</h3></div>${grid(clubs.map((c) => card(c, { busy })), "")}`
       : `<div class="empty"><p>Nothing circled yet. Tap a club's number to keep it here.</p><a class="btn" href="#browse">Browse clubs</a></div>`);
 }
@@ -285,6 +306,7 @@ function showDetail(id) {
     <div class="row"><button type="button" class="savebtn" data-save="${id}" aria-pressed="${saved}">${saved ? "Saved" : "Save to shortlist"}</button>
       <button type="button" class="secondary" data-share="club">Share</button>
       <button type="button" class="secondary" data-like="${id}">More like this</button>${S.dismissed.includes(id) ? `<button type="button" class="secondary" data-undismiss="${id}">Show again</button>` : `<button type="button" class="secondary" data-dismiss="${id}">Not for me</button>`}</div>
+    <p class="row">${gcalMeeting(c) ? `<a class="btn secondary" href="${esc(gcalMeeting(c))}" target="_blank" rel="noopener">Add weekly meeting to Google Calendar</a>` : ""}${c.deadline && deadlineText(c) !== "Deadline passed" ? `<a class="btn secondary" href="${esc(gcalDeadline(c))}" target="_blank" rel="noopener">Add deadline to Google Calendar</a>` : ""}</p>
     ${hard ? `<p><button type="button" class="text" data-alt="${id}">Didn't get in? See open alternatives</button></p>` : ""}
     <div id="alts"></div>
     ${similar.length ? `<h3>Similar clubs</h3><ul class="similar">${similar.map((s) => `<li><button type="button" class="link" data-open="${s.x.id}">${esc(s.x.name)}</button></li>`).join("")}</ul>` : ""}`;
@@ -440,4 +462,4 @@ function init() {
 }
 
 if (typeof document !== "undefined") init();
-if (typeof module !== "undefined") module.exports = { normTag, terms, SYN, buildProfile, match, parseBusy, conflicts, S, CLUBS, loadState };
+if (typeof module !== "undefined") module.exports = { gcalMeeting, gcalDeadline, normTag, terms, SYN, buildProfile, match, parseBusy, conflicts, S, CLUBS, loadState };
