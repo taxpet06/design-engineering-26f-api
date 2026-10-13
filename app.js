@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("node:path");
 const { seed } = require("./data");
 const { resourceRouter, mountComputedRoutes } = require("./routes");
 const RESOURCES = require("./resources");
@@ -10,8 +11,9 @@ const app = express();
 app.set("trust proxy", true); // Vercel terminates TLS upstream; trust X-Forwarded-Proto for req.protocol
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
-app.get("/", (_req, res) => {
+app.get("/api-info", (_req, res) => {
   res.json({
     name: "Design Engineering 26F — student data API",
     resources: Object.keys(db),
@@ -19,6 +21,9 @@ app.get("/", (_req, res) => {
     openapi: "/openapi.json — import this into Bruno/Postman/Insomnia to get every endpoint as a ready-made collection",
   });
 });
+
+const sendSideQuest = (_req, res) => res.sendFile(path.join(__dirname, "public", "index.html"));
+app.get(["/", "/quests", "/leaderboard", "/settings"], sendSideQuest);
 
 app.get("/openapi.json", (req, res) => {
   res.json(buildOpenApiSpec(`${req.protocol}://${req.get("host")}`));

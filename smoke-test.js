@@ -28,6 +28,27 @@ test("lists students with fake data", async () => {
   assert.ok(students[0].email.includes("@"));
 });
 
+test("serves Side Quest and its meaningful routes", async () => {
+  for (const route of ["/", "/quests", "/leaderboard", "/settings"]) {
+    const res = await fetch(`${base}${route}`);
+    const html = await res.text();
+    assert.strictEqual(res.status, 200);
+    assert.match(res.headers.get("content-type"), /text\/html/);
+    assert.match(html, /<title>Side Quest<\/title>/);
+  }
+
+  const asset = await fetch(`${base}/js/recommendations.js`);
+  assert.strictEqual(asset.status, 200);
+  assert.match(await asset.text(), /function rankTasks/);
+});
+
+test("keeps API metadata available away from the app homepage", async () => {
+  const res = await fetch(`${base}/api-info`);
+  const body = await res.json();
+  assert.strictEqual(res.status, 200);
+  assert.match(body.name, /student data API/);
+});
+
 test("404s on a missing resource", async () => {
   const res = await fetch(`${base}/students/999999`);
   assert.strictEqual(res.status, 404);
