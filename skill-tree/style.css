@@ -1,0 +1,33 @@
+:root { --green: #023020; --white: #f2f5f3; --hover: #D3D3D3; --selected: #6b6f6d; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--green); }
+body {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 24px; padding: 64px 16px 32px;
+  font-family: "Roboto Mono", ui-monospace, monospace; color: var(--white);
+}
+svg.stage { display: block; width: min(100%, var(--max, 1400px)); height: auto; max-height: calc(100vh - 160px); }
+.back {
+  position: absolute; top: 16px; left: 20px; background: none; border: 0; padding: 4px 8px;
+  font: 400 20px "Roboto Mono", monospace; color: var(--white); cursor: pointer;
+}
+.done {
+  background: var(--white); color: var(--green); border: 0; border-radius: 999px;
+  padding: 12px 40px; font: 400 24px "Roboto Mono", monospace; cursor: pointer;
+}
+.done:focus-visible, .back:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
+.line { stroke: var(--white); stroke-width: 3; }
+
+.node { cursor: pointer; outline: none; --cut: var(--white); }
+.node circle.disc { fill: var(--white); transition: fill .15s; }
+.node .icon { color: var(--green); transition: opacity .15s; }
+.node .icon .cut { stroke: var(--cut); }
+.node .label { fill: var(--white); opacity: 0; font-family: "Roboto Mono", monospace; text-anchor: middle; dominant-baseline: central; pointer-events: none; transition: opacity .15s; }
+.node:hover, .node:focus-visible { --cut: var(--hover); }
+.node:hover circle.disc, .node:focus-visible circle.disc { fill: var(--hover); }
+.node:hover .icon, .node:focus-visible .icon { opacity: 0; }
+.node:hover .label, .node:focus-visible .label { opacity: 1; }
+.node.selected, .node.selected:hover, .node.selected:focus-visible { --cut: var(--selected); }
+.node.selected circle.disc { fill: var(--selected); }
+.node.selected .icon { color: var(--white); opacity: 1; }
+.node.selected .label { opacity: 0; }

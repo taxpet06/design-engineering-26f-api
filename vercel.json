@@ -1,3 +1,4 @@
 {
+  "functions": { "api/index.js": { "includeFiles": "skill-tree/**" } },
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }

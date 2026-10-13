@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Social</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body style="--max: 1200px">
+<button class="back" type="button" onclick="location.href='./'">Back</button>
+<svg id="stage" class="stage" viewBox="-600 -600 1200 1200" role="group" aria-label="Social"></svg>
+<button class="done" type="button" onclick="location.href='./'">Done</button>
+<script src="tree.js"></script>
+<script>
+const svg = document.getElementById("stage");
+const selected = loadSelected();
+const R = 300, K = 2.8;
+[
+  { id: "soc-social", label: "Social", icon: "dartmouth", x: -300, y: -300 },
+  { id: "soc-concert", label: "Concert", icon: "concert", x: 300, y: -300 },
+  { id: "soc-speaker", label: "Speaker", icon: "speaker", x: -300, y: 300 },
+  { id: "soc-cultural", label: "Cultural", icon: "cultural", x: 300, y: 300 },
+].forEach((n) => addNode(svg, { ...n, r: R, fontPt: 18, iconScale: K }, selected));
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recreation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body style="--max: 1200px">
+<button class="back" type="button" onclick="location.href='./'">Back</button>
+<svg id="stage" class="stage" viewBox="-600 -300 1200 600" role="group" aria-label="Recreation"></svg>
+<button class="done" type="button" onclick="location.href='./'">Done</button>
+<script src="tree.js"></script>
+<script>
+const svg = document.getElementById("stage");
+const selected = loadSelected();
+const R = 300, K = 2.8;
+[
+  { id: "rec-wellness", label: "Wellness", icon: "wellness", x: -300, y: 0 },
+  { id: "rec-sports", label: "Sports", icon: "sports", x: 300, y: 0 },
+].forEach((n) => addNode(svg, { ...n, r: R, fontPt: 18, iconScale: K }, selected));
+</script>
+</body>
+</html>

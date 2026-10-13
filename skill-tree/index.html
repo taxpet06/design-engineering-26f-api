@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skill Tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg id="stage" class="stage" viewBox="-700 -700 1400 1400" role="group" aria-label="Skill tree"></svg>
+<button class="done" type="button">Done</button>
+<script src="tree.js"></script>
+<script>
+const svg = document.getElementById("stage");
+const selected = loadSelected();
+const branches = [
+  { id: "tech", label: "Tech", fontPt: 18, icon: "tech" },
+  { id: "academic", label: "Academic", fontPt: 15, icon: "academic" },
+  { id: "career", label: "Career", fontPt: 18, icon: "career" },
+  { id: "recreation", label: "Recreation", fontPt: 15, icon: "recreation", href: "recreation.html", prefix: "rec-" },
+  { id: "arts", label: "Arts", fontPt: 18, icon: "arts" },
+  { id: "service", label: "Service", fontPt: 18, icon: "service" },
+  { id: "leadership", label: "Leadership", fontPt: 15, icon: "leadership" },
+  { id: "social", label: "Social", fontPt: 15, icon: "social", href: "social.html", prefix: "soc-" },
+];
+const LEN = 549, R = 147;
+branches.forEach((b, i) => {
+  const a = (-90 + i * 45) * Math.PI / 180;
+  b.x = +(LEN * Math.cos(a)).toFixed(3); b.y = +(LEN * Math.sin(a)).toFixed(3);
+  el("line", { class: "line", x1: 0, y1: 0, x2: b.x, y2: b.y }, svg);
+});
+for (const b of branches) {
+  addNode(svg, { ...b, r: R, iconScale: 1.9,
+    forceSelected: b.prefix ? [...selected].some((s) => s.startsWith(b.prefix)) : undefined }, selected);
+}
+</script>
+</body>
+</html>

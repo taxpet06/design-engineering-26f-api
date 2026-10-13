@@ -30,6 +30,8 @@ for (const resource of RESOURCES) {
 
 mountComputedRoutes(app, db);
 
+app.use("/skill-tree", express.static(require("path").join(__dirname, "skill-tree")));
+
 app.use((_req, res) => res.status(404).json({ error: "no such route" }));
 
 module.exports = app;
