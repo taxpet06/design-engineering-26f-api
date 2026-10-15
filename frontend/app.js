@@ -421,6 +421,9 @@ function init() {
   $("#clearProfile").onclick = () => { S = { ...S, profile: { clubs: [], interests: [] }, liked: [], muted: [], dismissed: [] }; persist(); fillForm(); toast("Profile cleared."); };
 
   document.addEventListener("click", (e) => {
+    // Hosts like htmlpreview add a <base> tag, so a rendered href="#x" would leave the page; route it in place.
+    const a = e.target.closest('main a[href^="#"]');
+    if (a) { e.preventDefault(); location.hash = a.getAttribute("href"); return; }
     const t = e.target.closest("button");
     if (!t) return;
     const d = t.dataset, id = +(d.open || d.save || d.like || d.dismiss || d.alt);
@@ -444,7 +447,7 @@ function init() {
     else if (t.id === "reroll") renderRecs();
     else if (t.id === "restore") { S.dismissed = []; refresh(); }
     else if (t.id === "print") window.print();
-    else if (t.id === "shareList") share("My club shortlist", location.origin + location.pathname + "#list=" + S.saved.join(","));
+    else if (t.id === "shareList") share("My club shortlist", location.href.split("#")[0] + "#list=" + S.saved.join(","));
     else if (t.id === "adoptList") { S.saved = [...new Set([...S.saved, ...sharedList])]; location.hash = "#saved"; }
     else if (t.id === "clearInline") clear();
   });
