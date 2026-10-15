@@ -1,3 +1,4 @@
+const path = require("node:path");
 const express = require("express");
 const cors = require("cors");
 const { seed } = require("./data");
@@ -29,6 +30,9 @@ for (const resource of RESOURCES) {
 }
 
 mountComputedRoutes(app, db);
+
+// Dalí GSS frontend (dali-gss-spec.md), served from the API so it works locally and on Vercel.
+app.get("/app", (_req, res) => res.sendFile(path.join(__dirname, "app.html")));
 
 app.use((_req, res) => res.status(404).json({ error: "no such route" }));
 

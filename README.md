@@ -30,6 +30,7 @@ listing every resource and a link to the OpenAPI spec.
 | `computed-routes.js` | Just a list describing the computed routes from `routes.js` (path + one-line summary), so `openapi.js` can document them without re-reading the route code. |
 | `data.js` | The "fake database." On startup, it randomly generates a consistent set of students, courses, enrollments, grades, clubs, etc., and links them together (a student enrolled in a section, a section belonging to a course, and so on). This data lives only in memory — restarting the server resets it. |
 | `openapi.js` | Builds the OpenAPI (Swagger) specification for every route, served live at `/openapi.json`. Import that URL into Bruno, Postman, or Insomnia to get a ready-made collection of every request. |
+| `app.html` | Dalí GSS, a frontend demo built from `dali-gss-spec.md` and served at `/app`: an interest-tree quiz, two surveys and a dashboard. Answers are saved in the browser's localStorage. |
 | `smoke-test.js` | One automated check: boots a real copy of the server and confirms `/students` actually returns data. Run it with `npm test`. |
 | `package.json` / `package-lock.json` | Lists the two dependencies (`express`, `cors`) and the npm scripts (`start`, `dev`, `test`). |
 | `.gitignore` | Keeps `node_modules/` and the local `.vercel/` folder out of git. |

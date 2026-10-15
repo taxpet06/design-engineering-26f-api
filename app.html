@@ -1,0 +1,1228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dalí GSS</title>
+<meta name="description" content="Find a club, workshop or event that fits you.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  Dalí GSS: club / workshop / event recommender. Built from dali-gss-spec.md.
+  Served by the API at /app. Data comes from the spec's API (override with ?api=<url>).
+
+  Everything the student enters lives in localStorage under "dali.gss.profile":
+    {
+      schemaVersion: 1,
+      identity: { year, gender, race_ethnicity },          // Identity tab; null = skipped
+      stats:    { major, minor, interests: [], classes: [], clubs: [] }, // Current Stats tab; clubs are club names,
+                                                           // classes are period codes, e.g. "10A"
+      workshops: [], events: [],                           // titles added to the student's schedule
+      tree:     { interests: ["kind:category", ...],       // every option picked in the Interest Tree
+                  lastPick: { key, path } },               // latest recommendation, e.g. key "workshops-4"
+      updatedAt
+    }
+  `year` and `major` match the API's student fields so the profile can merge into a student record later.
+
+  To grow beyond the demo data, edit the tables near the top of the script: BRANCHES (tree + category
+  mapping), PERIODS (class times), ELIGIBILITY_RULES (hard filters) and DEPARTMENTS.
+  Icons: Tabler Icons (MIT), https://tabler.io/icons.
+-->
+<style>
+  :root {
+    --bg: #023020;
+    --white: #f2f5f3;
+    --card: #eaf5e4;
+    --input: #ffffff;
+    --saved: #D3D3D3;
+    --selected: #A9A9A9;
+    --icon: #023020;
+    --ink: #000;
+    --ink-muted: #2c4a2c;
+    --rule: #6b8f6b;
+    --on-bg: #eaf5e4;
+    --on-bg-muted: #a9c7b2;
+    --focus: #f2c94c;
+    --error: #a40000;
+    --sans: Roboto, system-ui, sans-serif;
+    --mono: "Roboto Mono", ui-monospace, monospace;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--on-bg); font-family: var(--sans); font-size: 12pt; line-height: 1.5; caret-color: var(--bg); }
+  ::selection { background: var(--card); color: var(--bg); }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  button { font: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
+  [hidden] { display: none !important; }
+
+  /* Shell: side panel + main view */
+  .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+  .side { position: sticky; top: 0; height: 100vh; padding: 28px 16px; border-right: 1px solid rgba(234, 245, 228, 0.16); display: flex; flex-direction: column; gap: 28px; }
+  .brand { font-family: var(--mono); font-weight: 500; font-size: 15pt; margin: 0 8px; color: var(--white); letter-spacing: -0.02em; }
+  .side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .navlabel { font-size: 10pt; color: var(--on-bg-muted); margin: 0 8px 6px; }
+  .navbtn { width: 100%; text-align: left; background: none; border: 0; color: var(--on-bg); padding: 9px 10px; border-radius: 8px; font-size: 12pt; display: flex; align-items: center; gap: 10px; }
+  .navbtn svg { width: 20px; height: 20px; flex: none; color: inherit; }
+  .navbtn:hover { background: rgba(234, 245, 228, 0.08); }
+  .navbtn[aria-current="page"] { background: var(--card); color: var(--bg); font-weight: 500; }
+  .side .meta { margin-top: auto; font-size: 10pt; color: var(--on-bg-muted); padding: 0 8px; }
+
+  main { padding: 40px 40px 72px; min-width: 0; }
+  main:focus { outline: none; }
+  .page { max-width: 760px; }
+  h1 { font-size: 18pt; font-weight: 500; color: var(--on-bg); margin: 0 0 10px; letter-spacing: -0.01em; text-wrap: balance; }
+  h1:focus { outline: none; }
+  h2.section { font-size: 13pt; font-weight: 700; color: var(--on-bg); margin: 40px 0 12px; }
+  .lede { color: var(--on-bg); margin: 0 0 14px; max-width: 62ch; }
+  .muted { color: var(--on-bg-muted); }
+  .banner { background: #ffe1e1; color: #6b0000; border-radius: 10px; padding: 12px 16px; margin: 0 0 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+  .btn { border-radius: 10px; padding: 10px 18px; font-size: 12pt; border: 2px solid var(--card); transition: background-color 0.15s, color 0.15s; }
+  .btn.primary { background: var(--card); color: var(--bg); font-weight: 700; }
+  .btn.primary:hover { background: var(--white); }
+  .btn.secondary { background: transparent; color: var(--on-bg); }
+  .btn.secondary:hover { background: rgba(234, 245, 228, 0.1); }
+  .link { background: none; border: 0; padding: 4px 6px; color: var(--bg); text-decoration: underline; text-underline-offset: 3px; font-size: 11pt; }
+  .on-bg .link, .link.on-bg { color: var(--on-bg); }
+
+  /* How it works (home) */
+  .steps { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 10px; max-width: 620px; }
+  .steps li { display: grid; grid-template-columns: 40px 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 12px; background: rgba(234, 245, 228, 0.06); }
+  .steps svg { width: 32px; height: 32px; color: var(--card); }
+  .empty-state .link { padding: 0 2px; }
+  .empty-state { margin: 0; }
+  .steps strong { display: block; font-weight: 500; }
+  .steps span { color: var(--on-bg-muted); font-size: 11pt; }
+  .steps .done { font-size: 10.5pt; color: var(--card); display: inline-flex; align-items: center; gap: 4px; }
+
+  /* Survey boxes */
+  .qbox { background: var(--card); color: var(--ink); border-radius: 12px; padding: 18px; margin-bottom: 12px; max-width: 620px; }
+  .qbox.is-compact { padding: 10px 16px; cursor: pointer; transition: background-color 0.15s; }
+  .qbox.is-compact:hover { background: #dcedd3; }
+  .q { display: block; font-size: 13pt; font-weight: 700; margin-bottom: 10px; }
+  .is-compact .q { font-size: 11pt; margin-bottom: 6px; }
+  .field { width: 100%; font: inherit; font-size: 12pt; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--input); color: var(--ink); transition: background-color 0.2s; }
+  .field.is-saved { background: var(--saved); }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .value { flex: 1; min-width: 160px; background: var(--saved); border-radius: 8px; padding: 8px 12px; font-size: 12pt; }
+  .value.empty { background: transparent; border: 1px dashed var(--rule); color: var(--ink-muted); }
+  .status { font-size: 10.5pt; font-weight: 500; color: #1d5c2e; display: inline-flex; align-items: center; gap: 3px; }
+  .status svg { width: 16px; height: 16px; }
+  .chips-in { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .chip-in { display: inline-flex; align-items: center; gap: 2px; background: var(--saved); border-radius: 999px; padding: 3px 4px 3px 12px; font-size: 11pt; }
+  .chip-in button { background: none; border: 0; border-radius: 999px; width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink); }
+  .chip-in button:hover { background: rgba(0, 0, 0, 0.1); }
+  .chip-in svg { width: 14px; height: 14px; }
+  ul[role="listbox"] { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--rule); border-radius: 8px; background: #fff; max-height: 180px; overflow-y: auto; scrollbar-color: var(--rule) transparent; }
+  ul[role="listbox"]:empty { display: none; }
+  li[role="option"] { padding: 10px 12px; font-size: 12pt; cursor: pointer; }
+  li[role="option"]:hover { background: #f1f7ee; }
+  li[role="option"][aria-selected="true"] { background: #cfe6c4; }
+  .hint { font-size: 10.5pt; margin: 8px 0 0; color: var(--ink-muted); }
+  .error { color: var(--error); font-weight: 500; }
+  .error:empty { display: none; }
+  .qactions { display: flex; gap: 8px; margin-top: 8px; }
+  .surveyhead { font-size: 13pt; font-weight: 700; color: var(--on-bg); margin: 32px 0 12px; }
+
+  ::view-transition-group(*) { animation-duration: 0.28s; animation-timing-function: var(--ease-out); }
+
+  /* Interest Tree */
+  .tree-page { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .tree-page header { align-self: stretch; }
+  .prompt { font-family: var(--mono); font-size: 13pt; color: var(--white); margin: 0; min-height: 1.5em; }
+  .stage { width: 100%; height: clamp(360px, 64vh, 780px); display: block; touch-action: manipulation; }
+  .stage text { font-family: var(--mono); fill: var(--white); paint-order: stroke; stroke: var(--bg); stroke-linejoin: round; pointer-events: none; }
+  .stage .arm { stroke: var(--white); stroke-width: 3; vector-effect: non-scaling-stroke; }
+  .stage .hub { fill: var(--white); }
+  .node { cursor: pointer; --knock: var(--white); outline: none; }
+  .node .disc { fill: var(--white); transition: fill 0.2s; }
+  .node:hover, .node:focus-visible { --knock: var(--saved); }
+  .node:hover .disc, .node:focus-visible .disc { fill: var(--saved); }
+  .node:focus-visible .disc { stroke: var(--focus); stroke-width: 10; }
+  .node.is-selected { --knock: var(--selected); }
+  .node.is-selected .disc { fill: var(--selected); }
+  .node.is-dim { opacity: 0.4; }
+  .node.is-dim:hover, .node.is-dim:focus-visible { opacity: 1; }
+  .glyph { color: var(--icon); fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; transition: opacity 0.2s; }
+  .knock { stroke: var(--knock); stroke-width: 5; }
+  .knock-disc { fill: var(--knock); stroke: none; }
+  .hover-label { opacity: 0; transition: opacity 0.2s; }
+  .has-hover-label:hover .hover-label, .has-hover-label:focus-visible .hover-label { opacity: 1; }
+  .has-hover-label:hover .glyph, .has-hover-label:focus-visible .glyph { opacity: 0.12; }
+  .grow { animation: grow 0.6s var(--ease-out) both; }
+  @keyframes grow { from { transform: scale(0.3); opacity: 0.2; } }
+  .done-btn { background: var(--white); color: var(--bg); font-family: var(--mono); font-size: 18pt; font-weight: 500; border: 0; border-radius: 14px; padding: 10px 44px; }
+  .done-btn:hover { background: var(--card); }
+  .tree-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+
+  .results { width: min(760px, 100%); }
+  .results h2 { font-size: 13pt; font-weight: 700; color: var(--on-bg); margin: 0 0 4px; }
+  .results h2:focus { outline: none; }
+  .results .muted { margin: 0 0 12px; font-size: 11pt; }
+  .tree-page .back { margin: 0 0 8px -6px; }
+  .warn { display: flex; gap: 8px; align-items: flex-start; background: #fbeec2; color: #4d3800; border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; font-size: 11pt; font-weight: 500; }
+  .warn svg { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+  .item .warn { margin: 6px 0 0; padding: 6px 10px; }
+  .past { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-size: 10pt; font-weight: 500; color: #7a4b00; vertical-align: 2px; white-space: nowrap; }
+  .past svg { width: 14px; height: 14px; }
+
+  /* Sub-pages */
+  .subpage { position: relative; }
+  .back { background: none; border: 0; color: var(--white); font-family: var(--mono); font-size: 15pt; padding: 4px 6px; }
+  .back:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .subpage .stage { height: clamp(320px, 74vh, 900px); }
+
+  /* Explore lists */
+  .toolbar { display: grid; gap: 12px; margin: 18px 0 16px; max-width: 760px; }
+  .search { width: 100%; font: inherit; font-size: 12pt; padding: 11px 14px; border-radius: 10px; border: 0; background: var(--input); color: var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--card); background: transparent; color: var(--on-bg); border-radius: 999px; padding: 5px 14px; font-size: 11pt; }
+  .chip:hover { background: rgba(234, 245, 228, 0.1); }
+  .chip[aria-pressed="true"] { background: var(--card); color: var(--bg); font-weight: 500; }
+  .list { background: var(--card); color: var(--ink); border-radius: 14px; max-width: 760px; overflow: hidden; }
+  .item { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 14px 18px; align-items: center; }
+  .item + .item { border-top: 1px solid rgba(2, 48, 32, 0.14); }
+  .item h3 { margin: 0; font-size: 13pt; font-weight: 700; }
+  .item .meta { margin: 0; color: var(--ink-muted); font-size: 11pt; font-variant-numeric: tabular-nums; }
+  .item .reasons { margin: 2px 0 0; font-size: 10.5pt; color: #1d5c2e; font-weight: 500; }
+  .item .btn { padding: 6px 14px; font-size: 11pt; background: transparent; color: var(--bg); border: 1.5px solid var(--bg); }
+  .item .btn:hover { background: rgba(2, 48, 32, 0.08); }
+  .item .btn.is-on { background: var(--bg); color: var(--card); }
+  .empty-state { padding: 22px 18px; color: var(--ink-muted); }
+  .count { font-size: 11pt; color: var(--on-bg-muted); margin: 0 0 10px; }
+
+  details.item { display: block; }
+  details.item summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; align-items: center; }
+  details.item summary::-webkit-details-marker { display: none; }
+  details.item summary svg { width: 20px; height: 20px; transition: transform 0.2s var(--ease-out); }
+  details.item[open] summary svg { transform: rotate(180deg); }
+  details.item .more { margin-top: 10px; display: grid; gap: 8px; }
+
+  .loading { color: var(--on-bg-muted); font-family: var(--mono); }
+
+  @media (max-width: 820px) {
+    .shell { grid-template-columns: 1fr; }
+    .side { position: static; height: auto; padding: 14px 16px 10px; gap: 10px; border-right: 0; border-bottom: 1px solid rgba(234, 245, 228, 0.16); }
+    .side nav ul { display: flex; flex-wrap: wrap; gap: 4px; }
+    .navbtn { width: auto; padding: 7px 10px; font-size: 11pt; }
+    .navbtn svg { display: none; }
+    .navlabel, .side .meta { display: none; }
+    main { padding: 24px 16px 56px; }
+    .steps li { grid-template-columns: 32px 1fr; }
+    .steps li > :last-child { grid-column: 2; justify-self: start; }
+    .stage { height: clamp(300px, 56vh, 560px); }
+    .done-btn { width: 100%; }
+    .item { grid-template-columns: 1fr; }
+    .item > .btn { justify-self: start; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, ::view-transition-group(*) { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <p class="brand">Dalí GSS</p>
+    <nav aria-label="Quiz">
+      <p class="navlabel">Quiz</p>
+      <ul>
+        <li><button class="navbtn" data-view="tree"><svg viewBox="0 0 24 24" class="glyph" stroke-width="1.75" aria-hidden="true" data-icon="users-group"></svg>Interest Tree</button></li>
+        <li><button class="navbtn" data-view="stats"><svg viewBox="0 0 24 24" class="glyph" stroke-width="1.75" aria-hidden="true" data-icon="book"></svg>Current Stats</button></li>
+        <li><button class="navbtn" data-view="identity"><svg viewBox="0 0 24 24" class="glyph" stroke-width="1.75" aria-hidden="true" data-icon="user"></svg>Identity</button></li>
+      </ul>
+    </nav>
+    <nav aria-label="Dashboard">
+      <p class="navlabel">Dashboard</p>
+      <ul>
+        <li><button class="navbtn" data-view="home"><svg viewBox="0 0 24 24" class="glyph" stroke-width="1.75" aria-hidden="true" data-icon="flag"></svg>My clubs</button></li>
+        <li><button class="navbtn" data-view="clubs"><svg viewBox="0 0 24 24" class="glyph" stroke-width="1.75" aria-hidden="true" data-icon="world"></svg>Explore clubs</button></li>
+        <li><button class="navbtn" data-view="happenings"><svg viewBox="0 0 24 24" class="glyph" stroke-width="1.75" aria-hidden="true" data-icon="calendar-event"></svg>Workshops &amp; events</button></li>
+        <li><button class="navbtn" data-view="edit"><svg viewBox="0 0 24 24" class="glyph" stroke-width="1.75" aria-hidden="true" data-icon="tools"></svg>Change answers</button></li>
+      </ul>
+    </nav>
+    <p class="meta">Demo data from the Design Engineering 26F API.</p>
+  </aside>
+  <main id="view" tabindex="-1"></main>
+</div>
+
+<script>
+const API = new URLSearchParams(location.search).get("api") || "https://api-backend-zeta-five.vercel.app";
+const STORAGE_KEY = "dali.gss.profile";
+const SCHEMA_VERSION = 1;
+const PREFER_NOT = "Prefer not to answer";
+const DAY_NAMES = { Mon: "Mondays", Tue: "Tuesdays", Wed: "Wednesdays", Thu: "Thursdays", Fri: "Fridays", Sat: "Saturdays", Sun: "Sundays" };
+const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// No departments endpoint exists, so the spec inlines them.
+const DEPARTMENTS = ["Computer Science", "Mathematics", "Biology", "Economics", "English", "Physics", "Psychological & Brain Sciences", "History", "Studio Art", "Engineering Sciences", "Government", "Chemistry"];
+
+// Hard filters. Each rule limits one item to students whose Identity answer is in `allow`, e.g.
+//   { kind: "clubs", name: "Women's Club Rugby", field: "gender", allow: ["Woman"] }
+// A missing, skipped or "Prefer not to answer" response never excludes anything.
+// The demo data has no restricted clubs, workshops or events, so the list is empty.
+const ELIGIBILITY_RULES = [];
+
+// Dartmouth class periods, from class_schedule.txt.
+const PERIODS = [
+  { code: "8S", days: ["Mon", "Tue", "Thu", "Fri"], time: "07:45-08:35" },
+  { code: "8SX", days: ["Wed"], time: "07:45-08:35" },
+  { code: "8L", days: ["Mon", "Wed", "Fri"], time: "07:30-08:35" },
+  { code: "8LX", days: ["Thu"], time: "07:45-08:35" },
+  { code: "9S", days: ["Mon", "Tue", "Thu", "Fri"], time: "09:05-09:55" },
+  { code: "9SX", days: ["Wed"], time: "09:05-09:55" },
+  { code: "9L", days: ["Mon", "Wed", "Fri"], time: "08:50-09:55" },
+  { code: "9LX", days: ["Thu"], time: "09:05-09:55" },
+  { code: "10", days: ["Mon", "Wed", "Fri"], time: "10:10-11:15" },
+  { code: "10A", days: ["Tue", "Thu"], time: "10:10-12:00" },
+  { code: "11", days: ["Mon", "Wed", "Fri"], time: "11:30-12:35" },
+  { code: "11X", days: ["Tue"], time: "12:15-13:05" },
+  { code: "10X", days: ["Thu"], time: "12:15-13:05" },
+  { code: "12", days: ["Mon", "Wed", "Fri"], time: "12:50-13:55" },
+  { code: "12X", days: ["Tue"], time: "13:20-14:10" },
+  { code: "2X", days: ["Thu"], time: "13:20-14:10" },
+  { code: "2", days: ["Mon", "Wed", "Fri"], time: "14:10-15:15" },
+  { code: "2A", days: ["Tue", "Thu"], time: "14:25-16:15" },
+  { code: "3A", days: ["Mon", "Wed"], time: "15:30-17:20" },
+  { code: "3B", days: ["Tue", "Thu"], time: "16:30-18:20" },
+  { code: "10AX", days: ["Fri"], time: "15:30-16:20" },
+  { code: "3AX", days: ["Mon"], time: "17:30-18:20" },
+  { code: "2AX", days: ["Wed"], time: "17:30-18:20" },
+  { code: "3BX", days: ["Fri"], time: "16:35-17:25" },
+  { code: "6A", days: ["Mon", "Thu"], time: "18:30-20:20" },
+  { code: "6AX", days: ["Tue"], time: "18:30-19:20" },
+  { code: "6BX", days: ["Tue"], time: "19:30-20:20" },
+  { code: "6B", days: ["Wed"], time: "18:30-21:30" },
+];
+const periodWhen = (p) => `${p.days.join(", ")} ${fmtRange(p.time)}`;
+// Suggestions read "10A — Tue, Thu …"; only the code is saved.
+const codeOf = (option) => option.split(" — ")[0];
+const periodOf = (code) => PERIODS.find((p) => p.code === code);
+
+const KINDS = {
+  clubs: { label: "Clubs", one: "Club", icon: "flag" },
+  workshops: { label: "Workshops", one: "Workshop", icon: "tools" },
+  events: { label: "Events", one: "Event", icon: "calendar-event" },
+};
+
+// The Interest Tree. Each branch maps to API categories (spec §5). A branch with `page` opens its own
+// sub-page (spec §6) instead of expanding in place. Add a branch or category here and the tree,
+// recommendations and explore pages pick it up.
+const BRANCHES = [
+  { id: "tech", label: "Tech", size: 18, icon: "gears", sources: [{ kind: "workshops", category: "Technical" }] },
+  { id: "academic", label: "Academic", size: 15, icon: "book", sources: [{ kind: "clubs", category: "Academic" }] },
+  { id: "career", label: "Career", size: 18, icon: "briefcase", sources: [{ kind: "events", category: "Career" }, { kind: "workshops", category: "Career" }] },
+  { id: "recreation", label: "Recreation", size: 15, icon: "run", page: [
+    { label: "Wellness", icon: "heart", sources: [{ kind: "workshops", category: "Wellness" }] },
+    { label: "Sports", icon: "balls", sources: [{ kind: "clubs", category: "Recreation" }] },
+  ] },
+  { id: "arts", label: "Arts", size: 18, icon: "arts", sources: [{ kind: "clubs", category: "Arts" }, { kind: "workshops", category: "Creative" }] },
+  { id: "service", label: "Service", size: 18, icon: "heart-handshake", sources: [{ kind: "clubs", category: "Service" }] },
+  { id: "leadership", label: "Leadership", size: 15, icon: "speakerphone", sources: [{ kind: "workshops", category: "Leadership" }] },
+  { id: "social", label: "Social", size: 15, icon: "users-group", page: [
+    { label: "Social", icon: "letter-d", sources: [{ kind: "events", category: "Social" }] },
+    { label: "Concert", icon: "microphone", sources: [{ kind: "events", category: "Concert" }] },
+    { label: "Speaker", icon: "speaker", sources: [{ kind: "events", category: "Speaker" }] },
+    { label: "Cultural", icon: "world", sources: [{ kind: "events", category: "Cultural" }] },
+  ] },
+];
+
+const IDENTITY_QUESTIONS = [
+  { section: "identity", id: "year", label: "Class year:", options: () => ["Freshman", "Sophomore", "Junior", "Senior"], free: false },
+  { section: "identity", id: "gender", label: "Gender:", options: () => [PREFER_NOT, "Woman", "Man", "Non-binary"], free: true,
+    why: "Optional. Used only for clubs and events with a stated membership rule, like women's club sports." },
+  { section: "identity", id: "race_ethnicity", label: "Race / ethnicity:", free: true,
+    options: () => [PREFER_NOT, "American Indian or Alaska Native", "Asian", "Black or African American", "Hispanic or Latino", "Middle Eastern or North African", "Native Hawaiian or Pacific Islander", "White", "Multiracial"],
+    why: "Optional. Used only for groups with a stated membership rule. Choosing not to answer never hides anything." },
+];
+
+const STATS_QUESTIONS = [
+  { section: "stats", id: "major", label: "Intended major:", options: () => [...DEPARTMENTS, "Undecided"], free: false },
+  { section: "stats", id: "minor", label: "Minor (optional):", options: () => DEPARTMENTS, free: false },
+  { section: "stats", id: "interests", label: "Other academic interests:", options: () => DEPARTMENTS, free: true, multi: true },
+  { section: "stats", id: "classes", label: "Current class periods:", multi: true, free: false, pick: codeOf,
+    options: () => PERIODS.map((p) => `${p.code} — ${periodWhen(p)}`) },
+  { section: "stats", id: "clubs", label: "Current club commitments:", options: () => items.filter((i) => i.kind === "clubs").map((c) => c.name), free: false, multi: true },
+];
+
+const ICONS = {
+  "settings": "<path d=\"M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065\"/><path d=\"M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0\"/>",
+  "book": "<path d=\"M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0\"/><path d=\"M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0\"/><path d=\"M3 6l0 13\"/><path d=\"M12 6l0 13\"/><path d=\"M21 6l0 13\"/>",
+  "briefcase": "<path d=\"M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -9\"/><path d=\"M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2\"/><path d=\"M12 12l0 .01\"/><path d=\"M3 13a20 20 0 0 0 18 0\"/>",
+  "run": "<path d=\"M11.007 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0\"/><path d=\"M4 17l5 1l.75 -1.5\"/><path d=\"M15 21v-4l-4 -3l1 -6\"/><path d=\"M7 12v-3l5 -1l3 3l3 1\"/>",
+  "brush": "<path d=\"M3 21v-4a4 4 0 1 1 4 4h-4\"/><path d=\"M21 3a16 16 0 0 0 -12.8 10.2\"/><path d=\"M21 3a16 16 0 0 1 -10.2 12.8\"/><path d=\"M10.6 9a9 9 0 0 1 4.4 4.4\"/>",
+  "masks-theater": "<path d=\"M13.192 9h6.616a2 2 0 0 1 1.992 2.183l-.567 6.182a4 4 0 0 1 -3.983 3.635h-1.5a4 4 0 0 1 -3.983 -3.635l-.567 -6.182a2 2 0 0 1 1.992 -2.183\"/><path d=\"M15 13h.01\"/><path d=\"M18 13h.01\"/><path d=\"M15 16.5c1 .667 2 .667 3 0\"/><path d=\"M8.632 15.982a4.037 4.037 0 0 1 -.382 .018h-1.5a4 4 0 0 1 -3.983 -3.635l-.567 -6.182a2 2 0 0 1 1.992 -2.183h6.616a2 2 0 0 1 2 2\"/><path d=\"M6 8h.01\"/><path d=\"M9 8h.01\"/><path d=\"M6 12c.764 -.51 1.528 -.63 2.291 -.36\"/>",
+  "heart-handshake": "<path d=\"M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572\"/><path d=\"M12 6l-3.293 3.293a1 1 0 0 0 0 1.414l.543 .543c.69 .69 1.81 .69 2.5 0l1 -1a3.182 3.182 0 0 1 4.5 0l2.25 2.25\"/><path d=\"M12.5 15.5l2 2\"/><path d=\"M15 13l2 2\"/>",
+  "speakerphone": "<path d=\"M18 8a3 3 0 0 1 0 6\"/><path d=\"M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5\"/><path d=\"M12 8l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8\"/>",
+  "users-group": "<path d=\"M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0\"/><path d=\"M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1\"/><path d=\"M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0\"/><path d=\"M17 10h2a2 2 0 0 1 2 2v1\"/><path d=\"M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0\"/><path d=\"M3 13v-1a2 2 0 0 1 2 -2h2\"/>",
+  "heart": "<path d=\"M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572\"/>",
+  "ball-basketball": "<path d=\"M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0\"/><path d=\"M5.65 5.65l12.7 12.7\"/><path d=\"M5.65 18.35l12.7 -12.7\"/><path d=\"M12 3a9 9 0 0 0 9 9\"/><path d=\"M3 12a9 9 0 0 1 9 9\"/>",
+  "ball-volleyball": "<path d=\"M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0\"/><path d=\"M12 12a8 8 0 0 0 8 4\"/><path d=\"M7.5 13.5a12 12 0 0 0 8.5 6.5\"/><path d=\"M12 12a8 8 0 0 0 -7.464 4.928\"/><path d=\"M12.951 7.353a12 12 0 0 0 -9.88 4.111\"/><path d=\"M12 12a8 8 0 0 0 -.536 -8.928\"/><path d=\"M15.549 15.147a12 12 0 0 0 1.38 -10.611\"/>",
+  "ball-american-football": "<path d=\"M15 9l-6 6\"/><path d=\"M10 12l2 2\"/><path d=\"M12 10l2 2\"/><path d=\"M8 21a5 5 0 0 0 -5 -5\"/><path d=\"M16 3c-7.18 0 -13 5.82 -13 13a5 5 0 0 0 5 5c7.18 0 13 -5.82 13 -13a5 5 0 0 0 -5 -5\"/><path d=\"M16 3a5 5 0 0 0 5 5\"/>",
+  "letter-d": "<path d=\"M7 4h6a5 5 0 0 1 5 5v6a5 5 0 0 1 -5 5h-6v-16\"/>",
+  "microphone": "<path d=\"M9 5a3 3 0 0 1 3 -3a3 3 0 0 1 3 3v5a3 3 0 0 1 -3 3a3 3 0 0 1 -3 -3l0 -5\"/><path d=\"M5 10a7 7 0 0 0 14 0\"/><path d=\"M8 21l8 0\"/><path d=\"M12 17l0 4\"/>",
+  "world": "<path d=\"M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0\"/><path d=\"M3.6 9h16.8\"/><path d=\"M3.6 15h16.8\"/><path d=\"M11.5 3a17 17 0 0 0 0 18\"/><path d=\"M12.5 3a17 17 0 0 1 0 18\"/>",
+  "calendar-week": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12\"/><path d=\"M16 3v4\"/><path d=\"M8 3v4\"/><path d=\"M4 11h16\"/><path d=\"M7 14h.013\"/><path d=\"M10.01 14h.005\"/><path d=\"M13.01 14h.005\"/><path d=\"M16.015 14h.005\"/><path d=\"M13.015 17h.005\"/><path d=\"M7.01 17h.005\"/><path d=\"M10.01 17h.005\"/>",
+  "calendar-month": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12\"/><path d=\"M16 3v4\"/><path d=\"M8 3v4\"/><path d=\"M4 11h16\"/><path d=\"M8 14v4\"/><path d=\"M12 14v4\"/><path d=\"M16 14v4\"/>",
+  "calendar": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12\"/><path d=\"M16 3v4\"/><path d=\"M8 3v4\"/><path d=\"M4 11h16\"/><path d=\"M11 15h1\"/><path d=\"M12 15v3\"/>",
+  "flag": "<path d=\"M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9\"/><path d=\"M5 21v-7\"/>",
+  "tools": "<path d=\"M3 21h4l13 -13a1.5 1.5 0 0 0 -4 -4l-13 13v4\"/><path d=\"M14.5 5.5l4 4\"/><path d=\"M12 8l-5 -5l-4 4l5 5\"/><path d=\"M7 8l-1.5 1.5\"/><path d=\"M16 12l5 5l-4 4l-5 -5\"/><path d=\"M16 17l-1.5 1.5\"/>",
+  "calendar-event": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12\"/><path d=\"M16 3l0 4\"/><path d=\"M8 3l0 4\"/><path d=\"M4 11l16 0\"/><path d=\"M8 15h2v2h-2l0 -2\"/>",
+  "user": "<path d=\"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0\"/><path d=\"M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2\"/>"
+};
+const GLYPHS = {
+  ...ICONS,
+  gears: `<g transform="scale(.7)">${ICONS.settings}</g><g transform="translate(11.4 11.4) scale(.53)"><circle class="knock-disc" cx="12" cy="12" r="9.5"/>${ICONS.settings}</g>`,
+  balls: `<g transform="translate(.4 1.6) scale(.56)">${ICONS["ball-basketball"]}</g><g transform="translate(10.2 1.6) scale(.56)"><circle class="knock-disc" cx="12" cy="12" r="10"/>${ICONS["ball-volleyball"]}</g><g transform="translate(5.3 10) scale(.56)"><circle class="knock-disc" cx="12" cy="12" r="10"/>${ICONS["ball-american-football"]}</g>`,
+  arts: `<g transform="translate(0 3) scale(.86)">${ICONS["masks-theater"]}</g><g transform="translate(9.2 -.6) scale(.62) rotate(10 12 12)"><g class="knock">${ICONS.brush}</g>${ICONS.brush}</g>`,
+  speaker: `<g transform="translate(-1.2 2.6) scale(.8)">${ICONS.user}</g><path d="M15.5 6.2a3.6 3.6 0 0 1 0 5.2"/><path d="M18.2 4a7 7 0 0 1 0 9.6"/>`,
+};
+const icon = (name) => GLYPHS[name] || "";
+const CHECK = `<svg viewBox="0 0 24 24" class="glyph" stroke-width="2.5" aria-hidden="true"><path d="M5 12l5 5l10 -10"/></svg>`;
+const CLOSE = `<svg viewBox="0 0 24 24" class="glyph" stroke-width="2" aria-hidden="true"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>`;
+const WARN = `<svg viewBox="0 0 24 24" class="glyph" stroke-width="2" aria-hidden="true" style="color:currentColor"><path d="M12 9v4"/><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z"/><path d="M12 16h.01"/></svg>`;
+const CHEVRON = `<svg viewBox="0 0 24 24" class="glyph" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg>`;
+
+/* ---------- State ---------- */
+
+let items = [];
+let loadState = "loading";
+let saveFailed = false;
+let profile = loadProfile();
+const ui = { view: "home", subpage: null, active: {}, identityIntro: !hasAny(profile.identity), clubQuery: "", clubChip: "All", happQuery: "", happChip: "All", focus: "heading" };
+const tree = { branch: null, option: null, cam: null, seen: new Set() };
+
+function loadProfile() {
+  const blank = { schemaVersion: SCHEMA_VERSION, identity: {}, stats: {}, workshops: [], events: [], tree: { interests: [], lastPick: null }, updatedAt: null };
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (data && data.schemaVersion === SCHEMA_VERSION) return { ...blank, ...data, tree: { ...blank.tree, ...data.tree } };
+  } catch {}
+  return blank;
+}
+
+function persist() {
+  profile.updatedAt = new Date().toISOString();
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    saveFailed = false;
+  } catch {
+    saveFailed = true;
+  }
+}
+
+function hasAny(obj) { return Object.keys(obj || {}).length > 0; }
+
+/* ---------- Helpers ---------- */
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const svgIcon = (name, cls = "") => `<svg viewBox="0 0 24 24" class="glyph ${cls}" stroke-width="1.75" aria-hidden="true">${icon(name)}</svg>`;
+
+function parseDate(str) { const [y, m, d] = str.split("-").map(Number); return new Date(y, m - 1, d); }
+function daysUntil(str) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((parseDate(str) - today) / 86400000);
+}
+const fmtDate = (str) => parseDate(str).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+function fmtClock(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+}
+const fmtRange = (range) => range.split("-").map(fmtClock).join("–");
+function whenText(item) {
+  if (item.kind === "clubs") return `${DAY_NAMES[item.meeting_day] || item.meeting_day}, ${fmtRange(item.meeting_time)}`;
+  const d = daysUntil(item.date);
+  return `${fmtDate(item.date)}${d === 0 ? " (today)" : d === 1 ? " (tomorrow)" : ""}`;
+}
+
+function normalize(clubs, workshops, events) {
+  return [
+    ...clubs.map((c) => ({ ...c, kind: "clubs", key: `clubs-${c.id}` })),
+    ...workshops.map((w) => ({ ...w, kind: "workshops", key: `workshops-${w.id}`, name: w.title })),
+    ...events.map((e) => ({ ...e, kind: "events", key: `events-${e.id}`, name: e.title })),
+  ];
+}
+
+function eligible(item, identity = profile.identity) {
+  return ELIGIBILITY_RULES.every((rule) => {
+    if (rule.kind !== item.kind || rule.name !== item.name) return true;
+    const answer = identity[rule.field];
+    return !answer || answer === PREFER_NOT || rule.allow.includes(answer);
+  });
+}
+
+const upcoming = (item) => item.kind === "clubs" || daysUntil(item.date) >= 0;
+const myClubNames = () => profile.stats.clubs || [];
+// Everything the student has added: clubs (from Current Stats), workshops and events.
+const savedLists = (p = profile) => ({ clubs: p.stats.clubs || [], workshops: p.workshops || [], events: p.events || [] });
+const isSaved = (item, saved = savedLists()) => saved[item.kind].includes(item.name);
+function toggleSaved(kind, name) {
+  const list = savedLists()[kind];
+  const next = list.includes(name) ? list.filter((n) => n !== name) : [...list, name];
+  if (kind === "clubs") profile.stats.clubs = next;
+  else profile[kind] = next;
+  persist();
+}
+const isPast = (item) => item.kind !== "clubs" && daysUntil(item.date) < 0;
+// Upcoming soonest first, then ones that already happened, most recent first.
+const byDate = (a, b) => isPast(a) - isPast(b) || (isPast(a) ? daysUntil(b.date) - daysUntil(a.date) : daysUntil(a.date) - daysUntil(b.date));
+const mySchedule = () => items.filter((i) => i.kind !== "clubs" && isSaved(i)).sort(byDate);
+const myClubs = () => myClubNames().map((n) => items.find((i) => i.kind === "clubs" && i.name === n)).filter(Boolean);
+
+// Academic answers that show up in an item's name, e.g. "Engineering Sciences" → "Design Engineering Club".
+function academicMatches(item, stats = profile.stats) {
+  const phrases = [stats.major, stats.minor, ...(stats.interests || [])].filter((p) => p && p !== "Undecided");
+  const text = `${item.name} ${item.description || ""}`.toLowerCase();
+  return [...new Set(phrases)].filter((p) => p.toLowerCase().split(/[^a-z]+/).some((w) => w.length > 3 && text.includes(w)));
+}
+
+function optionsFor(branch) {
+  if (branch.page) return branch.page;
+  const kinds = [...new Set(branch.sources.map((s) => s.kind))];
+  return kinds.map((k) => ({ label: KINDS[k].label, icon: KINDS[k].icon, sources: branch.sources.filter((s) => s.kind === k) }));
+}
+
+const toMinutes = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+// Schedule clashes: clubs you're in that meet on the same day at an overlapping time.
+// shortcut: workshops and events have a date but no time in the API, so they're never flagged; add start/end times to check them.
+// Your weekly schedule: clubs you're in and your classes, as { name, when, days, time } blocks.
+function scheduleBlocks(all = items, stats = profile.stats) {
+  const clubs = (stats.clubs || []).map((n) => all.find((c) => c.kind === "clubs" && c.name === n)).filter(Boolean)
+    .map((c) => ({ name: c.name, when: whenText(c), days: [c.meeting_day], time: c.meeting_time }));
+  const classes = (stats.classes || []).map(periodOf).filter(Boolean)
+    .map((p) => ({ name: `your ${p.code} class`, when: periodWhen(p), days: p.days, time: p.time }));
+  return [...clubs, ...classes];
+}
+function clashesFor(item, all = items, stats = profile.stats) {
+  if (item.kind !== "clubs") return [];
+  const [s0, e0] = item.meeting_time.split("-").map(toMinutes);
+  return scheduleBlocks(all, stats)
+    .filter((b) => b.name !== item.name && b.days.includes(item.meeting_day))
+    .filter((b) => { const [s1, e1] = b.time.split("-").map(toMinutes); return s0 < e1 && s1 < e0; });
+}
+const clashText = (clashes) => `Clashes with ${clashes.map((b) => `${b.name} (${b.when})`).join(" and ")}`;
+const inSources = (item, sources) => sources.some((s) => s.kind === item.kind && s.category === item.category);
+
+// Everything under a tree option, best fit first: fits your schedule, then academic matches, then soonest.
+// Clubs you're in and things on your schedule stay in the list (marked) but sort last.
+function matchesFor(option, { all = items, stats = profile.stats, identity = profile.identity, saved = savedLists({ ...profile, stats }) } = {}) {
+  return all
+    .filter((i) => inSources(i, option.sources) && eligible(i, identity) && upcoming(i))
+    .map((item) => ({ item, matches: academicMatches(item, stats), clashes: clashesFor(item, all, stats), mine: isSaved(item, saved) }))
+    .sort((a, b) => a.mine - b.mine || a.clashes.length - b.clashes.length || b.matches.length - a.matches.length
+      || (a.item.kind === "clubs" ? 0 : daysUntil(a.item.date) - daysUntil(b.item.date)));
+}
+
+/* ---------- Views ---------- */
+
+const VIEWS = { home: homeView, tree: treeView, subpage: subpageView, stats: statsView, identity: identityView, clubs: clubsView, happenings: happeningsView, edit: editView };
+const NAV_FOR = { subpage: "tree" };
+
+function render() {
+  const main = document.getElementById("view");
+  main.innerHTML = (saveFailed ? `<p class="banner" role="alert">Couldn't save to this browser (storage may be full or blocked). Your answers are kept until you close the page.</p>` : "") + VIEWS[ui.view]();
+  document.querySelectorAll(".navbtn").forEach((b) => {
+    if (b.dataset.view === (NAV_FOR[ui.view] || ui.view)) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  afterRender();
+}
+
+function go(view, focus = "auto") {
+  ui.view = view;
+  ui.focus = focus;
+  transition(render);
+}
+
+function transition(fn) {
+  if (document.startViewTransition && !REDUCED_MOTION) document.startViewTransition(fn);
+  else fn();
+}
+
+function afterRender() {
+  if (ui.view === "tree" || ui.view === "subpage") wireStage();
+  let focus = ui.focus;
+  ui.focus = null;
+  if (focus === "auto") focus = document.querySelector("main .combo-input") ? "main .combo-input" : "heading";
+  if (focus === "heading") document.querySelector("main h1")?.focus({ preventScroll: false });
+  else if (focus) document.querySelector(focus)?.focus();
+  if (focus === "heading") window.scrollTo(0, 0);
+  document.querySelectorAll(".combo-input").forEach((input) => updateList(input));
+}
+
+function statusView() {
+  if (loadState === "loading") return `<p class="loading">Loading clubs, workshops and events…</p>`;
+  if (loadState === "error") return `<div class="banner" role="alert">Couldn't load clubs, workshops and events from ${esc(API)}. Check your connection and try again. <button class="btn secondary" style="color:#6b0000;border-color:#6b0000" data-action="retry">Try again</button></div>`;
+  return "";
+}
+
+function homeView() {
+  const steps = [
+    { view: "identity", icon: "user", title: "Identity", text: "A few optional questions, so you only see what's open to you.", done: hasAny(profile.identity) },
+    { view: "stats", icon: "book", title: "Current Stats", text: "Your major, interests, classes and the clubs you're already in.", done: hasAny(profile.stats) },
+    { view: "tree", icon: "users-group", title: "Interest Tree", text: "Pick an interest and a type to see everything that fits.", done: !!profile.tree.lastPick },
+  ];
+  const pick = profile.tree.lastPick && items.find((i) => i.key === profile.tree.lastPick.key);
+  const mine = myClubs();
+  const schedule = mySchedule();
+  return `<div class="page">
+    <h1 tabindex="-1">My clubs</h1>
+    ${statusView()}
+    ${loadState !== "ready" ? "" : mine.length ? `<div class="list">${mine.map(clubDetails).join("")}</div>`
+      : `<div class="list"><p class="empty-state">You haven't added any clubs yet. Add the ones you're in from <button class="link" data-view="stats" data-focus="clubs">Current Stats</button>, or find new ones in <button class="link" data-view="clubs">Explore clubs</button>.</p></div>`}
+    ${loadState !== "ready" ? "" : `<h2 class="section">My classes</h2>${(profile.stats.classes || []).length
+      ? `<div class="list">${profile.stats.classes.map(classRow).join("")}</div>`
+      : `<div class="list"><p class="empty-state">No class periods added yet. Add them in <button class="link" data-view="stats" data-focus="classes">Current Stats</button> so we can warn you about clashes.</p></div>`}`}
+    ${loadState !== "ready" ? "" : `<h2 class="section">My workshops &amp; events</h2>${schedule.length
+      ? `<div class="list">${schedule.map((w) => itemRow(w, { toggle: true })).join("")}</div>`
+      : `<div class="list"><p class="empty-state">Nothing on your schedule yet. Add workshops and events from <button class="link" data-view="happenings">Workshops &amp; events</button> or the Interest Tree.</p></div>`}`}
+    ${pick ? `<h2 class="section">Top match from your Interest Tree</h2>
+      <div class="list">${itemRow(pick, { reasons: [profile.tree.lastPick.path], clashes: clashesFor(pick) })}</div>` : ""}
+    <h2 class="section">Find your next club, workshop or event</h2>
+    <p class="lede">Dalí GSS suggests things to join based on what you're into. Answer two short surveys, then explore the Interest Tree. You can change any answer later.</p>
+    <ol class="steps">${steps.map((s) => `
+      <li>${svgIcon(s.icon)}<div><strong>${s.title}</strong><span>${s.text}</span></div>
+        ${s.done ? `<span class="done">${CHECK}Done</span>` : `<button class="btn secondary" data-view="${s.view}">Start</button>`}</li>`).join("")}
+    </ol>
+  </div>`;
+}
+
+function clubDetails(club) {
+  const clashes = clashesFor(club);
+  return `<details class="item">
+    <summary><div><h3>${esc(club.name)}</h3><p class="meta">${esc(club.category)} · ${esc(whenText(club))}</p>
+      ${clashes.length ? `<p class="warn">${WARN}<span>${esc(clashText(clashes))}</span></p>` : ""}</div>${CHEVRON}</summary>
+    <div class="more">
+      <p class="meta" style="color:var(--ink)">${esc(club.description || "No description has been added for this club yet.")}</p>
+      <p class="meta">Meets ${esc(whenText(club))}</p>
+      <div><button class="link" data-toggle="clubs" data-name="${esc(club.name)}">Remove from my clubs</button></div>
+    </div>
+  </details>`;
+}
+
+function classRow(code) {
+  const period = periodOf(code);
+  return `<div class="item">
+    <div><h3>${esc(code)}</h3><p class="meta">${esc(period ? periodWhen(period) : "Not a period on the class schedule")}</p></div>
+    <button class="btn" data-remove="stats:classes" data-value="${esc(code)}">Remove</button>
+  </div>`;
+}
+
+function itemRow(item, { reasons = [], toggle = false, clashes = [] } = {}) {
+  const facts = item.kind === "clubs"
+    ? `${esc(item.category)} club · Meets ${esc(whenText(item))}`
+    : `${esc(KINDS[item.kind].one)} · ${esc(item.category)} · ${esc(whenText(item))} · ${esc(item.location)}${item.facilitator ? ` · Led by ${esc(item.facilitator)}` : ""}`;
+  const saved = isSaved(item);
+  const past = isPast(item);
+  const [add, added] = item.kind === "clubs" ? ["Add to my clubs", "In my clubs"] : ["Add to my schedule", "On my schedule"];
+  return `<div class="item">
+    <div><h3>${esc(item.name)}${past ? ` <span class="past">${WARN}Already happened</span>` : ""}</h3><p class="meta">${facts}</p>
+      ${reasons.length ? `<p class="reasons">${reasons.map(esc).join(" · ")}</p>` : ""}
+      ${clashes.length ? `<p class="warn">${WARN}<span>${esc(clashText(clashes))}</span></p>` : ""}</div>
+    ${toggle && (!past || saved) ? `<button class="btn ${saved ? "is-on" : ""}" data-toggle="${item.kind}" data-name="${esc(item.name)}" aria-pressed="${saved}">${saved ? added : add}</button>` : ""}
+  </div>`;
+}
+
+/* Explore: clubs */
+
+function clubSuggestions() {
+  const mine = myClubs();
+  const treeCats = new Set(profile.tree.interests);
+  return items
+    .filter((i) => i.kind === "clubs" && eligible(i) && !mine.includes(i))
+    .map((club) => {
+      const reasons = [];
+      const like = mine.find((m) => m.category === club.category);
+      if (like) reasons.push(`Like ${like.name}`);
+      if (treeCats.has(`clubs:${club.category}`)) reasons.push("From your Interest Tree");
+      academicMatches(club).forEach((p) => reasons.push(`Fits ${p}`));
+      return { item: club, reasons, clashes: clashesFor(club) };
+    })
+    .sort((a, b) => b.reasons.length - a.reasons.length || a.item.name.localeCompare(b.item.name));
+}
+
+function exploreToolbar(kind, query, chips, active) {
+  return `<div class="toolbar">
+    <label class="sr" for="${kind}-search" style="position:absolute;left:-9999px">Search by name</label>
+    <input id="${kind}-search" class="search" type="search" placeholder="Search by name" value="${esc(query)}" data-search="${kind}" autocomplete="off">
+    <div class="chips" role="group" aria-label="Filter by category">${chips.map((c) => `<button class="chip" data-chip="${kind}" aria-pressed="${c === active}">${esc(c)}</button>`).join("")}</div>
+  </div>`;
+}
+
+function clubsView() {
+  if (loadState !== "ready") return `<div class="page"><h1 tabindex="-1">Explore clubs</h1>${statusView()}</div>`;
+  const cats = ["All", ...new Set(items.filter((i) => i.kind === "clubs").map((c) => c.category))];
+  return `<div class="page">
+    <h1 tabindex="-1">Explore clubs</h1>
+    <p class="lede">Suggested from the clubs you're in, your Interest Tree picks and your academic interests. The best matches are at the top.</p>
+    ${exploreToolbar("clubs", ui.clubQuery, cats, ui.clubChip)}
+    <div id="clubs-results">${clubsResults()}</div>
+  </div>`;
+}
+
+function clubsResults() {
+  const q = ui.clubQuery.trim().toLowerCase();
+  const rows = clubSuggestions().filter(({ item }) => (ui.clubChip === "All" || item.category === ui.clubChip) && item.name.toLowerCase().includes(q));
+  return `<p class="count" role="status">${rows.length} ${rows.length === 1 ? "club" : "clubs"}</p>
+    <div class="list">${rows.length ? rows.map((r) => itemRow(r.item, { reasons: r.reasons, clashes: r.clashes, toggle: true })).join("") : `<p class="empty-state">No clubs match "${esc(ui.clubQuery)}"${ui.clubChip !== "All" ? ` in ${esc(ui.clubChip)}` : ""}.</p>`}</div>`;
+}
+
+/* Explore: workshops and events */
+
+function happeningsView() {
+  if (loadState !== "ready") return `<div class="page"><h1 tabindex="-1">Workshops &amp; events</h1>${statusView()}</div>`;
+  const dated = items.filter((i) => i.kind !== "clubs");
+  const chips = ["All", "Workshops", "Events", ...[...new Set(dated.map((i) => i.category))].sort()];
+  return `<div class="page">
+    <h1 tabindex="-1">Workshops &amp; events</h1>
+    <p class="lede">Everything coming up, soonest first, then ones that already happened. Ones that match your Interest Tree or academic interests are marked.</p>
+    ${exploreToolbar("happenings", ui.happQuery, chips, ui.happChip)}
+    <div id="happenings-results">${happeningsResults()}</div>
+  </div>`;
+}
+
+function happeningsResults() {
+  const q = ui.happQuery.trim().toLowerCase();
+  const chip = ui.happChip;
+  const treeCats = new Set(profile.tree.interests);
+  const rows = items
+    .filter((i) => i.kind !== "clubs" && eligible(i) && i.name.toLowerCase().includes(q))
+    .filter((i) => chip === "All" || (chip === "Workshops" ? i.kind === "workshops" : chip === "Events" ? i.kind === "events" : i.category === chip))
+    .sort(byDate);
+  const past = rows.filter(isPast).length;
+  return `<p class="count" role="status">${rows.length - past} coming up${past ? `, ${past} already happened` : ""}</p>
+    <div class="list">${rows.length ? rows.map((i) => itemRow(i, {
+      reasons: [...(treeCats.has(`${i.kind}:${i.category}`) ? ["From your Interest Tree"] : []), ...academicMatches(i).map((p) => `Fits ${p}`)],
+      toggle: true,
+    })).join("") : `<p class="empty-state">Nothing matches that search.</p>`}</div>`;
+}
+
+/* Surveys */
+
+function identityView() {
+  if (ui.identityIntro) {
+    return `<div class="page">
+      <h1 tabindex="-1">About you</h1>
+      <p class="lede">These questions help us suggest clubs, workshops and events. Some groups have membership rules, and your answers make sure we only show what's open to you.</p>
+      <p class="lede muted">Every question is optional, sensitive ones include "Prefer not to answer", and you can change your answers any time.</p>
+      <p class="lede muted">Already in clubs and just want to add them? Skip ahead.</p>
+      <div class="actions">
+        <button class="btn primary" data-action="identity-start">Next</button>
+        <button class="btn secondary" data-action="identity-skip">Skip survey</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="page">
+    <h1 tabindex="-1">About you</h1>
+    <p class="lede muted">Optional, and you can change these later.</p>
+    ${surveyHTML("identity", IDENTITY_QUESTIONS)}
+    <div class="actions"><button class="btn primary" data-view="stats" id="identity-next">Next: Current Stats</button></div>
+  </div>`;
+}
+
+function statsView() {
+  return `<div class="page">
+    <h1 tabindex="-1">What are your current academic and extra-curricular interests?</h1>
+    ${loadState === "ready" ? surveyHTML("stats", STATS_QUESTIONS) : statusView()}
+    <div class="actions"><button class="btn primary" data-view="tree" id="stats-next">Next: Interest Tree</button></div>
+  </div>`;
+}
+
+function editView() {
+  return `<div class="page">
+    <h1 tabindex="-1">Change your answers</h1>
+    <p class="lede">Your previous answers are below. Click any of them to change it.</p>
+    ${loadState === "ready" ? surveyHTML("edit", [...IDENTITY_QUESTIONS, ...STATS_QUESTIONS], { headings: { identity: "Identity", stats: "Current Stats" } }) : statusView()}
+  </div>`;
+}
+
+const SURVEYS = { identity: IDENTITY_QUESTIONS, stats: STATS_QUESTIONS, edit: [...IDENTITY_QUESTIONS, ...STATS_QUESTIONS] };
+const answered = (q) => q.id in profile[q.section];
+const getAnswer = (q) => profile[q.section][q.id];
+
+function surveyHTML(key, questions, { headings } = {}) {
+  if (!(key in ui.active)) ui.active[key] = key === "edit" ? -1 : Math.max(0, questions.findIndex((q) => !answered(q)));
+  let lastSection = null;
+  return questions.map((q, i) => {
+    const head = headings && q.section !== lastSection ? `<h2 class="surveyhead">${headings[q.section]}</h2>` : "";
+    lastSection = q.section;
+    return head + (i === ui.active[key] ? activeBox(key, q, i) : compactBox(key, q, i));
+  }).join("");
+}
+
+function chipsHTML(key, q, values) {
+  return values.length ? `<div class="chips-in">${values.map((v) => `<span class="chip-in">${esc(v)}<button data-remove="${key}:${q.id}" data-value="${esc(v)}" aria-label="Remove ${esc(v)}">${CLOSE}</button></span>`).join("")}</div>` : "";
+}
+
+function activeBox(key, q, i) {
+  const value = getAnswer(q);
+  const values = q.multi ? value || [] : [];
+  const hint = q.multi
+    ? `Pick ${q.free ? "a suggestion or type your own" : "from the suggestions"} and press Enter to add it. Press Enter on an empty field when you're done.`
+    : q.free ? "Pick a suggestion or type your own, then press Enter." : "Choose one of the suggestions. Arrow keys and Enter work too.";
+  const done = q.multi && values.length;
+  return `<section class="qbox is-active" style="view-transition-name:q-${key}-${i}" data-survey="${key}" data-index="${i}">
+    <label class="q" for="${key}-input" id="${key}-label">${esc(q.label)}</label>
+    ${chipsHTML(key, q, values)}
+    <input id="${key}-input" class="field combo-input" role="combobox" autocomplete="off" aria-autocomplete="list" aria-expanded="false"
+      aria-controls="${key}-list" aria-describedby="${key}-hint ${key}-error" data-survey="${key}" value="${q.multi ? "" : esc(value || "")}">
+    <ul id="${key}-list" role="listbox" aria-labelledby="${key}-label"></ul>
+    <p class="hint" id="${key}-hint">${esc(hint)}${q.why ? ` ${esc(q.why)}` : ""}</p>
+    <p class="hint error" id="${key}-error" role="alert"></p>
+    <div class="qactions"><button class="link" data-skip="${key}">${done ? "Done" : "Skip this question"}</button></div>
+  </section>`;
+}
+
+function compactBox(key, q, i) {
+  const value = getAnswer(q);
+  const shown = Array.isArray(value) ? value.join(", ") : value;
+  const has = Array.isArray(value) ? value.length > 0 : !!value;
+  return `<section class="qbox is-compact" style="view-transition-name:q-${key}-${i}" data-open="${key}:${i}">
+    <span class="q">${esc(q.label)}</span>
+    <div class="row">
+      <span class="value ${has ? "" : "empty"}">${has ? esc(shown) : answered(q) ? "Skipped" : "Not answered yet"}</span>
+      ${has ? `<span class="status">${CHECK}Saved</span>` : ""}
+      <button class="link" data-open="${key}:${i}" aria-label="${has ? "Edit" : "Answer"}: ${esc(q.label)}">${has ? "Edit" : "Answer"}</button>
+    </div>
+  </section>`;
+}
+
+function matches(input) {
+  const q = SURVEYS[input.dataset.survey][ui.active[input.dataset.survey]];
+  const typed = input.value.trim().toLowerCase();
+  const taken = q.multi ? getAnswer(q) || [] : [];
+  return q.options().filter((o) => !taken.includes(o) && o.toLowerCase().includes(typed));
+}
+
+function updateList(input, highlight = Number(input.dataset.highlight ?? -1)) {
+  const key = input.dataset.survey;
+  const q = SURVEYS[key][ui.active[key]];
+  const list = document.getElementById(`${key}-list`);
+  const found = matches(input);
+  input.dataset.highlight = highlight;
+  list.innerHTML = found.map((o, i) => `<li role="option" id="${key}-opt-${i}" data-survey="${key}" aria-selected="${i === highlight}">${esc(o)}</li>`).join("");
+  input.setAttribute("aria-expanded", found.length > 0);
+  if (highlight >= 0) input.setAttribute("aria-activedescendant", `${key}-opt-${highlight}`);
+  else input.removeAttribute("aria-activedescendant");
+  document.getElementById(`${key}-opt-${highlight}`)?.scrollIntoView({ block: "nearest" });
+  const typed = input.value.trim();
+  showError(key, !found.length && typed
+    ? q.free ? "No suggestions match. Press Enter to use what you typed." : "No options match. Try a different spelling." : "");
+}
+
+const showError = (key, msg) => { const el = document.getElementById(`${key}-error`); if (el) el.textContent = msg; };
+
+function nextOpen(key, from) {
+  const qs = SURVEYS[key];
+  const order = [...qs.keys()].slice(from + 1);
+  if (key !== "edit") order.push(...[...qs.keys()].slice(0, from));
+  const next = order.find((i) => !answered(qs[i]));
+  return next === undefined ? -1 : next;
+}
+
+function advance(key, from) {
+  ui.active[key] = nextOpen(key, from);
+  ui.focus = ui.active[key] >= 0 ? `#${key}-input` : key === "identity" ? "#identity-next" : key === "stats" ? "#stats-next" : null;
+  transition(render);
+}
+
+function answer(key, value) {
+  const i = ui.active[key];
+  const q = SURVEYS[key][i];
+  const input = document.getElementById(`${key}-input`);
+  if (q.pick) {
+    value = q.pick(value);
+    if ((getAnswer(q) || []).includes(value)) return showError(key, `${value} is already added.`);
+  }
+  if (q.multi) {
+    profile[q.section][q.id] = [...(getAnswer(q) || []), value];
+    persist();
+    input.value = "";
+    input.classList.add("is-saved");
+    setTimeout(() => input.classList.remove("is-saved"), 260);
+    ui.focus = `#${key}-input`;
+    return render();
+  }
+  profile[q.section][q.id] = value;
+  persist();
+  input.classList.add("is-saved");
+  input.disabled = true;
+  setTimeout(() => advance(key, i), REDUCED_MOTION ? 0 : 220);
+}
+
+function confirmTyped(input) {
+  const key = input.dataset.survey;
+  const q = SURVEYS[key][ui.active[key]];
+  const found = matches(input);
+  const hl = Number(input.dataset.highlight ?? -1);
+  if (hl >= 0 && found[hl]) return answer(key, found[hl]);
+  const typed = input.value.trim();
+  if (!typed) {
+    if (q.multi && (getAnswer(q) || []).length) return advance(key, ui.active[key]);
+    return showError(key, 'Type an answer, or choose "Skip this question".');
+  }
+  const exact = q.options().find((o) => o.toLowerCase() === typed.toLowerCase() || codeOf(o).toLowerCase() === typed.toLowerCase());
+  if (exact) {
+    if (q.multi && (getAnswer(q) || []).includes(exact)) return showError(key, `${exact} is already added.`);
+    return answer(key, exact);
+  }
+  if (q.free) return answer(key, typed);
+  showError(key, "Please choose one of the suggestions.");
+}
+
+/* ---------- Interest Tree ---------- */
+
+const R_BRANCH = 147, ARM = 549, R_OPT = 104;
+const polar = (a, d, o = { x: 0, y: 0 }) => ({ x: o.x + Math.cos(a) * d, y: o.y + Math.sin(a) * d });
+
+function link(p, rp, c, rc) {
+  const a = Math.atan2(c.y - p.y, c.x - p.x);
+  return { x1: p.x + Math.cos(a) * rp, y1: p.y + Math.sin(a) * rp, x2: c.x - Math.cos(a) * rc, y2: c.y - Math.sin(a) * rc };
+}
+
+function treeLayout() {
+  const nodes = [], arms = [];
+  const origin = { x: 0, y: 0 };
+  BRANCHES.forEach((b, bi) => {
+    const a = -Math.PI / 2 + (bi * 2 * Math.PI) / BRANCHES.length;
+    const p = polar(a, ARM + R_BRANCH);
+    arms.push(link(origin, 0, p, R_BRANCH));
+    nodes.push({ id: `branch:${b.id}`, ...p, r: R_BRANCH, icon: b.icon, label: b.label, size: b.size, hover: true,
+      selected: tree.branch === b.id, dim: tree.branch && tree.branch !== b.id, group: "branch" });
+    if (tree.branch !== b.id) return;
+    const opts = optionsFor(b);
+    opts.forEach((o, oi) => {
+      if (b.page && tree.option !== oi) return; // sub-page picks show only the chosen option in the tree
+      const oa = a + (b.page ? 0 : (oi - (opts.length - 1) / 2) * 0.78);
+      const op = polar(oa, R_BRANCH + 170 + R_OPT, p);
+      arms.push(link(p, R_BRANCH, op, R_OPT));
+      nodes.push({ id: `option:${oi}`, ...op, r: R_OPT, icon: o.icon, label: o.label, selected: tree.option === oi,
+        dim: tree.option !== null && tree.option !== oi, group: "option" });
+    });
+  });
+  return { nodes, arms };
+}
+
+function cameraFor(nodes) {
+  const focusGroup = tree.branch ? "option" : "branch";
+  let set = nodes.filter((n) => n.group === focusGroup);
+  if (focusGroup === "option") set = set.concat(nodes.filter((n) => n.selected && n.group === "branch"));
+  if (!tree.branch) set = set.concat([{ x: 0, y: 0, r: 0 }]);
+  const pad = 70;
+  const x0 = Math.min(...set.map((n) => n.x - n.r)) - pad, x1 = Math.max(...set.map((n) => n.x + n.r)) + pad;
+  const y0 = Math.min(...set.map((n) => n.y - n.r)) - pad, y1 = Math.max(...set.map((n) => n.y + n.r + (n.hover ? 0 : 70))) + pad;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+function nodeSVG(n, isNew) {
+  const iconSize = n.r * 1.05;
+  const fit = (n.r * 1.6) / (0.6 * n.label.length); // widest mono font size that still fits inside the circle
+  return `<g class="node ${n.hover ? "has-hover-label" : ""} ${n.selected ? "is-selected" : ""} ${n.dim ? "is-dim" : ""}"
+      transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})" data-node="${n.id}" role="button" tabindex="0"
+      aria-label="${esc(n.label)}" aria-pressed="${!!n.selected}">
+    <g class="${isNew ? "grow" : ""}" style="transform-origin:0 0">
+      <circle class="disc" r="${n.r}"/>
+      <g class="glyph" transform="translate(${-iconSize / 2} ${-iconSize / 2}) scale(${iconSize / 24})" stroke-width="1.6">${icon(n.icon)}</g>
+      ${n.hover
+        ? `<text class="hover-label" text-anchor="middle" dominant-baseline="central" data-px="${n.size * (4 / 3)}" data-fit="${fit}">${esc(n.label)}</text>`
+        : `<text text-anchor="middle" data-px="18" data-below="${n.r}">${esc(n.label)}</text>`}
+    </g>
+  </g>`;
+}
+
+function treeView() {
+  if (loadState !== "ready") return `<div class="page"><h1 tabindex="-1">Interest Tree</h1>${statusView()}</div>`;
+  const { nodes, arms } = treeLayout();
+  const branch = BRANCHES.find((b) => b.id === tree.branch);
+  const option = branch && tree.option !== null ? optionsFor(branch)[tree.option] : null;
+  const prompt = !branch ? "Pick an interest. Hover or focus a circle to see its name."
+    : !option ? `${branch.label}: what are you looking for?`
+    : matchesFor(option).length ? "Here's everything that fits." : "Nothing coming up here yet.";
+  const cam = tree.cam || cameraFor(nodes);
+  const fresh = nodes.filter((n) => !tree.seen.has(n.id));
+  nodes.forEach((n) => tree.seen.add(n.id));
+  return `<div class="tree-page">
+    <header>${branch ? `<button class="back" data-action="tree-back">Back</button>` : ""}<h1 tabindex="-1">Interest Tree</h1><p class="prompt" aria-live="polite">${esc(prompt)}</p></header>
+    <svg class="stage" id="stage" viewBox="${cam.x} ${cam.y} ${cam.w} ${cam.h}" role="group" aria-label="Interest tree">
+      ${arms.map((l) => `<line class="arm" x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}" x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}"/>`).join("")}
+      <circle class="hub" r="18"/>
+      ${nodes.map((n) => nodeSVG(n, fresh.includes(n) && tree.seen.size > fresh.length)).join("")}
+    </svg>
+    ${option ? resultsList(branch, option) : ""}
+    <div class="tree-tools">
+      <button class="done-btn" data-action="tree-done">Done</button>
+      ${branch ? `<button class="link on-bg" data-action="tree-reset">Start over</button>` : ""}
+    </div>
+  </div>`;
+}
+
+function resultsList(branch, option) {
+  const rows = matchesFor(option);
+  const kind = KINDS[option.sources[0].kind];
+  const path = `${branch.label} → ${option.label}`;
+  if (!rows.length) {
+    return `<section class="results" id="pick" tabindex="-1"><h2>Nothing coming up under ${esc(path)} yet</h2>
+      <p class="muted">Go back and try another option.</p></section>`;
+  }
+  return `<section class="results" id="pick" tabindex="-1" aria-labelledby="pick-title">
+    <h2 id="pick-title">${rows.length} ${esc(rows.length === 1 ? kind.one.toLowerCase() : kind.label.toLowerCase())} for ${esc(path)}</h2>
+    <p class="muted">Best fits first: things that fit your schedule, then matches with your academic interests${kind === KINDS.clubs ? "" : ", then the soonest"}.</p>
+    <div class="list">${rows.map((r) => itemRow(r.item, { reasons: r.matches.map((p) => `Connects to ${p}`), clashes: r.clashes, toggle: true })).join("")}</div>
+  </section>`;
+}
+
+function subpageView() {
+  const branch = BRANCHES.find((b) => b.id === ui.subpage);
+  const opts = branch.page;
+  const cols = 2, R = 300, gap = 80;
+  const rows = Math.ceil(opts.length / cols);
+  const w = cols * 2 * R + (cols - 1) * gap, h = rows * 2 * R + (rows - 1) * gap;
+  const nodes = opts.map((o, i) => ({ id: `sub:${i}`, x: R + (i % cols) * (2 * R + gap), y: R + Math.floor(i / cols) * (2 * R + gap),
+    r: R, icon: o.icon, label: o.label, size: 18, hover: true, selected: tree.branch === branch.id && tree.option === i }));
+  return `<div class="subpage">
+    <button class="back" data-action="sub-back">Back</button>
+    <h1 tabindex="-1" style="margin-top:12px">${esc(branch.label)}</h1>
+    <p class="prompt">${esc(opts.map((o) => o.label).join(", ").replace(/, ([^,]*)$/, " or $1"))}?</p>
+    <svg class="stage" id="stage" viewBox="-40 -40 ${w + 80} ${h + 80}" role="group" aria-label="${esc(branch.label)} options">
+      ${nodes.map((n) => nodeSVG(n, false)).join("")}
+    </svg>
+  </div>`;
+}
+
+// The spec's sizes are for the drawing at full size, but the camera scales it to fit the screen, so labels
+// are sized in screen pixels (pt in the spec) and only shrink when they wouldn't fit inside their circle.
+function sizeLabels(svg, cam) {
+  const scale = Math.min(svg.clientWidth / cam.w, svg.clientHeight / cam.h) || 1;
+  svg.querySelectorAll("text[data-px]").forEach((t) => {
+    const size = Math.min(Number(t.dataset.px) / scale, Number(t.dataset.fit) || Infinity);
+    t.setAttribute("font-size", size);
+    t.setAttribute("stroke-width", size * (t.dataset.below ? 0.45 : 0.14));
+    if (t.dataset.below) t.setAttribute("y", Number(t.dataset.below) + size * 1.25);
+  });
+}
+
+let camToken = 0;
+function wireStage() {
+  const svg = document.getElementById("stage");
+  if (!svg) return;
+  if (ui.view === "subpage") { const [x, y, w, h] = svg.getAttribute("viewBox").split(" ").map(Number); return sizeLabels(svg, { x, y, w, h }); }
+  const target = cameraFor(treeLayout().nodes);
+  sizeLabels(svg, target);
+  const from = tree.cam || target;
+  tree.cam = target;
+  const token = ++camToken;
+  const set = (c) => svg.setAttribute("viewBox", `${c.x} ${c.y} ${c.w} ${c.h}`);
+  if (REDUCED_MOTION) return set(target);
+  const t0 = performance.now(), D = 800;
+  const step = (now) => {
+    if (token !== camToken) return;
+    const t = Math.min(1, (now - t0) / D), e = t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    set({ x: from.x + (target.x - from.x) * e, y: from.y + (target.y - from.y) * e, w: from.w + (target.w - from.w) * e, h: from.h + (target.h - from.h) * e });
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function rememberInterest(option) {
+  option.sources.forEach((s) => {
+    const tag = `${s.kind}:${s.category}`;
+    if (!profile.tree.interests.includes(tag)) profile.tree.interests.push(tag);
+  });
+  persist();
+}
+
+function savePick() {
+  const branch = BRANCHES.find((b) => b.id === tree.branch);
+  const option = optionsFor(branch)[tree.option];
+  const top = matchesFor(option).find((r) => !r.mine);
+  profile.tree.lastPick = top ? { key: top.item.key, path: `${branch.label} → ${option.label}` } : profile.tree.lastPick;
+  persist();
+}
+
+// One step back up the tree: results → options (or the sub-page) → all interests.
+function treeBack() {
+  const b = BRANCHES.find((x) => x.id === tree.branch);
+  if (!b) return;
+  if (tree.option !== null && b.page) {
+    Object.assign(tree, { branch: null, option: null });
+    ui.subpage = b.id;
+    return go("subpage");
+  }
+  if (tree.option !== null) {
+    tree.option = null;
+    ui.focus = `[data-node="option:0"]`;
+  } else {
+    tree.branch = null;
+    ui.focus = `[data-node="branch:${b.id}"]`;
+  }
+  render();
+}
+
+function activateNode(id) {
+  const [kind, value] = id.split(":");
+  if (kind === "branch") {
+    const b = BRANCHES.find((x) => x.id === value);
+    if (b.page) { ui.subpage = b.id; return go("subpage"); }
+    const same = tree.branch === value && tree.option === null;
+    Object.assign(tree, { branch: same ? null : value, option: null });
+    ui.focus = same ? `[data-node="branch:${value}"]` : `[data-node="option:0"]`;
+  } else if (kind === "option") {
+    const b = BRANCHES.find((x) => x.id === tree.branch);
+    if (b.page) { ui.subpage = b.id; return go("subpage"); }
+    Object.assign(tree, { option: Number(value) });
+    rememberInterest(optionsFor(b)[tree.option]);
+    savePick();
+    ui.focus = "#pick";
+  } else if (kind === "sub") {
+    const b = BRANCHES.find((x) => x.id === ui.subpage);
+    Object.assign(tree, { branch: b.id, option: Number(value) });
+    rememberInterest(b.page[tree.option]);
+    savePick();
+    ui.view = "tree";
+    ui.focus = "#pick";
+  }
+  render();
+}
+
+/* ---------- Events ---------- */
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button, li[role=option], [data-open], [data-node]");
+  if (!t) return;
+  if (t.dataset.node) return activateNode(t.dataset.node);
+  if (t.matches("li[role=option]")) return answer(t.dataset.survey, t.textContent);
+  if (t.dataset.view) {
+    if (t.dataset.focus) { const key = t.dataset.view; ui.active[key] = SURVEYS[key].findIndex((q) => q.id === t.dataset.focus); return go(key, `#${key}-input`); }
+    return go(t.dataset.view);
+  }
+  if (t.dataset.open) {
+    const [key, i] = t.dataset.open.split(":");
+    ui.active[key] = Number(i);
+    ui.focus = `#${key}-input`;
+    return transition(render);
+  }
+  if (t.dataset.skip) {
+    const key = t.dataset.skip;
+    const q = SURVEYS[key][ui.active[key]];
+    if (!answered(q)) { profile[q.section][q.id] = q.multi ? [] : null; persist(); }
+    return advance(key, ui.active[key]);
+  }
+  if (t.dataset.remove) {
+    const [key, id] = t.dataset.remove.split(":");
+    const q = SURVEYS[key].find((x) => x.id === id);
+    profile[q.section][q.id] = (getAnswer(q) || []).filter((v) => v !== t.dataset.value);
+    persist();
+    ui.focus = `#${key}-input`;
+    return render();
+  }
+  if (t.dataset.toggle) {
+    toggleSaved(t.dataset.toggle, t.dataset.name);
+    const same = `[data-toggle="${t.dataset.toggle}"][data-name="${CSS.escape(t.dataset.name)}"]`;
+    const results = { clubs: clubsResults, happenings: happeningsResults }[ui.view];
+    if (results) document.getElementById(`${ui.view}-results`).innerHTML = results();
+    else { ui.focus = same; render(); }
+    return document.querySelector(same)?.focus();
+  }
+  if (t.dataset.chip) {
+    ui[t.dataset.chip === "clubs" ? "clubChip" : "happChip"] = t.textContent;
+    document.querySelectorAll(`[data-chip="${t.dataset.chip}"]`).forEach((c) => c.setAttribute("aria-pressed", c === t));
+    document.getElementById(`${t.dataset.chip}-results`).innerHTML = t.dataset.chip === "clubs" ? clubsResults() : happeningsResults();
+    return;
+  }
+  switch (t.dataset.action) {
+    case "retry": return load();
+    case "identity-start": ui.identityIntro = false; return go("identity", "#identity-input");
+    case "identity-skip":
+      ui.identityIntro = false;
+      ui.active.stats = STATS_QUESTIONS.findIndex((q) => q.id === "clubs");
+      return go("stats", "#stats-input");
+    case "tree-done": return go(profile.tree.lastPick ? "home" : "clubs");
+    case "tree-reset": Object.assign(tree, { branch: null, option: null }); ui.focus = `[data-node="branch:${BRANCHES[0].id}"]`; return render();
+    case "tree-back": return treeBack();
+    case "sub-back": return go("tree");
+  }
+});
+
+document.addEventListener("mousedown", (e) => {
+  if (e.target.closest("li[role=option]")) e.preventDefault(); // keep focus in the input while picking
+});
+
+document.addEventListener("input", (e) => {
+  if (e.target.classList.contains("combo-input")) return updateList(e.target, -1);
+  if (e.target.dataset.search === "clubs") { ui.clubQuery = e.target.value; document.getElementById("clubs-results").innerHTML = clubsResults(); }
+  if (e.target.dataset.search === "happenings") { ui.happQuery = e.target.value; document.getElementById("happenings-results").innerHTML = happeningsResults(); }
+});
+
+document.addEventListener("keydown", (e) => {
+  const node = e.target.closest?.("[data-node]");
+  if (node && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); return activateNode(node.dataset.node); }
+  if (e.key === "Escape" && ui.view === "subpage") return go("tree");
+  if (e.key === "Escape" && ui.view === "tree" && !e.target.closest?.("input")) return treeBack();
+  const input = e.target.classList?.contains("combo-input") ? e.target : null;
+  if (!input) return;
+  const count = matches(input).length;
+  const hl = Number(input.dataset.highlight ?? -1);
+  if (e.key === "ArrowDown" && count) { e.preventDefault(); updateList(input, (hl + 1) % count); }
+  else if (e.key === "ArrowUp" && count) { e.preventDefault(); updateList(input, (hl - 1 + count) % count); }
+  else if (e.key === "Escape") updateList(input, -1);
+  else if (e.key === "Enter") { e.preventDefault(); confirmTyped(input); }
+});
+
+/* ---------- Boot ---------- */
+
+document.querySelectorAll("svg[data-icon]").forEach((s) => (s.innerHTML = icon(s.dataset.icon)));
+
+async function load() {
+  loadState = "loading";
+  render();
+  try {
+    const res = await Promise.all(["clubs", "workshops", "events"].map((p) => fetch(`${API}/${p}`)));
+    if (res.some((r) => !r.ok)) throw new Error("bad status");
+    const [clubs, workshops, events] = await Promise.all(res.map((r) => r.json()));
+    items = normalize(clubs, workshops, events);
+    loadState = "ready";
+  } catch {
+    loadState = "error";
+  }
+  render();
+}
+
+// Self-checks for the recommendation rules (failures show in the browser console).
+(() => {
+  const all = normalize(
+    [{ id: 1, name: "Women's Rugby", category: "Recreation", meeting_day: "Sat", meeting_time: "10:10-11:00" },
+     { id: 2, name: "Climbing Club", category: "Recreation", meeting_day: "Tue", meeting_time: "13:10-14:00" }],
+    [], [{ id: 1, title: "Old Mixer", category: "Social", date: "2000-01-01", location: "Hall", capacity: 5 }]);
+  const sports = { sources: [{ kind: "clubs", category: "Recreation" }] };
+  const rule = { kind: "clubs", name: "Women's Rugby", field: "gender", allow: ["Woman"] };
+  ELIGIBILITY_RULES.push(rule);
+  console.assert(!eligible(all[0], { gender: "Man" }), "a rule should exclude a non-matching answer");
+  console.assert(eligible(all[0], { gender: PREFER_NOT }) && eligible(all[0], {}), "declined or missing answers must never exclude");
+  ELIGIBILITY_RULES.pop();
+  const mine = matchesFor(sports, { all, stats: { clubs: ["Women's Rugby"] }, identity: {} });
+  console.assert(mine[0].item.name === "Climbing Club" && mine[1].mine, "clubs you're in sort last");
+  const sat = { kind: "clubs", name: "Sat Hike", meeting_day: "Sat", meeting_time: "10:30-11:30" };
+  console.assert(clashesFor(sat, all, { clubs: ["Women's Rugby"] }).length === 1, "overlapping same-day meetings clash");
+  console.assert(clashesFor({ ...sat, meeting_time: "11:00-12:00" }, all, { clubs: ["Women's Rugby"] }).length === 0, "back-to-back meetings don't clash");
+  const tueClub = normalize([{ id: 9, name: "Tue Club", category: "Recreation", meeting_day: "Tue", meeting_time: "10:30-11:00" }], [], [])[0];
+  console.assert(clashesFor(tueClub, all, { classes: ["10A"] })[0]?.name === "your 10A class", "a club during one of your classes clashes");
+  console.assert(clashesFor(tueClub, all, { classes: ["10"] }).length === 0, "classes on other days don't clash");
+  const pool = normalize([{ ...sat, id: 3, category: "Recreation" }, { id: 4, name: "Sun Hike", category: "Recreation", meeting_day: "Sun", meeting_time: "10:30-11:30" }], [], []);
+  const hikes = matchesFor(sports, { all: [all[0], ...pool], stats: { clubs: ["Women's Rugby"] }, identity: {} });
+  console.assert(hikes[0].item.name === "Sun Hike" && hikes[1].clashes.length === 1, "things that fit your schedule come first");
+  const ws = normalize([], [{ id: 1, title: "Soon", category: "Career", date: "2999-01-01", location: "Hall", capacity: 5 }, { id: 2, title: "Later", category: "Career", date: "2999-02-01", location: "Hall", capacity: 5 }], []);
+  const career = matchesFor({ sources: [{ kind: "workshops", category: "Career" }] }, { all: ws, stats: {}, identity: {}, saved: { clubs: [], workshops: ["Soon"], events: [] } });
+  console.assert(career[0].item.name === "Later" && career[1].mine, "workshops on your schedule sort last");
+  console.assert([ws[1], all[2], ws[0]].sort(byDate).map((i) => i.name).join() === "Soon,Later,Old Mixer", "upcoming first, past last");
+  console.assert(matchesFor({ sources: [{ kind: "events", category: "Social" }] }, { all, stats: {}, identity: {} }).length === 0, "past events are never listed");
+})();
+
+load();
+</script>
+</body>
+</html>
