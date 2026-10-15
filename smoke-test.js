@@ -28,6 +28,12 @@ test("lists students with fake data", async () => {
   assert.ok(students[0].email.includes("@"));
 });
 
+test("serves the Dalí GSS app", async () => {
+  const res = await fetch(`${base}/app`);
+  assert.strictEqual(res.status, 200);
+  assert.ok((await res.text()).includes("<title>Dalí GSS</title>"));
+});
+
 test("404s on a missing resource", async () => {
   const res = await fetch(`${base}/students/999999`);
   assert.strictEqual(res.status, 404);
