@@ -17,8 +17,9 @@
     {
       schemaVersion: 1,
       identity: { year, gender, race_ethnicity },          // Identity tab; null = skipped
-      stats:    { major, minor, interests: [], clubs: [] }, // Current Stats tab; clubs are club names
-      workshops: [],                                       // workshop titles added to the student's schedule
+      stats:    { major, minor, interests: [], classes: [], clubs: [] }, // Current Stats tab; clubs are club names,
+                                                           // classes are period codes, e.g. "10A"
+      workshops: [], events: [],                           // titles added to the student's schedule
       tree:     { interests: ["kind:category", ...],       // every option picked in the Interest Tree
                   lastPick: { key, path } },               // latest recommendation, e.g. key "workshops-4"
       updatedAt
@@ -26,7 +27,7 @@
   `year` and `major` match the API's student fields so the profile can merge into a student record later.
 
   To grow beyond the demo data, edit the tables near the top of the script: BRANCHES (tree + category
-  mapping), ELIGIBILITY_RULES (hard filters) and DEPARTMENTS.
+  mapping), PERIODS (class times), ELIGIBILITY_RULES (hard filters) and DEPARTMENTS.
   Icons: Tabler Icons (MIT), https://tabler.io/icons.
 -->
 <style>
@@ -167,6 +168,8 @@
   .warn { display: flex; gap: 8px; align-items: flex-start; background: #fbeec2; color: #4d3800; border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; font-size: 11pt; font-weight: 500; }
   .warn svg { width: 20px; height: 20px; flex: none; margin-top: 1px; }
   .item .warn { margin: 6px 0 0; padding: 6px 10px; }
+  .past { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-size: 10pt; font-weight: 500; color: #7a4b00; vertical-align: 2px; white-space: nowrap; }
+  .past svg { width: 14px; height: 14px; }
 
   /* Sub-pages */
   .subpage { position: relative; }
@@ -265,6 +268,42 @@ const DEPARTMENTS = ["Computer Science", "Mathematics", "Biology", "Economics", 
 // The demo data has no restricted clubs, workshops or events, so the list is empty.
 const ELIGIBILITY_RULES = [];
 
+// Dartmouth class periods, from class_schedule.txt.
+const PERIODS = [
+  { code: "8S", days: ["Mon", "Tue", "Thu", "Fri"], time: "07:45-08:35" },
+  { code: "8SX", days: ["Wed"], time: "07:45-08:35" },
+  { code: "8L", days: ["Mon", "Wed", "Fri"], time: "07:30-08:35" },
+  { code: "8LX", days: ["Thu"], time: "07:45-08:35" },
+  { code: "9S", days: ["Mon", "Tue", "Thu", "Fri"], time: "09:05-09:55" },
+  { code: "9SX", days: ["Wed"], time: "09:05-09:55" },
+  { code: "9L", days: ["Mon", "Wed", "Fri"], time: "08:50-09:55" },
+  { code: "9LX", days: ["Thu"], time: "09:05-09:55" },
+  { code: "10", days: ["Mon", "Wed", "Fri"], time: "10:10-11:15" },
+  { code: "10A", days: ["Tue", "Thu"], time: "10:10-12:00" },
+  { code: "11", days: ["Mon", "Wed", "Fri"], time: "11:30-12:35" },
+  { code: "11X", days: ["Tue"], time: "12:15-13:05" },
+  { code: "10X", days: ["Thu"], time: "12:15-13:05" },
+  { code: "12", days: ["Mon", "Wed", "Fri"], time: "12:50-13:55" },
+  { code: "12X", days: ["Tue"], time: "13:20-14:10" },
+  { code: "2X", days: ["Thu"], time: "13:20-14:10" },
+  { code: "2", days: ["Mon", "Wed", "Fri"], time: "14:10-15:15" },
+  { code: "2A", days: ["Tue", "Thu"], time: "14:25-16:15" },
+  { code: "3A", days: ["Mon", "Wed"], time: "15:30-17:20" },
+  { code: "3B", days: ["Tue", "Thu"], time: "16:30-18:20" },
+  { code: "10AX", days: ["Fri"], time: "15:30-16:20" },
+  { code: "3AX", days: ["Mon"], time: "17:30-18:20" },
+  { code: "2AX", days: ["Wed"], time: "17:30-18:20" },
+  { code: "3BX", days: ["Fri"], time: "16:35-17:25" },
+  { code: "6A", days: ["Mon", "Thu"], time: "18:30-20:20" },
+  { code: "6AX", days: ["Tue"], time: "18:30-19:20" },
+  { code: "6BX", days: ["Tue"], time: "19:30-20:20" },
+  { code: "6B", days: ["Wed"], time: "18:30-21:30" },
+];
+const periodWhen = (p) => `${p.days.join(", ")} ${fmtRange(p.time)}`;
+// Suggestions read "10A — Tue, Thu …"; only the code is saved.
+const codeOf = (option) => option.split(" — ")[0];
+const periodOf = (code) => PERIODS.find((p) => p.code === code);
+
 const KINDS = {
   clubs: { label: "Clubs", one: "Club", icon: "flag" },
   workshops: { label: "Workshops", one: "Workshop", icon: "tools" },
@@ -306,6 +345,8 @@ const STATS_QUESTIONS = [
   { section: "stats", id: "major", label: "Intended major:", options: () => [...DEPARTMENTS, "Undecided"], free: false },
   { section: "stats", id: "minor", label: "Minor (optional):", options: () => DEPARTMENTS, free: false },
   { section: "stats", id: "interests", label: "Other academic interests:", options: () => DEPARTMENTS, free: true, multi: true },
+  { section: "stats", id: "classes", label: "Current class periods:", multi: true, free: false, pick: codeOf,
+    options: () => PERIODS.map((p) => `${p.code} — ${periodWhen(p)}`) },
   { section: "stats", id: "clubs", label: "Current club commitments:", options: () => items.filter((i) => i.kind === "clubs").map((c) => c.name), free: false, multi: true },
 ];
 
@@ -357,7 +398,7 @@ const ui = { view: "home", subpage: null, active: {}, identityIntro: !hasAny(pro
 const tree = { branch: null, option: null, cam: null, seen: new Set() };
 
 function loadProfile() {
-  const blank = { schemaVersion: SCHEMA_VERSION, identity: {}, stats: {}, workshops: [], tree: { interests: [], lastPick: null }, updatedAt: null };
+  const blank = { schemaVersion: SCHEMA_VERSION, identity: {}, stats: {}, workshops: [], events: [], tree: { interests: [], lastPick: null }, updatedAt: null };
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (data && data.schemaVersion === SCHEMA_VERSION) return { ...blank, ...data, tree: { ...blank.tree, ...data.tree } };
@@ -417,17 +458,20 @@ function eligible(item, identity = profile.identity) {
 
 const upcoming = (item) => item.kind === "clubs" || daysUntil(item.date) >= 0;
 const myClubNames = () => profile.stats.clubs || [];
-const myWorkshops = () => (profile.workshops || []).map((n) => items.find((i) => i.kind === "workshops" && i.name === n)).filter((w) => w && upcoming(w)).sort((a, b) => daysUntil(a.date) - daysUntil(b.date));
-// Clubs and workshops the student has added. Events can't be saved yet.
-const isSaved = (item, stats = profile.stats, workshops = profile.workshops) =>
-  item.kind === "clubs" ? (stats.clubs || []).includes(item.name) : item.kind === "workshops" && (workshops || []).includes(item.name);
+// Everything the student has added: clubs (from Current Stats), workshops and events.
+const savedLists = (p = profile) => ({ clubs: p.stats.clubs || [], workshops: p.workshops || [], events: p.events || [] });
+const isSaved = (item, saved = savedLists()) => saved[item.kind].includes(item.name);
 function toggleSaved(kind, name) {
-  const key = kind === "clubs" ? "clubs" : "workshops";
-  const holder = kind === "clubs" ? profile.stats : profile;
-  const list = holder[key] || [];
-  holder[key] = list.includes(name) ? list.filter((n) => n !== name) : [...list, name];
+  const list = savedLists()[kind];
+  const next = list.includes(name) ? list.filter((n) => n !== name) : [...list, name];
+  if (kind === "clubs") profile.stats.clubs = next;
+  else profile[kind] = next;
   persist();
 }
+const isPast = (item) => item.kind !== "clubs" && daysUntil(item.date) < 0;
+// Upcoming soonest first, then ones that already happened, most recent first.
+const byDate = (a, b) => isPast(a) - isPast(b) || (isPast(a) ? daysUntil(b.date) - daysUntil(a.date) : daysUntil(a.date) - daysUntil(b.date));
+const mySchedule = () => items.filter((i) => i.kind !== "clubs" && isSaved(i)).sort(byDate);
 const myClubs = () => myClubNames().map((n) => items.find((i) => i.kind === "clubs" && i.name === n)).filter(Boolean);
 
 // Academic answers that show up in an item's name, e.g. "Engineering Sciences" → "Design Engineering Club".
@@ -446,23 +490,30 @@ function optionsFor(branch) {
 const toMinutes = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
 // Schedule clashes: clubs you're in that meet on the same day at an overlapping time.
 // shortcut: workshops and events have a date but no time in the API, so they're never flagged; add start/end times to check them.
+// Your weekly schedule: clubs you're in and your classes, as { name, when, days, time } blocks.
+function scheduleBlocks(all = items, stats = profile.stats) {
+  const clubs = (stats.clubs || []).map((n) => all.find((c) => c.kind === "clubs" && c.name === n)).filter(Boolean)
+    .map((c) => ({ name: c.name, when: whenText(c), days: [c.meeting_day], time: c.meeting_time }));
+  const classes = (stats.classes || []).map(periodOf).filter(Boolean)
+    .map((p) => ({ name: `your ${p.code} class`, when: periodWhen(p), days: p.days, time: p.time }));
+  return [...clubs, ...classes];
+}
 function clashesFor(item, all = items, stats = profile.stats) {
   if (item.kind !== "clubs") return [];
   const [s0, e0] = item.meeting_time.split("-").map(toMinutes);
-  return (stats.clubs || [])
-    .map((n) => all.find((c) => c.kind === "clubs" && c.name === n))
-    .filter((c) => c && c.name !== item.name && c.meeting_day === item.meeting_day)
-    .filter((c) => { const [s1, e1] = c.meeting_time.split("-").map(toMinutes); return s0 < e1 && s1 < e0; });
+  return scheduleBlocks(all, stats)
+    .filter((b) => b.name !== item.name && b.days.includes(item.meeting_day))
+    .filter((b) => { const [s1, e1] = b.time.split("-").map(toMinutes); return s0 < e1 && s1 < e0; });
 }
-const clashText = (clashes) => `Clashes with ${clashes.map((c) => `${c.name} (${whenText(c)})`).join(" and ")}`;
+const clashText = (clashes) => `Clashes with ${clashes.map((b) => `${b.name} (${b.when})`).join(" and ")}`;
 const inSources = (item, sources) => sources.some((s) => s.kind === item.kind && s.category === item.category);
 
 // Everything under a tree option, best fit first: fits your schedule, then academic matches, then soonest.
-// Clubs you're in and workshops on your schedule stay in the list (marked) but sort last.
-function matchesFor(option, { all = items, stats = profile.stats, identity = profile.identity, workshops = profile.workshops } = {}) {
+// Clubs you're in and things on your schedule stay in the list (marked) but sort last.
+function matchesFor(option, { all = items, stats = profile.stats, identity = profile.identity, saved = savedLists({ ...profile, stats }) } = {}) {
   return all
     .filter((i) => inSources(i, option.sources) && eligible(i, identity) && upcoming(i))
-    .map((item) => ({ item, matches: academicMatches(item, stats), clashes: clashesFor(item, all, stats), mine: isSaved(item, stats, workshops) }))
+    .map((item) => ({ item, matches: academicMatches(item, stats), clashes: clashesFor(item, all, stats), mine: isSaved(item, saved) }))
     .sort((a, b) => a.mine - b.mine || a.clashes.length - b.clashes.length || b.matches.length - a.matches.length
       || (a.item.kind === "clubs" ? 0 : daysUntil(a.item.date) - daysUntil(b.item.date)));
 }
@@ -513,20 +564,23 @@ function statusView() {
 function homeView() {
   const steps = [
     { view: "identity", icon: "user", title: "Identity", text: "A few optional questions, so you only see what's open to you.", done: hasAny(profile.identity) },
-    { view: "stats", icon: "book", title: "Current Stats", text: "Your major, interests and the clubs you're already in.", done: hasAny(profile.stats) },
+    { view: "stats", icon: "book", title: "Current Stats", text: "Your major, interests, classes and the clubs you're already in.", done: hasAny(profile.stats) },
     { view: "tree", icon: "users-group", title: "Interest Tree", text: "Pick an interest and a type to see everything that fits.", done: !!profile.tree.lastPick },
   ];
   const pick = profile.tree.lastPick && items.find((i) => i.key === profile.tree.lastPick.key);
   const mine = myClubs();
-  const workshops = myWorkshops();
+  const schedule = mySchedule();
   return `<div class="page">
     <h1 tabindex="-1">My clubs</h1>
     ${statusView()}
     ${loadState !== "ready" ? "" : mine.length ? `<div class="list">${mine.map(clubDetails).join("")}</div>`
       : `<div class="list"><p class="empty-state">You haven't added any clubs yet. Add the ones you're in from <button class="link" data-view="stats" data-focus="clubs">Current Stats</button>, or find new ones in <button class="link" data-view="clubs">Explore clubs</button>.</p></div>`}
-    ${loadState !== "ready" ? "" : `<h2 class="section">My workshops</h2>${workshops.length
-      ? `<div class="list">${workshops.map((w) => itemRow(w, { toggle: true })).join("")}</div>`
-      : `<div class="list"><p class="empty-state">No workshops on your schedule yet. Add some from <button class="link" data-view="happenings">Workshops &amp; events</button> or the Interest Tree.</p></div>`}`}
+    ${loadState !== "ready" ? "" : `<h2 class="section">My classes</h2>${(profile.stats.classes || []).length
+      ? `<div class="list">${profile.stats.classes.map(classRow).join("")}</div>`
+      : `<div class="list"><p class="empty-state">No class periods added yet. Add them in <button class="link" data-view="stats" data-focus="classes">Current Stats</button> so we can warn you about clashes.</p></div>`}`}
+    ${loadState !== "ready" ? "" : `<h2 class="section">My workshops &amp; events</h2>${schedule.length
+      ? `<div class="list">${schedule.map((w) => itemRow(w, { toggle: true })).join("")}</div>`
+      : `<div class="list"><p class="empty-state">Nothing on your schedule yet. Add workshops and events from <button class="link" data-view="happenings">Workshops &amp; events</button> or the Interest Tree.</p></div>`}`}
     ${pick ? `<h2 class="section">Top match from your Interest Tree</h2>
       <div class="list">${itemRow(pick, { reasons: [profile.tree.lastPick.path], clashes: clashesFor(pick) })}</div>` : ""}
     <h2 class="section">Find your next club, workshop or event</h2>
@@ -539,8 +593,10 @@ function homeView() {
 }
 
 function clubDetails(club) {
+  const clashes = clashesFor(club);
   return `<details class="item">
-    <summary><div><h3>${esc(club.name)}</h3><p class="meta">${esc(club.category)} · ${esc(whenText(club))}</p></div>${CHEVRON}</summary>
+    <summary><div><h3>${esc(club.name)}</h3><p class="meta">${esc(club.category)} · ${esc(whenText(club))}</p>
+      ${clashes.length ? `<p class="warn">${WARN}<span>${esc(clashText(clashes))}</span></p>` : ""}</div>${CHEVRON}</summary>
     <div class="more">
       <p class="meta" style="color:var(--ink)">${esc(club.description || "No description has been added for this club yet.")}</p>
       <p class="meta">Meets ${esc(whenText(club))}</p>
@@ -549,17 +605,26 @@ function clubDetails(club) {
   </details>`;
 }
 
+function classRow(code) {
+  const period = periodOf(code);
+  return `<div class="item">
+    <div><h3>${esc(code)}</h3><p class="meta">${esc(period ? periodWhen(period) : "Not a period on the class schedule")}</p></div>
+    <button class="btn" data-remove="stats:classes" data-value="${esc(code)}">Remove</button>
+  </div>`;
+}
+
 function itemRow(item, { reasons = [], toggle = false, clashes = [] } = {}) {
   const facts = item.kind === "clubs"
     ? `${esc(item.category)} club · Meets ${esc(whenText(item))}`
     : `${esc(KINDS[item.kind].one)} · ${esc(item.category)} · ${esc(whenText(item))} · ${esc(item.location)}${item.facilitator ? ` · Led by ${esc(item.facilitator)}` : ""}`;
   const saved = isSaved(item);
+  const past = isPast(item);
   const [add, added] = item.kind === "clubs" ? ["Add to my clubs", "In my clubs"] : ["Add to my schedule", "On my schedule"];
   return `<div class="item">
-    <div><h3>${esc(item.name)}</h3><p class="meta">${facts}</p>
+    <div><h3>${esc(item.name)}${past ? ` <span class="past">${WARN}Already happened</span>` : ""}</h3><p class="meta">${facts}</p>
       ${reasons.length ? `<p class="reasons">${reasons.map(esc).join(" · ")}</p>` : ""}
       ${clashes.length ? `<p class="warn">${WARN}<span>${esc(clashText(clashes))}</span></p>` : ""}</div>
-    ${toggle && item.kind !== "events" ? `<button class="btn ${saved ? "is-on" : ""}" data-toggle="${item.kind}" data-name="${esc(item.name)}" aria-pressed="${saved}">${saved ? added : add}</button>` : ""}
+    ${toggle && (!past || saved) ? `<button class="btn ${saved ? "is-on" : ""}" data-toggle="${item.kind}" data-name="${esc(item.name)}" aria-pressed="${saved}">${saved ? added : add}</button>` : ""}
   </div>`;
 }
 
@@ -615,7 +680,7 @@ function happeningsView() {
   const chips = ["All", "Workshops", "Events", ...[...new Set(dated.map((i) => i.category))].sort()];
   return `<div class="page">
     <h1 tabindex="-1">Workshops &amp; events</h1>
-    <p class="lede">Everything coming up, soonest first. Ones that match your Interest Tree or academic interests are marked.</p>
+    <p class="lede">Everything coming up, soonest first, then ones that already happened. Ones that match your Interest Tree or academic interests are marked.</p>
     ${exploreToolbar("happenings", ui.happQuery, chips, ui.happChip)}
     <div id="happenings-results">${happeningsResults()}</div>
   </div>`;
@@ -626,14 +691,15 @@ function happeningsResults() {
   const chip = ui.happChip;
   const treeCats = new Set(profile.tree.interests);
   const rows = items
-    .filter((i) => i.kind !== "clubs" && upcoming(i) && eligible(i) && i.name.toLowerCase().includes(q))
+    .filter((i) => i.kind !== "clubs" && eligible(i) && i.name.toLowerCase().includes(q))
     .filter((i) => chip === "All" || (chip === "Workshops" ? i.kind === "workshops" : chip === "Events" ? i.kind === "events" : i.category === chip))
-    .sort((a, b) => daysUntil(a.date) - daysUntil(b.date));
-  return `<p class="count" role="status">${rows.length} coming up</p>
+    .sort(byDate);
+  const past = rows.filter(isPast).length;
+  return `<p class="count" role="status">${rows.length - past} coming up${past ? `, ${past} already happened` : ""}</p>
     <div class="list">${rows.length ? rows.map((i) => itemRow(i, {
       reasons: [...(treeCats.has(`${i.kind}:${i.category}`) ? ["From your Interest Tree"] : []), ...academicMatches(i).map((p) => `Fits ${p}`)],
       toggle: true,
-    })).join("") : `<p class="empty-state">Nothing coming up matches that search.</p>`}</div>`;
+    })).join("") : `<p class="empty-state">Nothing matches that search.</p>`}</div>`;
 }
 
 /* Surveys */
@@ -769,6 +835,10 @@ function answer(key, value) {
   const i = ui.active[key];
   const q = SURVEYS[key][i];
   const input = document.getElementById(`${key}-input`);
+  if (q.pick) {
+    value = q.pick(value);
+    if ((getAnswer(q) || []).includes(value)) return showError(key, `${value} is already added.`);
+  }
   if (q.multi) {
     profile[q.section][q.id] = [...(getAnswer(q) || []), value];
     persist();
@@ -796,7 +866,7 @@ function confirmTyped(input) {
     if (q.multi && (getAnswer(q) || []).length) return advance(key, ui.active[key]);
     return showError(key, 'Type an answer, or choose "Skip this question".');
   }
-  const exact = q.options().find((o) => o.toLowerCase() === typed.toLowerCase());
+  const exact = q.options().find((o) => o.toLowerCase() === typed.toLowerCase() || codeOf(o).toLowerCase() === typed.toLowerCase());
   if (exact) {
     if (q.multi && (getAnswer(q) || []).includes(exact)) return showError(key, `${exact} is already added.`);
     return answer(key, exact);
@@ -1139,12 +1209,16 @@ async function load() {
   const sat = { kind: "clubs", name: "Sat Hike", meeting_day: "Sat", meeting_time: "10:30-11:30" };
   console.assert(clashesFor(sat, all, { clubs: ["Women's Rugby"] }).length === 1, "overlapping same-day meetings clash");
   console.assert(clashesFor({ ...sat, meeting_time: "11:00-12:00" }, all, { clubs: ["Women's Rugby"] }).length === 0, "back-to-back meetings don't clash");
+  const tueClub = normalize([{ id: 9, name: "Tue Club", category: "Recreation", meeting_day: "Tue", meeting_time: "10:30-11:00" }], [], [])[0];
+  console.assert(clashesFor(tueClub, all, { classes: ["10A"] })[0]?.name === "your 10A class", "a club during one of your classes clashes");
+  console.assert(clashesFor(tueClub, all, { classes: ["10"] }).length === 0, "classes on other days don't clash");
   const pool = normalize([{ ...sat, id: 3, category: "Recreation" }, { id: 4, name: "Sun Hike", category: "Recreation", meeting_day: "Sun", meeting_time: "10:30-11:30" }], [], []);
   const hikes = matchesFor(sports, { all: [all[0], ...pool], stats: { clubs: ["Women's Rugby"] }, identity: {} });
   console.assert(hikes[0].item.name === "Sun Hike" && hikes[1].clashes.length === 1, "things that fit your schedule come first");
   const ws = normalize([], [{ id: 1, title: "Soon", category: "Career", date: "2999-01-01", location: "Hall", capacity: 5 }, { id: 2, title: "Later", category: "Career", date: "2999-02-01", location: "Hall", capacity: 5 }], []);
-  const career = matchesFor({ sources: [{ kind: "workshops", category: "Career" }] }, { all: ws, stats: {}, identity: {}, workshops: ["Soon"] });
+  const career = matchesFor({ sources: [{ kind: "workshops", category: "Career" }] }, { all: ws, stats: {}, identity: {}, saved: { clubs: [], workshops: ["Soon"], events: [] } });
   console.assert(career[0].item.name === "Later" && career[1].mine, "workshops on your schedule sort last");
+  console.assert([ws[1], all[2], ws[0]].sort(byDate).map((i) => i.name).join() === "Soon,Later,Old Mixer", "upcoming first, past last");
   console.assert(matchesFor({ sources: [{ kind: "events", category: "Social" }] }, { all, stats: {}, identity: {} }).length === 0, "past events are never listed");
 })();
 

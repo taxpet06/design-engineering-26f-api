@@ -1,0 +1,38 @@
+Class Schedule
+
+Morning Classes
+----------------
+8S   - Monday, Tuesday, Thursday, Friday: 7:45-8:35 AM
+8SX  - Wednesday: 7:45-8:35 AM
+8L   - Monday, Wednesday, Friday: 7:30-8:35 AM
+8LX  - Thursday: 7:45-8:35 AM
+9S   - Monday, Tuesday, Thursday, Friday: 9:05-9:55 AM
+9SX  - Wednesday: 9:05-9:55 AM
+9L   - Monday, Wednesday, Friday: 8:50-9:55 AM
+9LX  - Thursday: 9:05-9:55 AM
+
+Late Morning and Afternoon Classes
+----------------------------------
+10   - Monday, Wednesday, Friday: 10:10-11:15 AM
+10A  - Tuesday, Thursday: 10:10 AM-12:00 PM
+11   - Monday, Wednesday, Friday: 11:30 AM-12:35 PM
+11X  - Tuesday: 12:15-1:05 PM
+10X  - Thursday: 12:15-1:05 PM
+12   - Monday, Wednesday, Friday: 12:50-1:55 PM
+12X  - Tuesday: 1:20-2:10 PM
+2X   - Thursday: 1:20-2:10 PM
+2    - Monday, Wednesday, Friday: 2:10-3:15 PM
+2A   - Tuesday, Thursday: 2:25-4:15 PM
+3A   - Monday, Wednesday: 3:30-5:20 PM
+3B   - Tuesday, Thursday: 4:30-6:20 PM
+10AX - Friday: 3:30-4:20 PM
+3AX  - Monday: 5:30-6:20 PM
+2AX  - Wednesday: 5:30-6:20 PM
+3BX  - Friday: 4:35-5:25 PM
+
+Evening Classes
+----------------
+6A   - Monday, Thursday: 6:30-8:20 PM
+6AX  - Tuesday: 6:30-7:20 PM
+6BX  - Tuesday: 7:30-8:20 PM
+6B   - Wednesday: 6:30-9:30 PM
