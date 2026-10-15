@@ -1,0 +1,5723 @@
+(function () {
+'use strict';
+const __m = Object.create(null);
+// src/ui/dom.js
+__m["src/ui/dom.js"] = (function () {
+// Minimal DOM helpers. User content is always inserted as text nodes, never as HTML.
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function h(tag, props, ...children) {
+  const el = document.createElement(tag);
+  if (props) {
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = Array.isArray(v) ? v.filter(Boolean).join(' ') : v;
+      else if (k === 'text') el.textContent = String(v);
+      else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+      else if (k === 'dataset') Object.assign(el.dataset, v);
+      else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
+      else if (k === 'value' && (tag === 'input' || tag === 'textarea' || tag === 'select')) el.value = v;
+      else if (k === 'checked' || k === 'selected' || k === 'disabled') el[k] = !!v;
+      else if (v === true) el.setAttribute(k, '');
+      else el.setAttribute(k, String(v));
+    }
+  }
+  append(el, children);
+  return el;
+}
+
+function append(el, children) {
+  for (const c of [children].flat(Infinity)) {
+    if (c == null || c === false) continue;
+    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+
+function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
+
+let seq = 0;
+function uid(prefix = 'u') { seq += 1; return `${prefix}-${seq}`; }
+
+const PATHS = {
+  chart: 'M4 20V11h4v9M10 20V6h4v14M16 20V3h4v17',
+  search: 'M20 20l-5-5M16 10a6 6 0 1 1-12 0a6 6 0 0 1 12 0',
+  settings: 'M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z',
+  help: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18M9 9a3 3 0 1 1 5 2c-2 1-2 2-2 3M12 17v.1',
+  today: 'M4 5h16v15H4zM4 10h16M8 3v4M16 3v4M8 14h3v3H8z',
+  week: 'M3 5h18v15H3zM3 10h18M9 10v10M15 10v10',
+  tasks: 'M4 6l2 2 3-4M12 6h8M4 13l2 2 3-4M12 13h8M4 20h4M12 20h8',
+  lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z',
+  unlock: 'M7 11V8a5 5 0 0 1 9.6-2M5 11h14v10H5z',
+  check: 'M5 12.5l4.5 4.5L19 7',
+  alert: 'M12 3.5l9.5 17h-19zM12 10v4.5M12 17.5v.5',
+  info: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 11v6M12 7.5v.5',
+  clock: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 7v5l3.5 2',
+  left: 'M15 5l-7 7 7 7',
+  right: 'M9 5l7 7-7 7',
+  plus: 'M12 5v14M5 12h14',
+  x: 'M6 6l12 12M18 6L6 18',
+  undo: 'M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
+  flag: 'M6 21V4M6 4h11l-2.5 4L17 12H6',
+  pin: 'M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21zM12 7.5a2.3 2.3 0 1 0 0 4.6a2.3 2.3 0 1 0 0-4.6',
+  play: 'M8 5.5v13l10.5-6.5z',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+};
+
+function icon(name, { label = null, size = 16 } = {}) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('class', `icon icon-${name}`);
+  if (label) { svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', label); } else svg.setAttribute('aria-hidden', 'true');
+  const p = document.createElementNS(SVG_NS, 'path');
+  p.setAttribute('d', PATHS[name] || PATHS.info);
+  svg.append(p);
+  return svg;
+}
+
+function plural(n, one, many = `${one}s`) { return `${n} ${n === 1 ? one : many}`; }
+
+// Small typed tag used to distinguish hard rules, preferences, estimates, and heuristics.
+const REASON_LABELS = { hard: 'Fixed', soft: 'Your preference', estimate: 'Estimate', heuristic: 'Best guess', relaxed: 'Relaxed limit' };
+function reasonList(reasons) {
+  return h('ul', { class: 'reasons' }, reasons.map((r) => h('li', { class: `reason reason-${r.type}` },
+    h('span', { class: 'reason-tag' }, REASON_LABELS[r.type] || 'Note'), h('span', { class: 'reason-text' }, r.text))));
+}
+
+function download(filename, text, mime = 'application/json') {
+  try {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = h('a', { href: url, download: filename });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+return { h, append, clear, uid, icon, plural, REASON_LABELS, reasonList, download };
+})();
+
+// src/ui/dialog.js
+__m["src/ui/dialog.js"] = (function () {
+// Native <dialog> elements: focus trapping and Escape handling come from the platform.
+
+const { h, icon, uid } = __m["src/ui/dom.js"];
+function openDialog({ title, subtitle = null, content, actions = [], size = 'md', onClose = null, initialFocus = null }) {
+  const titleId = uid('dlg-title');
+  const returnTo = document.activeElement;
+  const dlg = h('dialog', { class: `dlg dlg-${size}`, 'aria-labelledby': titleId });
+  let closed = false;
+  const close = (result) => {
+    if (closed) return;
+    closed = true;
+    if (dlg.open) dlg.close();
+    dlg.remove();
+    if (returnTo && document.contains(returnTo) && typeof returnTo.focus === 'function') returnTo.focus();
+    if (onClose) onClose(result);
+  };
+  const body = h('div', { class: 'dlg-body' });
+  const header = h('header', { class: 'dlg-head' },
+    h('div', null, h('h2', { id: titleId, class: 'dlg-title' }, title), subtitle ? h('p', { class: 'dlg-sub' }, subtitle) : null),
+    h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Close', onclick: () => close(null) }, icon('x')));
+  const footer = h('footer', { class: 'dlg-foot' });
+  dlg.append(header, body, footer);
+  const api = { close, dlg, body, footer, setActions };
+  function setActions(list) {
+    footer.replaceChildren(...list.filter(Boolean).map((a) => (a instanceof Node ? a : h('button', {
+      type: a.submit ? 'submit' : 'button', form: a.form || null,
+      class: ['btn', a.primary && 'btn-primary', a.danger && 'btn-danger', a.quiet && 'btn-quiet'], onclick: a.onClick ? (e) => a.onClick(e, api) : null, disabled: a.disabled,
+    }, a.label))));
+    footer.hidden = !list.filter(Boolean).length;
+  }
+  const node = typeof content === 'function' ? content(api) : content;
+  if (node) body.append(node);
+  setActions(actions);
+  dlg.addEventListener('cancel', (e) => { e.preventDefault(); close(null); });
+  dlg.addEventListener('mousedown', (e) => { if (e.target === dlg) close(null); });
+  document.body.append(dlg);
+  dlg.showModal();
+  const focusTarget = (initialFocus && dlg.querySelector(initialFocus)) || body.querySelector('input:not([type=hidden]):not([disabled]), select, textarea, button');
+  if (focusTarget) focusTarget.focus();
+  return api;
+}
+
+function confirmDialog({ title, message, confirmLabel = 'Confirm', danger = false, requireText = null }) {
+  return new Promise((resolve) => {
+    let input = null;
+    const api = openDialog({
+      title, size: 'sm', onClose: (r) => resolve(r === true),
+      content: () => h('div', { class: 'stack' },
+        typeof message === 'string' ? h('p', null, message) : message,
+        requireText ? h('label', { class: 'field' }, h('span', { class: 'field-label' }, `Type ${requireText} to confirm`),
+          (input = h('input', { type: 'text', autocomplete: 'off', oninput: () => { btn.disabled = input.value.trim() !== requireText; } }))) : null),
+      actions: [],
+    });
+    const btn = h('button', { type: 'button', class: ['btn', danger ? 'btn-danger' : 'btn-primary'], disabled: !!requireText, onclick: () => api.close(true) }, confirmLabel);
+    api.setActions([{ label: 'Cancel', quiet: true, onClick: () => api.close(false) }, btn]);
+    if (!requireText) btn.focus();
+  });
+}
+
+let region = null;
+function toast(message, { actionLabel = null, onAction = null, tone = 'neutral', timeout = 7000 } = {}) {
+  if (!region) {
+    region = document.getElementById('toasts');
+    if (!region) { region = h('div', { id: 'toasts', class: 'toasts', 'aria-live': 'polite', role: 'status' }); document.body.append(region); }
+  }
+  const el = h('div', { class: `toast toast-${tone}` }, h('span', null, message));
+  let timer = null;
+  const dismiss = () => { clearTimeout(timer); el.remove(); };
+  if (actionLabel && onAction) el.append(h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => { dismiss(); onAction(); } }, actionLabel));
+  el.append(h('button', { type: 'button', class: 'btn-icon btn-sm', 'aria-label': 'Dismiss', onclick: dismiss }, icon('x', { size: 14 })));
+  region.append(el);
+  timer = setTimeout(dismiss, timeout);
+  return dismiss;
+}
+
+return { openDialog, confirmDialog, toast };
+})();
+
+// src/core/time.js
+__m["src/core/time.js"] = (function () {
+// Time utilities.
+// Instants are epoch milliseconds. Calendar dates are 'YYYY-MM-DD' strings in the
+// planner timezone. Times of day are minutes after local midnight (0..1440).
+// All conversions go through Intl so daylight-saving changes are handled by the
+// platform's timezone database rather than by fixed offsets.
+
+const MINUTE = 60000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const DEFAULT_TZ = 'America/New_York';
+
+const pad2 = (n) => String(n).padStart(2, '0');
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const formatters = new Map();
+
+function partsFormatter(tz) {
+  let f = formatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+    });
+    formatters.set(tz, f);
+  }
+  return f;
+}
+
+function zonedParts(ms, tz = DEFAULT_TZ) {
+  const o = {};
+  for (const p of partsFormatter(tz).formatToParts(new Date(ms))) {
+    if (p.type !== 'literal') o[p.type] = Number(p.value);
+  }
+  return { year: o.year, month: o.month, day: o.day, hour: o.hour === 24 ? 0 : o.hour, minute: o.minute, second: o.second };
+}
+
+// Minutes to add to UTC to get local wall time (New York: -300 in winter, -240 in summer).
+function tzOffsetMinutes(ms, tz = DEFAULT_TZ) {
+  const p = zonedParts(ms, tz);
+  const wall = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  const wholeSeconds = ms - (((ms % 1000) + 1000) % 1000);
+  return Math.round((wall - wholeSeconds) / MINUTE);
+}
+
+function dateToUTC(d) {
+  const m = DATE_RE.exec(d);
+  if (!m) throw new Error(`Invalid date: ${d}`);
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+function utcToDate(ms) {
+  const t = new Date(ms);
+  return `${t.getUTCFullYear()}-${pad2(t.getUTCMonth() + 1)}-${pad2(t.getUTCDate())}`;
+}
+
+function isDateString(s) {
+  if (typeof s !== 'string' || !DATE_RE.test(s)) return false;
+  return utcToDate(dateToUTC(s)) === s;
+}
+
+function addDays(d, n) { return utcToDate(dateToUTC(d) + n * DAY); }
+function weekdayOf(d) { return new Date(dateToUTC(d)).getUTCDay(); }
+function daysBetween(a, b) { return Math.round((dateToUTC(b) - dateToUTC(a)) / DAY); }
+function startOfWeek(d) { return addDays(d, -((weekdayOf(d) + 6) % 7)); }
+
+// Converts a local wall-clock time to an instant.
+// Ambiguous times (the repeated hour when clocks fall back) resolve to the first occurrence.
+// Nonexistent times (the skipped hour when clocks spring forward) move forward by the gap.
+function zonedToMs(date, minuteOfDay, tz = DEFAULT_TZ) {
+  const wall = dateToUTC(date) + minuteOfDay * MINUTE;
+  const before = tzOffsetMinutes(wall - 14 * HOUR, tz);
+  const after = tzOffsetMinutes(wall + 14 * HOUR, tz);
+  const valid = [];
+  for (const off of new Set([before, after])) {
+    const ms = wall - off * MINUTE;
+    if (tzOffsetMinutes(ms, tz) === off) valid.push(ms);
+  }
+  if (valid.length) return Math.min(...valid);
+  return wall - before * MINUTE;
+}
+
+function msToDate(ms, tz = DEFAULT_TZ) {
+  const p = zonedParts(ms, tz);
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
+}
+
+function msToMinuteOfDay(ms, tz = DEFAULT_TZ) {
+  const p = zonedParts(ms, tz);
+  return p.hour * 60 + p.minute;
+}
+
+function roundUpTo(ms, step) { return Math.ceil(ms / step) * step; }
+function roundDownTo(ms, step) { return Math.floor(ms / step) * step; }
+
+const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WD_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MON_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const WEEKDAY_SHORT = WD_SHORT;
+const WEEKDAY_LONG = WD_LONG;
+
+function fmtClock(minuteOfDay) {
+  const m = ((Math.round(minuteOfDay) % 1440) + 1440) % 1440;
+  const h24 = Math.floor(m / 60);
+  const ap = h24 >= 12 ? 'PM' : 'AM';
+  const h = h24 % 12 || 12;
+  return `${h}:${pad2(m % 60)} ${ap}`;
+}
+
+function fmtTime(ms, tz = DEFAULT_TZ) { return fmtClock(msToMinuteOfDay(ms, tz)); }
+
+function fmtTimeRange(a, b, tz = DEFAULT_TZ) {
+  const sa = fmtTime(a, tz);
+  const sb = fmtTime(b, tz);
+  const crossDay = msToDate(a, tz) !== msToDate(b - 1, tz);
+  const [ta, pa] = sa.split(' ');
+  const pb = sb.split(' ')[1];
+  if (!crossDay && pa === pb) return `${ta} to ${sb}`;
+  return `${sa} to ${sb}${crossDay ? ' (next day)' : ''}`;
+}
+
+function fmtClockRange(start, end) {
+  const sa = fmtClock(start);
+  const sb = fmtClock(end);
+  const next = end <= start ? ' (next day)' : '';
+  const [ta, pa] = sa.split(' ');
+  if (!next && pa === sb.split(' ')[1]) return `${ta} to ${sb}`;
+  return `${sa} to ${sb}${next}`;
+}
+
+function fmtDate(d) {
+  const t = new Date(dateToUTC(d));
+  return `${WD_SHORT[t.getUTCDay()]}, ${MON_SHORT[t.getUTCMonth()]} ${t.getUTCDate()}`;
+}
+
+function fmtDateLong(d) {
+  const t = new Date(dateToUTC(d));
+  return `${WD_LONG[t.getUTCDay()]}, ${MON_LONG[t.getUTCMonth()]} ${t.getUTCDate()}`;
+}
+
+function fmtMonthDay(d) {
+  const t = new Date(dateToUTC(d));
+  return `${MON_SHORT[t.getUTCMonth()]} ${t.getUTCDate()}`;
+}
+
+function fmtYear(d) { return d.slice(0, 4); }
+
+function fmtDateTime(ms, tz = DEFAULT_TZ) { return `${fmtDate(msToDate(ms, tz))}, ${fmtTime(ms, tz)}`; }
+
+function fmtDuration(min) {
+  const m = Math.max(0, Math.round(min));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? `${h} hr ${r} min` : `${h} hr`;
+}
+
+function fmtRelative(ms, nowMs) {
+  const diff = ms - nowMs;
+  const abs = Math.abs(diff);
+  let s;
+  if (abs < HOUR) s = `${Math.max(1, Math.round(abs / MINUTE))} min`;
+  else if (abs < 2 * DAY) {
+    const h = Math.floor(abs / HOUR);
+    const m = Math.round((abs % HOUR) / MINUTE);
+    s = h >= 10 || m === 0 ? `${h} hr` : `${h} hr ${m} min`;
+  } else s = `${Math.round(abs / DAY)} days`;
+  return diff >= 0 ? `in ${s}` : `${s} ago`;
+}
+
+// Day label relative to today: "Today", "Tomorrow", "Yesterday", or the formatted date.
+function fmtDayRelative(d, today) {
+  const n = daysBetween(today, d);
+  if (n === 0) return 'Today';
+  if (n === 1) return 'Tomorrow';
+  if (n === -1) return 'Yesterday';
+  return fmtDate(d);
+}
+
+// <input type="time"> uses "HH:MM" in 24-hour form.
+function parseClockInput(s) {
+  if (typeof s !== 'string' || !/^\d{2}:\d{2}$/.test(s)) return null;
+  const [h, m] = s.split(':').map(Number);
+  if (h > 23 || m > 59) return null;
+  return h * 60 + m;
+}
+
+function toClockInput(min) {
+  const m = ((Math.round(min) % 1440) + 1440) % 1440;
+  return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+}
+
+function overlapMs(a0, a1, b0, b1) { return Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)); }
+
+return { MINUTE, HOUR, DAY, DEFAULT_TZ, zonedParts, tzOffsetMinutes, isDateString, addDays, weekdayOf, daysBetween, startOfWeek, zonedToMs, msToDate, msToMinuteOfDay, roundUpTo, roundDownTo, WEEKDAY_SHORT, WEEKDAY_LONG, fmtClock, fmtTime, fmtTimeRange, fmtClockRange, fmtDate, fmtDateLong, fmtMonthDay, fmtYear, fmtDateTime, fmtDuration, fmtRelative, fmtDayRelative, parseClockInput, toClockInput, overlapMs };
+})();
+
+// src/core/recurrence.js
+__m["src/core/recurrence.js"] = (function () {
+// Expands commitments into dated occurrences. Weekly series keep their local
+// wall-clock time across daylight-saving changes because each occurrence is
+// converted from its own local date and time.
+
+const { addDays, weekdayOf, zonedToMs, DEFAULT_TZ } = __m["src/core/time.js"];
+function occurrenceDates(c, fromDate, toDate) {
+  const r = c.recurrence || { freq: 'none' };
+  if (r.freq !== 'weekly') return c.startDate >= fromDate && c.startDate <= toDate ? [c.startDate] : [];
+  const days = new Set(r.days || []);
+  const first = c.startDate > fromDate ? c.startDate : fromDate;
+  const last = r.until && r.until < toDate ? r.until : toDate;
+  const out = [];
+  for (let d = first; d <= last; d = addDays(d, 1)) if (days.has(weekdayOf(d))) out.push(d);
+  return out;
+}
+
+function expandCommitment(c, fromDate, toDate, tz = DEFAULT_TZ) {
+  const exceptions = new Map((c.exceptions || []).map((e) => [e.date, e]));
+  return occurrenceDates(c, fromDate, toDate).map((date) => {
+    const ex = exceptions.get(date);
+    const mod = ex && ex.action === 'modify' ? ex : null;
+    const start = mod && mod.start != null ? mod.start : c.start;
+    const end = mod && mod.end != null ? mod.end : c.end;
+    const locationId = mod && mod.locationId !== undefined ? mod.locationId : c.locationId;
+    const endDate = end <= start ? addDays(date, 1) : date;
+    return {
+      id: `${c.id}@${date}`,
+      commitmentId: c.id,
+      date,
+      title: c.title,
+      type: c.type,
+      start,
+      end,
+      startMs: zonedToMs(date, start, tz),
+      endMs: zonedToMs(endDate, end, tz),
+      locationId: locationId ?? null,
+      recurring: c.recurrence?.freq === 'weekly',
+      skipped: !!(ex && ex.action === 'skip'),
+      modified: !!mod,
+      optional: !!c.optional,
+      source: c.source,
+    };
+  });
+}
+
+function expandCommitments(list, fromDate, toDate, tz = DEFAULT_TZ) {
+  return list
+    .flatMap((c) => expandCommitment(c, fromDate, toDate, tz))
+    .sort((a, b) => a.startMs - b.startMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+// Returns a new commitment with an exception set for one date (or removed when action is null).
+function withException(c, date, exception) {
+  const rest = (c.exceptions || []).filter((e) => e.date !== date);
+  return { ...c, exceptions: exception ? [...rest, { date, ...exception }].sort((a, b) => (a.date < b.date ? -1 : 1)) : rest };
+}
+
+return { occurrenceDates, expandCommitment, expandCommitments, withException };
+})();
+
+// src/core/travel.js
+__m["src/core/travel.js"] = (function () {
+// Travel times between places. Only times the user (or the demo data) entered are
+// treated as known. Missing routes use a configurable fallback that is always
+// labeled as an estimate. Virtual places and unset locations need no travel.
+
+const indexCache = new WeakMap();
+const locCache = new WeakMap();
+
+function pairKey(a, b) { return a < b ? `${a}|${b}` : `${b}|${a}`; }
+
+function travelIndex(state) {
+  let idx = indexCache.get(state.travel);
+  if (!idx) {
+    idx = new Map();
+    for (const t of state.travel) idx.set(pairKey(t.a, t.b), t.minutes);
+    indexCache.set(state.travel, idx);
+  }
+  return idx;
+}
+
+function locIndex(state) {
+  let idx = locCache.get(state.locations);
+  if (!idx) {
+    idx = new Map(state.locations.map((l) => [l.id, l]));
+    locCache.set(state.locations, idx);
+  }
+  return idx;
+}
+
+function locationById(state, id) { return id ? locIndex(state).get(id) || null : null; }
+function locationName(state, id) { return locationById(state, id)?.name || (id ? 'Unknown place' : 'No location set'); }
+
+// A place you physically have to be at. Virtual activities and unset locations are not.
+function isPhysical(state, id) {
+  const l = locationById(state, id);
+  return !!l && l.kind !== 'virtual';
+}
+
+// kind: 'none' (no travel needed), 'same', 'entered' (a known time), 'fallback' (estimate).
+function travelBetween(state, fromId, toId) {
+  if (!isPhysical(state, fromId) || !isPhysical(state, toId)) return { minutes: 0, kind: 'none' };
+  if (fromId === toId) return { minutes: 0, kind: 'same' };
+  const m = travelIndex(state).get(pairKey(fromId, toId));
+  if (m != null) return { minutes: m, kind: 'entered' };
+  return { minutes: state.settings.unknownTravelFallbackMin, kind: 'fallback' };
+}
+
+// Minutes to leave free for a trip, including the optional buffer.
+function travelCost(info, settings) {
+  return info.minutes > 0 ? info.minutes + settings.travelBufferMin : 0;
+}
+
+function describeTravel(info, settings) {
+  if (info.minutes <= 0) return 'no travel';
+  const est = info.kind === 'fallback' ? ' (fallback estimate, no route entered)' : '';
+  const buf = settings.travelBufferMin ? ` plus ${settings.travelBufferMin} min buffer` : '';
+  return `${info.minutes} min travel${est}${buf}`;
+}
+
+return { pairKey, locationById, locationName, isPhysical, travelBetween, travelCost, describeTravel };
+})();
+
+// src/core/ids.js
+__m["src/core/ids.js"] = (function () {
+// Small deterministic helpers used for fingerprints and generated block ids.
+
+function hashString(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+function stableStringify(v) {
+  if (v === undefined) return 'null';
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(stableStringify).join(',')}]`;
+  const keys = Object.keys(v).filter((k) => v[k] !== undefined).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(v[k])}`).join(',')}}`;
+}
+
+let seq = 0;
+// Ids for records the user creates. Not used by the scheduler, which derives ids deterministically.
+function newId(prefix = 'id') {
+  seq = (seq + 1) % 1679616;
+  const rand = Math.floor(Math.random() * 1679616).toString(36);
+  return `${prefix}_${Date.now().toString(36)}${seq.toString(36)}${rand}`;
+}
+
+return { hashString, stableStringify, newId };
+})();
+
+// src/core/model.js
+__m["src/core/model.js"] = (function () {
+// Normalized entities, validation, and migration.
+// Every record the UI or an import hands to the engine passes through these functions.
+
+const { isDateString, zonedToMs, DEFAULT_TZ } = __m["src/core/time.js"];
+const { hashString, stableStringify } = __m["src/core/ids.js"];
+const APP_ID = 'margin-planner';
+const SCHEMA_VERSION = 2;
+
+const COMMITMENT_TYPES = {
+  class: 'Class', work: 'Work shift', club: 'Club', appointment: 'Appointment',
+  meal: 'Meal', personal: 'Personal', protected: 'Protected time',
+};
+const TASK_KINDS = {
+  assignment: 'Assignment', exam: 'Exam prep', reading: 'Reading', project: 'Project', task: 'Everyday task', review: 'Review',
+};
+const PRIORITIES = { high: 'High', medium: 'Medium', low: 'Low' };
+const FOCUS = { deep: 'Deep focus', normal: 'Normal', light: 'Light, fits short gaps' };
+const CONFIDENCE = { low: 'Rough guess', medium: 'Fairly sure', high: 'Confident' };
+const LOCATION_KINDS = { home: 'Home', study: 'Study space', class: 'Academic building', dining: 'Dining', other: 'Other', virtual: 'Online or virtual' };
+const EQUIPMENT = { quiet: 'Quiet space', monitor: 'External monitor', whiteboard: 'Whiteboard', printer: 'Printer', workshop: 'Workshop tools' };
+const STATUSES = { todo: 'Not started', in_progress: 'In progress', done: 'Done' };
+
+const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj, k);
+const str = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const arr = (v) => (Array.isArray(v) ? v : []);
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const intIn = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+function clampInt(v, lo, hi, dflt) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return dflt;
+  return Math.min(hi, Math.max(lo, Math.round(n)));
+}
+
+function defaultPreferences() {
+  const weekday = () => [{ start: 8 * 60, end: 23 * 60 }];
+  const weekend = () => [{ start: 10 * 60, end: 22 * 60 }];
+  return {
+    availability: [weekend(), weekday(), weekday(), weekday(), weekday(), weekday(), weekend()],
+    sleep: { start: 23 * 60 + 30, end: 7 * 60 + 30 },
+    maxDailyStudyMin: 300,
+    preferredSessionMin: 75,
+    minSessionMin: 25,
+    breakMin: 10,
+    maxContinuousMin: 110,
+    focusHours: [{ start: 9 * 60, end: 12 * 60 }],
+    reserveFlexMin: 30,
+    eveningCutoff: 18 * 60,
+  };
+}
+
+function defaultSettings() {
+  return {
+    timezone: DEFAULT_TZ,
+    dateOnlyCutoff: 23 * 60 + 59,
+    planningHorizonDays: 14,
+    unknownTravelFallbackMin: 15,
+    travelBufferMin: 5,
+    homeLocationId: null,
+    calibrationEnabled: true,
+  };
+}
+
+function emptyState(mode = 'personal') {
+  return {
+    app: APP_ID,
+    schemaVersion: SCHEMA_VERSION,
+    mode,
+    meta: { createdAt: null, demoNow: null, scenario: null },
+    settings: defaultSettings(),
+    preferences: defaultPreferences(),
+    locations: [],
+    travel: [],
+    commitments: [],
+    tasks: [],
+    plan: { version: 0, approvedAt: null, strategy: null, blocks: [] },
+    log: [],
+    proposal: null,
+    calibration: { clearedAt: null, dismissed: {} },
+    revision: { topics: [] },
+    checkins: {},
+  };
+}
+
+// ---------- Task helpers ----------
+
+function taskUnits(task) {
+  const steps = arr(task.steps);
+  if (task.status === 'done') return [];
+  if (steps.length === 0) {
+    return [{ unitId: task.id, taskId: task.id, stepId: null, title: task.title, stepTitle: null, remaining: task.remainingMin, index: 0, count: 1 }];
+  }
+  const open = steps.filter((s) => !s.done);
+  return open.map((s, i) => ({
+    unitId: `${task.id}:${s.id}`, taskId: task.id, stepId: s.id, title: `${task.title}: ${s.title}`,
+    stepTitle: s.title, remaining: s.remainingMin, index: i, count: open.length,
+  }));
+}
+
+function unitKey(taskId, stepId) { return stepId ? `${taskId}:${stepId}` : taskId; }
+
+// When a task has steps, its effort is the sum of its steps. The task-level fields are not added.
+function taskRemaining(task) {
+  if (task.status === 'done') return 0;
+  const steps = arr(task.steps);
+  if (steps.length) return steps.reduce((s, x) => s + (x.done ? 0 : x.remainingMin), 0);
+  return task.remainingMin;
+}
+
+function taskEstimate(task) {
+  const steps = arr(task.steps);
+  if (steps.length) return steps.reduce((s, x) => s + x.estimateMin, 0);
+  return task.estimateMin;
+}
+
+function deadlineMs(task, settings) {
+  const time = task.deadline.time ?? settings.dateOnlyCutoff;
+  return zonedToMs(task.deadline.date, time, settings.timezone);
+}
+
+function findDependencyCycle(tasks) {
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const color = new Map();
+  const stack = [];
+  let found = null;
+  const visit = (id) => {
+    if (found) return;
+    color.set(id, 1);
+    stack.push(id);
+    for (const d of arr(byId.get(id)?.dependsOn)) {
+      if (!byId.has(d)) continue;
+      if (color.get(d) === 1) { found = stack.slice(stack.indexOf(d)); return; }
+      if (!color.get(d)) visit(d);
+      if (found) return;
+    }
+    stack.pop();
+    color.set(id, 2);
+  };
+  for (const t of tasks) if (!color.get(t.id)) visit(t.id);
+  return found;
+}
+
+// ---------- Validation (returns { field: message }) ----------
+
+function validatePreferences(p) {
+  const e = {};
+  if (!Array.isArray(p.availability) || p.availability.length !== 7) e.availability = 'Availability needs one entry per weekday.';
+  else p.availability.forEach((ws, i) => {
+    for (const w of arr(ws)) {
+      if (!intIn(w.start, 0, 1440) || !intIn(w.end, 0, 1440) || w.end <= w.start) e[`availability${i}`] = 'Study hours must end after they start.';
+    }
+  });
+  if (!intIn(p.sleep?.start, 0, 1439) || !intIn(p.sleep?.end, 0, 1439) || p.sleep.start === p.sleep.end) e.sleep = 'Sleep needs a start and an end that differ.';
+  if (!intIn(p.maxDailyStudyMin, 0, 960)) e.maxDailyStudyMin = 'Daily study limit must be 0 to 960 minutes.';
+  if (!intIn(p.preferredSessionMin, 10, 240)) e.preferredSessionMin = 'Preferred session must be 10 to 240 minutes.';
+  if (!intIn(p.minSessionMin, 5, 240)) e.minSessionMin = 'Minimum session must be 5 to 240 minutes.';
+  else if (p.minSessionMin > p.preferredSessionMin) e.minSessionMin = 'Minimum session cannot be longer than the preferred session.';
+  if (!intIn(p.breakMin, 0, 120)) e.breakMin = 'Break must be 0 to 120 minutes.';
+  if (!intIn(p.maxContinuousMin, 15, 480)) e.maxContinuousMin = 'Continuous work limit must be 15 to 480 minutes.';
+  else if (p.maxContinuousMin < p.minSessionMin) e.maxContinuousMin = 'Continuous work limit must be at least the minimum session.';
+  for (const w of arr(p.focusHours)) if (!intIn(w.start, 0, 1440) || !intIn(w.end, 0, 1440) || w.end <= w.start) e.focusHours = 'Focus hours must end after they start.';
+  if (!intIn(p.reserveFlexMin, 0, 600)) e.reserveFlexMin = 'Reserved flexibility must be 0 to 600 minutes.';
+  if (!intIn(p.eveningCutoff, 0, 1439)) e.eveningCutoff = 'Choose when evenings start.';
+  return e;
+}
+
+function validateCommitment(c) {
+  const e = {};
+  if (!str(c.title)) e.title = 'Give the commitment a title.';
+  if (!has(COMMITMENT_TYPES, c.type)) e.type = 'Choose a type.';
+  if (!isDateString(c.startDate)) e.startDate = 'Choose a valid date.';
+  if (!intIn(c.start, 0, 1439)) e.start = 'Choose a start time.';
+  if (!intIn(c.end, 0, 1440)) e.end = 'Choose an end time.';
+  if (intIn(c.start, 0, 1439) && intIn(c.end, 0, 1440) && c.start === c.end) e.end = 'Start and end cannot be the same time. Zero-length events are not allowed.';
+  if (c.recurrence?.freq === 'weekly') {
+    if (!arr(c.recurrence.days).length) e.days = 'Pick at least one weekday.';
+    if (!isDateString(c.recurrence.until)) e.until = 'Choose the date the series ends.';
+    else if (isDateString(c.startDate) && c.recurrence.until < c.startDate) e.until = 'The series cannot end before it starts.';
+  }
+  return e;
+}
+
+function validateTask(t, allTasks = []) {
+  const e = {};
+  if (!str(t.title)) e.title = 'Give the task a title.';
+  if (!isDateString(t.deadline?.date)) e.deadline = 'Choose a valid deadline date.';
+  if (t.deadline?.time != null && !intIn(t.deadline.time, 0, 1439)) e.deadlineTime = 'Choose a valid deadline time.';
+  const steps = arr(t.steps);
+  if (!steps.length) {
+    if (!intIn(t.estimateMin, 0, 6000)) e.estimateMin = 'Estimate must be a whole number from 0 to 6000 minutes.';
+    if (!intIn(t.remainingMin, 0, 6000)) e.remainingMin = 'Remaining effort must be a whole number from 0 to 6000 minutes.';
+  }
+  steps.forEach((s, i) => {
+    if (!str(s.title)) e[`step${i}`] = `Step ${i + 1} needs a title.`;
+    else if (!intIn(s.estimateMin, 0, 6000) || !intIn(s.remainingMin, 0, 6000)) e[`step${i}`] = `Step ${i + 1} needs whole-minute estimates from 0 to 6000.`;
+  });
+  if (t.minSessionMin != null && !intIn(t.minSessionMin, 5, 240)) e.minSessionMin = 'Minimum useful session must be 5 to 240 minutes.';
+  if (t.location?.mode && t.location.mode !== 'any' && !arr(t.location.ids).length) e.location = 'Pick at least one location, or choose Anywhere.';
+  if (t.lateTarget != null && t.lateTarget !== '' && !isDateString(t.lateTarget)) e.lateTarget = 'Choose a valid date.';
+  const deps = arr(t.dependsOn);
+  if (deps.includes(t.id)) e.dependsOn = 'A task cannot depend on itself.';
+  else if (deps.length) {
+    const others = allTasks.filter((x) => x.id !== t.id);
+    if (findDependencyCycle([...others, t])) e.dependsOn = 'These dependencies would form a loop.';
+  }
+  return e;
+}
+
+function validateLocation(l) {
+  const e = {};
+  if (!str(l.name)) e.name = 'Give the place a name.';
+  if (!has(LOCATION_KINDS, l.kind)) e.kind = 'Choose a kind.';
+  return e;
+}
+
+// ---------- Normalization ----------
+
+function normalizeWindows(v, fallback) {
+  const out = arr(v).filter((w) => isObj(w) && intIn(w.start, 0, 1440) && intIn(w.end, 0, 1440) && w.end > w.start).map((w) => ({ start: w.start, end: w.end }));
+  return out.length || Array.isArray(v) ? out : fallback;
+}
+
+function normalizePreferences(raw, warnings = []) {
+  const d = defaultPreferences();
+  if (!isObj(raw)) return d;
+  const p = {
+    availability: Array.isArray(raw.availability) && raw.availability.length === 7 ? raw.availability.map((ws, i) => normalizeWindows(ws, d.availability[i])) : d.availability,
+    sleep: isObj(raw.sleep) && intIn(raw.sleep.start, 0, 1439) && intIn(raw.sleep.end, 0, 1439) && raw.sleep.start !== raw.sleep.end ? { start: raw.sleep.start, end: raw.sleep.end } : d.sleep,
+    maxDailyStudyMin: clampInt(raw.maxDailyStudyMin, 0, 960, d.maxDailyStudyMin),
+    preferredSessionMin: clampInt(raw.preferredSessionMin, 10, 240, d.preferredSessionMin),
+    minSessionMin: clampInt(raw.minSessionMin, 5, 240, d.minSessionMin),
+    breakMin: clampInt(raw.breakMin, 0, 120, d.breakMin),
+    maxContinuousMin: clampInt(raw.maxContinuousMin, 15, 480, d.maxContinuousMin),
+    focusHours: normalizeWindows(raw.focusHours, d.focusHours),
+    reserveFlexMin: clampInt(raw.reserveFlexMin, 0, 600, d.reserveFlexMin),
+    eveningCutoff: clampInt(raw.eveningCutoff, 0, 1439, d.eveningCutoff),
+  };
+  if (p.minSessionMin > p.preferredSessionMin) { p.minSessionMin = p.preferredSessionMin; warnings.push('Minimum session was longer than the preferred session and was shortened.'); }
+  if (p.maxContinuousMin < p.minSessionMin) p.maxContinuousMin = p.minSessionMin;
+  return p;
+}
+
+function normalizeSource(v) {
+  if (!isObj(v)) return { system: 'user', id: null };
+  const out = { system: str(v.system, 40) || 'user', id: v.id == null ? null : String(v.id).slice(0, 120) };
+  if (v.table) out.table = str(v.table, 60);
+  return out;
+}
+
+function normalizeLocation(raw) {
+  if (!isObj(raw) || !str(raw.id, 80) || !str(raw.name)) return null;
+  return {
+    id: str(raw.id, 80),
+    name: str(raw.name, 80),
+    kind: has(LOCATION_KINDS, raw.kind) ? raw.kind : 'other',
+    studyOk: raw.studyOk !== false && raw.kind !== 'virtual',
+    equipment: arr(raw.equipment).filter((x) => has(EQUIPMENT, x)),
+    source: normalizeSource(raw.source),
+  };
+}
+
+function normalizeCommitment(raw, locationIds) {
+  if (!isObj(raw) || !str(raw.id, 80)) return null;
+  const rec = isObj(raw.recurrence) && raw.recurrence.freq === 'weekly'
+    ? { freq: 'weekly', days: [...new Set(arr(raw.recurrence.days).filter((d) => intIn(d, 0, 6)))].sort(), until: raw.recurrence.until }
+    : { freq: 'none' };
+  const c = {
+    id: str(raw.id, 80),
+    title: str(raw.title, 120),
+    type: has(COMMITMENT_TYPES, raw.type) ? raw.type : 'personal',
+    startDate: raw.startDate,
+    start: raw.start,
+    end: raw.end,
+    recurrence: rec,
+    locationId: raw.locationId && locationIds.has(raw.locationId) ? raw.locationId : null,
+    optional: !!raw.optional,
+    notes: str(raw.notes, 1000),
+    exceptions: arr(raw.exceptions).filter((e) => isObj(e) && isDateString(e.date) && (e.action === 'skip' || e.action === 'modify')).map((e) => ({
+      date: e.date,
+      action: e.action,
+      start: intIn(e.start, 0, 1439) ? e.start : undefined,
+      end: intIn(e.end, 0, 1440) ? e.end : undefined,
+      locationId: e.locationId === null || (e.locationId && locationIds.has(e.locationId)) ? e.locationId : undefined,
+    })),
+    source: normalizeSource(raw.source),
+  };
+  return Object.keys(validateCommitment(c)).length ? null : c;
+}
+
+function normalizeTask(raw, locationIds) {
+  if (!isObj(raw) || !str(raw.id, 80)) return null;
+  const dl = isObj(raw.deadline) ? raw.deadline : {};
+  const loc = isObj(raw.location) ? raw.location : {};
+  const steps = arr(raw.steps).filter(isObj).map((s, i) => ({
+    id: str(s.id, 80) || `s${i + 1}`,
+    title: str(s.title, 120),
+    estimateMin: clampInt(s.estimateMin, 0, 6000, 0),
+    remainingMin: clampInt(s.remainingMin ?? s.estimateMin, 0, 6000, 0),
+    done: !!s.done,
+  }));
+  const t = {
+    id: str(raw.id, 80),
+    title: str(raw.title, 120),
+    category: str(raw.category, 60) || 'General',
+    kind: has(TASK_KINDS, raw.kind) ? raw.kind : 'task',
+    priority: has(PRIORITIES, raw.priority) ? raw.priority : 'medium',
+    deadline: { date: dl.date, time: intIn(dl.time, 0, 1439) ? dl.time : null },
+    estimateMin: clampInt(raw.estimateMin, 0, 6000, 0),
+    remainingMin: clampInt(raw.remainingMin ?? raw.estimateMin, 0, 6000, 0),
+    confidence: has(CONFIDENCE, raw.confidence) ? raw.confidence : 'medium',
+    focus: has(FOCUS, raw.focus) ? raw.focus : 'normal',
+    location: {
+      mode: ['any', 'preferred', 'required'].includes(loc.mode) ? loc.mode : 'any',
+      ids: arr(loc.ids).filter((id) => locationIds.has(id)),
+    },
+    equipment: arr(raw.equipment).filter((x) => has(EQUIPMENT, x)),
+    status: has(STATUSES, raw.status) ? raw.status : 'todo',
+    notes: str(raw.notes, 2000),
+    doneWhen: str(raw.doneWhen, 300),
+    splittable: raw.splittable !== false,
+    minSessionMin: raw.minSessionMin == null ? null : clampInt(raw.minSessionMin, 5, 240, null),
+    steps,
+    dependsOn: [...new Set(arr(raw.dependsOn).filter((x) => typeof x === 'string'))],
+    lateTarget: isDateString(raw.lateTarget) ? raw.lateTarget : null,
+    revisionTopicId: raw.revisionTopicId ? str(raw.revisionTopicId, 80) : null,
+    calibratedFrom: isObj(raw.calibratedFrom) ? raw.calibratedFrom : null,
+    createdAt: Number.isFinite(raw.createdAt) ? raw.createdAt : null,
+    completedAt: Number.isFinite(raw.completedAt) ? raw.completedAt : null,
+    source: normalizeSource(raw.source),
+  };
+  if (t.location.mode !== 'any' && !t.location.ids.length) t.location.mode = 'any';
+  if (t.status === 'done') { t.remainingMin = 0; }
+  return Object.keys(validateTask({ ...t, dependsOn: [] })).length ? null : t;
+}
+
+function normalizeBlock(raw, taskIds) {
+  if (!isObj(raw) || !str(raw.id, 160) || !taskIds.has(raw.taskId)) return null;
+  if (!Number.isFinite(raw.start) || !Number.isFinite(raw.end) || raw.end <= raw.start) return null;
+  return {
+    id: str(raw.id, 160), taskId: raw.taskId, stepId: raw.stepId ? String(raw.stepId) : null,
+    start: raw.start, end: raw.end, locationId: raw.locationId ?? null,
+    status: ['planned', 'completed', 'partial', 'interrupted', 'missed'].includes(raw.status) ? raw.status : 'planned',
+    locked: !!raw.locked, origin: raw.origin === 'manual' ? 'manual' : 'generated',
+    approvedAt: Number.isFinite(raw.approvedAt) ? raw.approvedAt : null,
+    actualMin: Number.isFinite(raw.actualMin) ? raw.actualMin : null,
+    recordedAt: Number.isFinite(raw.recordedAt) ? raw.recordedAt : null,
+    reasons: arr(raw.reasons).filter((r) => isObj(r) && typeof r.text === 'string').slice(0, 20),
+  };
+}
+
+function normalizeLog(raw, taskIds) {
+  if (!isObj(raw) || !taskIds.has(raw.taskId) || !Number.isFinite(raw.at)) return null;
+  return {
+    id: str(raw.id, 120) || `log_${raw.at}`,
+    at: raw.at, date: isDateString(raw.date) ? raw.date : null,
+    blockId: raw.blockId ?? null, taskId: raw.taskId, stepId: raw.stepId ?? null,
+    outcome: ['completed', 'partial', 'interrupted', 'missed', 'logged'].includes(raw.outcome) ? raw.outcome : 'logged',
+    actualMin: clampInt(raw.actualMin, 0, 1440, 0),
+    unitRemainingBefore: clampInt(raw.unitRemainingBefore, 0, 6000, 0),
+    unitRemainingAfter: clampInt(raw.unitRemainingAfter, 0, 6000, 0),
+    taskRemainingBefore: clampInt(raw.taskRemainingBefore, 0, 6000, 0),
+    taskRemainingAfter: clampInt(raw.taskRemainingAfter, 0, 6000, 0),
+    focus: intIn(raw.focus, 1, 5) ? raw.focus : null,
+    difficulty: intIn(raw.difficulty, 1, 5) ? raw.difficulty : null,
+    note: str(raw.note, 500),
+    finished: raw.finished === 'step' || raw.finished === 'task' ? raw.finished : null,
+  };
+}
+
+function normalizeTopic(raw) {
+  if (!isObj(raw) || !str(raw.id, 80) || !str(raw.title)) return null;
+  return {
+    id: str(raw.id, 80), title: str(raw.title, 120), category: str(raw.category, 60) || 'General',
+    reviewMin: clampInt(raw.reviewMin, 5, 120, 20),
+    confidence: clampInt(raw.confidence, 1, 5, 3),
+    intervalDays: raw.intervalDays == null ? null : clampInt(raw.intervalDays, 1, 120, 1),
+    lastReviewed: isDateString(raw.lastReviewed) ? raw.lastReviewed : null,
+    nextDue: isDateString(raw.nextDue) ? raw.nextDue : null,
+    history: arr(raw.history).filter((h) => isObj(h) && isDateString(h.date)).map((h) => ({ date: h.date, confidence: clampInt(h.confidence, 1, 5, 3), intervalDays: clampInt(h.intervalDays, 1, 120, 1) })),
+  };
+}
+
+// Migrations from older schema versions. v1 is the prototype format
+// (prefs instead of preferences, effortMin/doneMin on tasks, string deadlines).
+const MIGRATIONS = {
+  1(d) {
+    const o = { ...d };
+    if (o.prefs && !o.preferences) { o.preferences = o.prefs; delete o.prefs; }
+    o.tasks = arr(o.tasks).map((t) => {
+      if (!isObj(t)) return t;
+      const n = { ...t };
+      if (n.effortMin != null && n.estimateMin == null) {
+        n.estimateMin = n.effortMin;
+        n.remainingMin = Math.max(0, Number(n.effortMin) - Number(n.doneMin || 0));
+      }
+      delete n.effortMin;
+      delete n.doneMin;
+      if (typeof n.deadline === 'string') n.deadline = { date: n.deadline.slice(0, 10), time: null };
+      return n;
+    });
+    o.schemaVersion = 2;
+    return o;
+  },
+};
+
+function migrate(data, fromVersion) {
+  let d = data;
+  for (let v = fromVersion; v < SCHEMA_VERSION; v++) {
+    if (!MIGRATIONS[v]) throw new Error(`No migration from schema ${v}.`);
+    d = MIGRATIONS[v](d);
+  }
+  return d;
+}
+
+// Validates and repairs an untrusted state object. Never throws.
+function normalizeState(raw, mode) {
+  const warnings = [];
+  if (!isObj(raw)) return { ok: false, errors: ['This is not a planner data object.'] };
+  if (raw.app && raw.app !== APP_ID) return { ok: false, errors: [`This file belongs to a different app (${String(raw.app).slice(0, 40)}).`] };
+  const version = Number.isInteger(raw.schemaVersion) ? raw.schemaVersion : 1;
+  if (version > SCHEMA_VERSION) return { ok: false, errors: [`This data uses schema ${version}, which is newer than this app supports (${SCHEMA_VERSION}).`] };
+  let data = raw;
+  if (version < SCHEMA_VERSION) {
+    try { data = migrate(raw, version); warnings.push(`Upgraded data from schema ${version} to ${SCHEMA_VERSION}.`); } catch (err) { return { ok: false, errors: [err.message] }; }
+  }
+  const out = emptyState(mode);
+  const drop = (label, before, after) => { if (after < before) warnings.push(`Skipped ${before - after} invalid ${label}.`); };
+
+  if (isObj(data.meta)) {
+    out.meta = {
+      createdAt: Number.isFinite(data.meta.createdAt) ? data.meta.createdAt : null,
+      demoNow: Number.isFinite(data.meta.demoNow) ? data.meta.demoNow : null,
+      scenario: typeof data.meta.scenario === 'string' ? data.meta.scenario.slice(0, 40) : null,
+      course: isObj(data.meta.course) ? {
+        studentId: str(data.meta.course.studentId, 120), studentName: str(data.meta.course.studentName),
+        termCode: str(data.meta.course.termCode, 30), termLabel: str(data.meta.course.termLabel),
+        fetchedAt: str(data.meta.course.fetchedAt, 100), asOf: str(data.meta.course.asOf, 10),
+        estimateMin: clampInt(data.meta.course.estimateMin, 5, 6000, 90),
+        pending: arr(data.meta.course.pending).slice(0, 200).filter(isObj).map((p) => ({
+          title: str(p.title), detail: str(p.detail, 1000), location: str(p.location) || null,
+          date: isDateString(p.date) ? p.date : null, table: str(p.table, 60), id: str(p.id, 120),
+        })),
+        warnings: arr(data.meta.course.warnings).filter((w) => typeof w === 'string').slice(0, 50).map((w) => str(w, 1000)),
+      } : null,
+    };
+  }
+  const s = isObj(data.settings) ? data.settings : {};
+  const ds = defaultSettings();
+  out.settings = {
+    timezone: DEFAULT_TZ,
+    dateOnlyCutoff: clampInt(s.dateOnlyCutoff, 0, 1439, ds.dateOnlyCutoff),
+    planningHorizonDays: clampInt(s.planningHorizonDays, 3, 28, ds.planningHorizonDays),
+    unknownTravelFallbackMin: clampInt(s.unknownTravelFallbackMin, 0, 120, ds.unknownTravelFallbackMin),
+    travelBufferMin: clampInt(s.travelBufferMin, 0, 60, ds.travelBufferMin),
+    homeLocationId: null,
+    calibrationEnabled: s.calibrationEnabled !== false,
+  };
+  if (s.timezone && s.timezone !== DEFAULT_TZ) warnings.push(`Timezone ${String(s.timezone).slice(0, 40)} is not supported; using ${DEFAULT_TZ}.`);
+  out.preferences = normalizePreferences(data.preferences, warnings);
+
+  const rawLocs = arr(data.locations);
+  const seen = new Set();
+  out.locations = rawLocs.map(normalizeLocation).filter((l) => l && !seen.has(l.id) && seen.add(l.id));
+  drop('places', rawLocs.length, out.locations.length);
+  const locIds = new Set(out.locations.map((l) => l.id));
+  if (s.homeLocationId && locIds.has(s.homeLocationId)) out.settings.homeLocationId = s.homeLocationId;
+
+  const rawTravel = arr(data.travel);
+  const pairs = new Set();
+  out.travel = rawTravel.filter((t) => isObj(t) && locIds.has(t.a) && locIds.has(t.b) && t.a !== t.b && intIn(t.minutes, 0, 240)).map((t) => ({ a: t.a < t.b ? t.a : t.b, b: t.a < t.b ? t.b : t.a, minutes: t.minutes })).filter((t) => !pairs.has(`${t.a}|${t.b}`) && pairs.add(`${t.a}|${t.b}`));
+  drop('travel times', rawTravel.length, out.travel.length);
+
+  const rawCommit = arr(data.commitments);
+  out.commitments = rawCommit.map((c) => normalizeCommitment(c, locIds)).filter(Boolean);
+  drop('commitments', rawCommit.length, out.commitments.length);
+
+  const rawTasks = arr(data.tasks);
+  out.tasks = rawTasks.map((t) => normalizeTask(t, locIds)).filter(Boolean);
+  drop('tasks', rawTasks.length, out.tasks.length);
+  const taskIds = new Set(out.tasks.map((t) => t.id));
+  for (const t of out.tasks) t.dependsOn = t.dependsOn.filter((id) => taskIds.has(id) && id !== t.id);
+  if (findDependencyCycle(out.tasks)) warnings.push('Some task dependencies form a loop. The planner will report the affected tasks.');
+
+  const plan = isObj(data.plan) ? data.plan : {};
+  const rawBlocks = arr(plan.blocks);
+  out.plan = {
+    version: clampInt(plan.version, 0, 1e9, 0),
+    approvedAt: Number.isFinite(plan.approvedAt) ? plan.approvedAt : null,
+    strategy: typeof plan.strategy === 'string' ? plan.strategy : null,
+    blocks: rawBlocks.map((b) => normalizeBlock(b, taskIds)).filter(Boolean).sort((a, b) => a.start - b.start),
+  };
+  drop('plan sessions', rawBlocks.length, out.plan.blocks.length);
+
+  const rawLog = arr(data.log);
+  out.log = rawLog.map((l) => normalizeLog(l, taskIds)).filter(Boolean);
+  drop('progress records', rawLog.length, out.log.length);
+
+  // Proposals are regenerated rather than trusted, except a structurally intact one from our own storage.
+  out.proposal = isObj(data.proposal) && Array.isArray(data.proposal.alternatives) ? data.proposal : null;
+
+  const cal = isObj(data.calibration) ? data.calibration : {};
+  out.calibration = { clearedAt: Number.isFinite(cal.clearedAt) ? cal.clearedAt : null, dismissed: isObj(cal.dismissed) ? cal.dismissed : {} };
+  const rev = isObj(data.revision) ? data.revision : {};
+  out.revision = { topics: arr(rev.topics).map(normalizeTopic).filter(Boolean) };
+  out.checkins = isObj(data.checkins) ? Object.fromEntries(Object.entries(data.checkins).filter(([k, v]) => isDateString(k) && ['low', 'ok', 'high'].includes(v))) : {};
+  return { ok: true, state: out, warnings };
+}
+
+// Hashes of each part of the state a proposal depends on. Used to detect stale proposals.
+function fingerprint(state) {
+  const h = (v) => hashString(stableStringify(v));
+  return {
+    tasks: h(state.tasks),
+    commitments: h(state.commitments),
+    preferences: h(state.preferences),
+    places: h([state.locations, state.travel]),
+    settings: h(state.settings),
+    plan: `${state.plan.version}:${h(state.plan.blocks.map((b) => [b.id, b.start, b.end, b.locked, b.status]))}`,
+    progress: String(state.log.length),
+  };
+}
+
+const FINGERPRINT_LABELS = {
+  tasks: 'Tasks changed', commitments: 'Commitments changed', preferences: 'Preferences changed',
+  places: 'Places or travel times changed', settings: 'Settings changed', plan: 'The approved plan changed', progress: 'New progress was recorded',
+};
+
+return { APP_ID, SCHEMA_VERSION, COMMITMENT_TYPES, TASK_KINDS, PRIORITIES, FOCUS, CONFIDENCE, LOCATION_KINDS, EQUIPMENT, STATUSES, defaultPreferences, defaultSettings, emptyState, taskUnits, unitKey, taskRemaining, taskEstimate, deadlineMs, findDependencyCycle, validatePreferences, validateCommitment, validateTask, validateLocation, normalizePreferences, normalizeLocation, normalizeCommitment, normalizeTask, migrate, normalizeState, fingerprint, FINGERPRINT_LABELS };
+})();
+
+// src/core/scheduler.js
+__m["src/core/scheduler.js"] = (function () {
+// Deterministic scheduling engine. No network, no randomness, no clock reads:
+// the caller passes "now". Identical inputs always produce identical plans.
+//
+// Hard constraints (never relaxed unless the caller passes an explicit `relax` option
+// that the user approved): fixed commitments, protected sleep, study availability,
+// approved locked sessions, travel before and after each session, breaks between
+// sessions, maximum continuous work, daily study limit, deadlines, dependencies,
+// required locations and equipment, minimum useful session length.
+//
+// Soft preferences (influence where work goes): focus hours, preferred locations,
+// preferred session length, reserved flexibility time, strategy.
+
+const { MINUTE, HOUR, DAY, addDays, msToDate, msToMinuteOfDay, weekdayOf, zonedToMs, roundUpTo, roundDownTo, fmtDateTime, fmtDate, fmtClock, fmtDuration, fmtTime, overlapMs } = __m["src/core/time.js"];
+const { expandCommitments } = __m["src/core/recurrence.js"];
+const { travelBetween, travelCost, isPhysical, locationName } = __m["src/core/travel.js"];
+const { taskUnits, deadlineMs, unitKey } = __m["src/core/model.js"];
+const STEP = 5 * MINUTE;
+const PRIORITY_SHIFT = { high: 6 * HOUR, medium: 0, low: -6 * HOUR };
+const CONFIDENCE_MARGIN = { low: 0.5, medium: 0.25, high: 0.1 };
+
+const STRATEGIES = {
+  balanced: { id: 'balanced', label: 'Balanced', summary: 'Spaces each task across the days before its deadline.' },
+  early: { id: 'early', label: 'Finish early', summary: 'Places work as soon as possible, leaving later days open.' },
+  evenings: { id: 'evenings', label: 'Protect evenings', summary: 'Keeps study out of evenings, even if some work is left unplaced.' },
+  minimal: { id: 'minimal', label: 'Smallest change', summary: 'Keeps every approved session where it is and places only work without a session.' },
+};
+
+// ---------- Interval helpers ----------
+
+function subtractIntervals(intervals, cuts) {
+  let out = intervals.slice();
+  for (const [cs, ce] of cuts) {
+    const next = [];
+    for (const [s, e] of out) {
+      if (ce <= s || cs >= e) { next.push([s, e]); continue; }
+      if (cs > s) next.push([s, cs]);
+      if (ce < e) next.push([ce, e]);
+    }
+    out = next;
+  }
+  return out;
+}
+
+function insertSorted(list, item) {
+  let i = list.length;
+  while (i > 0 && (list[i - 1].start > item.start || (list[i - 1].start === item.start && list[i - 1].end > item.end))) i--;
+  list.splice(i, 0, item);
+}
+
+function sleepInterval(date, sleep, tz) {
+  if (sleep.start > sleep.end) return [zonedToMs(date, sleep.start, tz), zonedToMs(addDays(date, 1), sleep.end, tz)];
+  return [zonedToMs(date, sleep.start, tz), zonedToMs(date, sleep.end, tz)];
+}
+
+// Splits plan blocks into history (finished before start), kept (in progress, locked,
+// recorded, or everything when keepExistingFuture), and replaceable (future, unlocked, planned).
+function partitionPlan(blocks, startMs, keepExistingFuture = false) {
+  const history = [];
+  const kept = [];
+  const replaceable = [];
+  for (const b of blocks) {
+    if (b.end <= startMs) history.push(b);
+    else if (b.start < startMs || b.locked || b.status !== 'planned' || keepExistingFuture) kept.push(b);
+    else replaceable.push(b);
+  }
+  return { history, kept, replaceable };
+}
+
+// ---------- Context ----------
+
+function buildContext(state, nowMs, opts = {}) {
+  const settings = state.settings;
+  const tz = settings.timezone;
+  const prefs = { ...state.preferences, ...(opts.prefOverrides || {}) };
+  const horizonDays = opts.horizonDays ?? settings.planningHorizonDays;
+  const startMs = roundUpTo(nowMs, STEP);
+  const today = msToDate(nowMs, tz);
+  const dates = Array.from({ length: horizonDays }, (_, i) => addDays(today, i));
+  const endMs = zonedToMs(addDays(today, horizonDays), 0, tz);
+  const skip = new Set(opts.skipOccurrenceIds || []);
+  const occurrences = expandCommitments(state.commitments, addDays(today, -1), dates[dates.length - 1], tz)
+    .filter((o) => !o.skipped && !skip.has(o.id) && o.endMs > startMs - DAY && o.startMs < endMs + DAY);
+  const { history, kept, replaceable } = partitionPlan(state.plan.blocks, startMs, !!opts.keepExistingFuture);
+  const homeId = settings.homeLocationId && state.locations.some((l) => l.id === settings.homeLocationId) ? settings.homeLocationId : null;
+
+  const timeline = [];
+  for (const o of occurrences) timeline.push({ start: o.startMs, end: o.endMs, kind: o.type === 'protected' ? 'protected' : 'commitment', locationId: o.locationId, label: o.title, ref: o });
+  for (let i = -1; i <= horizonDays; i++) {
+    const [s, e] = sleepInterval(addDays(today, i), prefs.sleep, tz);
+    timeline.push({ start: s, end: e, kind: 'sleep', locationId: homeId, label: 'sleep' });
+  }
+  for (const b of kept) timeline.push({ start: b.start, end: b.end, kind: 'study', locationId: b.locationId, label: 'a study session', ref: b });
+  for (const [s, e] of opts.extraBusy || []) timeline.push({ start: s, end: e, kind: 'blocked', locationId: null, label: 'unavailable time', ref: null });
+  timeline.sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const focusOf = (date) => prefs.focusHours.map((w) => [zonedToMs(date, w.start, tz), zonedToMs(date, w.end, tz)]);
+  const days = dates.map((date) => {
+    let windows = (prefs.availability[weekdayOf(date)] || []).map((w) => [zonedToMs(date, w.start, tz), zonedToMs(date, w.end, tz)]);
+    if (opts.protectEveningsAfter != null) {
+      const cut = zonedToMs(date, opts.protectEveningsAfter, tz);
+      windows = windows.map(([s, e]) => [s, Math.min(e, cut)]);
+    }
+    windows = windows.map(([s, e]) => [Math.max(s, startMs), e]).filter(([s, e]) => e - s >= STEP).sort((a, b) => a[0] - b[0]);
+    return { date, windows, focus: focusOf(date), studyMin: 0, cap: 0, initialCap: 0, freeInitial: [] };
+  });
+  const byDate = new Map(days.map((d) => [d.date, d]));
+  for (const b of [...history, ...kept]) {
+    if (b.status === 'missed') continue;
+    const day = byDate.get(msToDate(b.start, tz));
+    if (day) day.studyMin += (b.end - b.start) / MINUTE;
+  }
+  const ctx = { state, settings, prefs, tz, nowMs, startMs, endMs, today, dates, days, byDate, timeline, occurrences, history, kept, replaceable, homeId, opts, horizonDays };
+  const reserve = opts.relax?.useReserve ? 0 : prefs.reserveFlexMin;
+  const maxDaily = prefs.maxDailyStudyMin + (opts.relax?.extraDailyMin || 0);
+  for (const day of days) {
+    day.freeInitial = freeIntervals(ctx, day);
+    const freeMin = day.freeInitial.reduce((s, [a, b]) => s + (b - a) / MINUTE, 0);
+    const limit = opts.dayCaps?.[day.date] != null ? Math.min(maxDaily, opts.dayCaps[day.date]) : maxDaily;
+    day.cap = Math.max(0, Math.min(limit - day.studyMin, freeMin - reserve));
+    day.initialCap = day.cap;
+  }
+  return ctx;
+}
+
+function freeIntervals(ctx, day) {
+  if (!day.windows.length) return [];
+  const lo = day.windows[0][0];
+  const hi = day.windows[day.windows.length - 1][1];
+  const cuts = [];
+  for (const it of ctx.timeline) {
+    if (it.start >= hi) break;
+    if (it.end > lo) cuts.push([it.start, it.end]);
+  }
+  return subtractIntervals(day.windows, cuts).filter(([s, e]) => e - s >= STEP);
+}
+
+function neighbors(ctx, f0, f1) {
+  let prev = null;
+  let next = null;
+  for (const it of ctx.timeline) {
+    if (it.start >= f1) { next = it; break; }
+    if (it.end <= f0 && (!prev || it.end > prev.end || (it.end === prev.end && it.start > prev.start))) prev = it;
+  }
+  return { prev, next };
+}
+
+// Physical place you are at, at instant t: the latest item ending by t that has a physical
+// location. Sleep means home. Virtual items and items without a location are transparent.
+function locationBefore(ctx, t) {
+  let best = null;
+  for (const it of ctx.timeline) {
+    if (it.start >= t) break;
+    if (it.end > t) continue;
+    if (it.kind === 'sleep' || isPhysical(ctx.state, it.locationId)) {
+      if (!best || it.end >= best.end) best = it;
+    }
+  }
+  if (!best || best.kind === 'sleep') return ctx.homeId;
+  return best.locationId;
+}
+
+// The part of a free interval usable for a session at `locId`, after travel, buffers, and breaks.
+function usableWindow(ctx, f0, f1, nb, locId, fromLocOverride) {
+  const { prefs, settings, state } = ctx;
+  const prevLoc = fromLocOverride !== undefined ? fromLocOverride : locationBefore(ctx, f0);
+  const tin = travelBetween(state, prevLoc, locId);
+  const nextLoc = nb.next && isPhysical(state, nb.next.locationId) ? nb.next.locationId : null;
+  const tout = nextLoc ? travelBetween(state, locId, nextLoc) : { minutes: 0, kind: 'none' };
+  const inCost = travelCost(tin, settings) * MINUTE;
+  const outCost = travelCost(tout, settings) * MINUTE;
+  let s = f0;
+  let e = f1;
+  if (nb.prev) s = Math.max(s, nb.prev.end + (nb.prev.kind === 'study' ? Math.max(inCost, prefs.breakMin * MINUTE) : inCost));
+  else s = Math.max(s, f0 + inCost);
+  if (nb.next) e = Math.min(e, nb.next.start - (nb.next.kind === 'study' ? Math.max(outCost, prefs.breakMin * MINUTE) : outCost));
+  return { s: roundUpTo(s, STEP), e: roundDownTo(e, STEP), tin, tout, prevLoc, nextLoc };
+}
+
+function candidateLocations(state, u) {
+  let locs;
+  if (u.location?.mode === 'required' && u.location.ids.length) locs = state.locations.filter((l) => u.location.ids.includes(l.id));
+  else locs = state.locations.filter((l) => l.studyOk && l.kind !== 'virtual');
+  const eq = u.equipment || [];
+  if (eq.length) locs = locs.filter((l) => eq.every((x) => (l.equipment || []).includes(x)));
+  const ids = locs.map((l) => l.id).sort();
+  // With no places defined and no requirements, plan without a location.
+  if (!ids.length && u.location?.mode !== 'required' && !eq.length && !state.locations.some((l) => l.studyOk)) return [null];
+  return ids;
+}
+
+// ---------- Units ----------
+
+function blockUnitKey(b, taskById) {
+  const t = taskById.get(b.taskId);
+  if (!t) return unitKey(b.taskId, b.stepId);
+  if (t.steps.length) {
+    const open = t.steps.filter((s) => !s.done);
+    if (b.stepId && open.some((s) => s.id === b.stepId)) return unitKey(t.id, b.stepId);
+    return open.length ? unitKey(t.id, open[0].id) : unitKey(t.id, b.stepId);
+  }
+  return t.id;
+}
+
+function prepareUnits(ctx) {
+  const { state, settings, opts, prefs } = ctx;
+  const taskById = new Map(state.tasks.map((t) => [t.id, t]));
+  const allocated = new Map();
+  const keptEnd = new Map();
+  for (const b of ctx.kept) {
+    const key = blockUnitKey(b, taskById);
+    keptEnd.set(key, Math.max(keptEnd.get(key) || 0, b.end));
+    if (b.status !== 'planned') continue;
+    allocated.set(key, (allocated.get(key) || 0) + (b.end - Math.max(b.start, ctx.startMs)) / MINUTE);
+  }
+  const units = [];
+  for (const t of state.tasks) {
+    if (t.status === 'done') continue;
+    const dl = deadlineMs(t, settings);
+    let latestRaw = dl;
+    let overdue = dl <= ctx.nowMs;
+    if (overdue && t.lateTarget) {
+      const late = zonedToMs(t.lateTarget, settings.dateOnlyCutoff, ctx.tz);
+      if (late > ctx.nowMs) { latestRaw = late; overdue = false; }
+    }
+    const scale = opts.estimateScale?.[t.id] ?? 1;
+    for (const x of taskUnits(t)) {
+      const remaining = Math.round(x.remaining * scale);
+      const alloc = allocated.get(x.unitId) || 0;
+      const need = Math.max(0, Math.round(remaining - alloc));
+      units.push({
+        ...x, task: t, deadline: dl, latestRaw, overdue, lateTarget: t.lateTarget && latestRaw !== dl ? t.lateTarget : null,
+        priority: t.priority, focus: t.focus, splittable: t.splittable,
+        minSession: Math.max(5, Math.min(t.minSessionMin ?? prefs.minSessionMin, prefs.maxContinuousMin)),
+        location: t.location, equipment: t.equipment || [], deps: [], need, totalNeed: need, allocatedKept: alloc,
+        keptEnd: keptEnd.get(x.unitId) || 0, blocks: [], unplacedMin: 0, deferredMin: 0, reason: null,
+      });
+    }
+  }
+  const byTask = new Map();
+  for (const u of units) { if (!byTask.has(u.taskId)) byTask.set(u.taskId, []); byTask.get(u.taskId).push(u); }
+  for (const [taskId, list] of byTask) {
+    list.forEach((u, i) => {
+      if (i > 0) u.deps.push(list[i - 1].unitId);
+      else for (const depId of taskById.get(taskId).dependsOn) for (const d of byTask.get(depId) || []) u.deps.push(d.unitId);
+    });
+  }
+  return units;
+}
+
+function orderUnits(units) {
+  const key = (u) => (u.overdue ? -Infinity : u.latestRaw - (PRIORITY_SHIFT[u.priority] || 0));
+  const sorted = units.slice().sort((a, b) => key(a) - key(b) || (a.taskId < b.taskId ? -1 : a.taskId > b.taskId ? 1 : 0) || a.index - b.index);
+  const done = new Set();
+  const out = [];
+  const pending = sorted.slice();
+  while (pending.length) {
+    const i = pending.findIndex((u) => u.deps.every((d) => done.has(d)));
+    if (i === -1) { for (const u of pending) { u.cycle = true; out.push(u); } break; }
+    const [u] = pending.splice(i, 1);
+    done.add(u.unitId);
+    out.push(u);
+  }
+  return out;
+}
+
+// ---------- Placement ----------
+
+function focusShare(start, end, focus) {
+  const total = (end - start) || 1;
+  return focus.reduce((s, [a, b]) => s + overlapMs(start, end, a, b), 0) / total;
+}
+
+function scoreCandidate(ctx, u, c, want, day) {
+  const end = c.start + c.maxLen * MINUTE;
+  const share = focusShare(c.start, end, day.focus);
+  let score = 0;
+  if (u.focus === 'deep') score += 20 * share;
+  else if (u.focus === 'light') score -= 6 * share;
+  if (u.location?.mode === 'preferred' && u.location.ids.includes(c.loc)) score += 10;
+  if (u.focus === 'deep' && c.quiet) score += 6;
+  score -= 0.4 * (c.tin.minutes + c.tout.minutes);
+  if (c.maxLen < want) score -= 15 * (1 - c.maxLen / want);
+  const mod = msToMinuteOfDay(c.start, ctx.tz);
+  score -= mod * 0.002;
+  if (u.focus === 'deep' && mod >= 21 * 60) score -= 4;
+  return score;
+}
+
+function findSlot(ctx, u, day, want, minLen) {
+  const free = freeIntervals(ctx, day);
+  const quietIds = new Set(ctx.state.locations.filter((l) => (l.equipment || []).includes('quiet')).map((l) => l.id));
+  let best = null;
+  for (const [f0, f1] of free) {
+    const lo = Math.max(f0, u.earliest);
+    const hi = Math.min(f1, u.latest);
+    if (hi - lo < minLen * MINUTE) continue;
+    const nb = neighbors(ctx, f0, f1);
+    for (const loc of u.locs) {
+      const w = usableWindow(ctx, f0, f1, nb, loc);
+      const s0 = Math.max(w.s, roundUpTo(lo, STEP));
+      const e0 = Math.min(w.e, hi);
+      if (e0 - s0 < minLen * MINUTE) continue;
+      const starts = [s0];
+      if (u.focus === 'deep') for (const [fs] of day.focus) if (fs > s0 && fs + minLen * MINUTE <= e0) starts.push(fs);
+      for (const s of starts) {
+        const maxLen = Math.min(want, Math.floor((e0 - s) / MINUTE), ctx.prefs.maxContinuousMin, day.cap);
+        if (maxLen < minLen) continue;
+        const cand = { start: s, maxLen, loc, tin: w.tin, tout: w.tout, prevLoc: w.prevLoc, nextItem: nb.next, prevItem: nb.prev, windowEnd: e0, quiet: quietIds.has(loc) };
+        cand.score = scoreCandidate(ctx, u, cand, want, day);
+        const better = !best || cand.score > best.score + 1e-9
+          || (Math.abs(cand.score - best.score) <= 1e-9 && (cand.start < best.start || (cand.start === best.start && String(cand.loc) < String(best.loc))));
+        if (better) best = cand;
+      }
+    }
+  }
+  return best;
+}
+
+function buildReasons(ctx, u, c, len, sessionLen, dayCount) {
+  const { state, settings, tz, prefs } = ctx;
+  const r = [];
+  if (u.lateTarget) r.push({ type: 'hard', text: `Overdue since ${fmtDateTime(u.deadline, tz)}. Planned before your finish-late-by date, ${fmtDate(u.lateTarget)}.` });
+  else r.push({ type: 'hard', text: `Due ${fmtDateTime(u.deadline, tz)}. Every session for it ends before then.` });
+  if (u.index > 0) r.push({ type: 'hard', text: `Step ${u.index + 1} of ${u.count}. Starts after the previous step's last session.` });
+  else if (u.task.dependsOn.length) {
+    const names = u.task.dependsOn.map((id) => state.tasks.find((t) => t.id === id)?.title).filter(Boolean);
+    if (names.length) r.push({ type: 'hard', text: `Starts after ${names.map((n) => `"${n}"`).join(' and ')} is planned to finish.` });
+  }
+  const end = c.start + len * MINUTE;
+  const day = ctx.byDate.get(msToDate(c.start, tz));
+  const share = focusShare(c.start, end, day.focus);
+  const fh = prefs.focusHours.map((w) => `${fmtClock(w.start)} to ${fmtClock(w.end)}`).join(', ');
+  if (u.focus === 'deep' && share >= 0.5) r.push({ type: 'soft', text: `Deep-focus work placed in your focus hours (${fh}).` });
+  else if (u.focus === 'deep' && fh) r.push({ type: 'soft', text: 'Deep-focus work outside your focus hours: they were taken or unavailable before the deadline.' });
+  else if (u.focus === 'light') r.push({ type: 'soft', text: 'Light work, suitable for a shorter gap.' });
+  if (c.loc) {
+    const name = locationName(state, c.loc);
+    if (u.location?.mode === 'required') r.push({ type: 'hard', text: `${name} is required for this task.` });
+    else if (u.equipment.length) r.push({ type: 'hard', text: `${name} has the equipment this task needs.` });
+    else if (u.location?.mode === 'preferred' && u.location.ids.includes(c.loc)) r.push({ type: 'soft', text: `${name} is one of your preferred places for this task.` });
+    else if (u.focus === 'deep' && c.quiet) r.push({ type: 'soft', text: `${name} is marked as a quiet space, which suits deep focus.` });
+    if (c.tin.kind === 'same') r.push({ type: 'hard', text: `No travel: you are already at ${name}.` });
+    else if (c.tin.minutes > 0) r.push({ type: c.tin.kind === 'fallback' ? 'estimate' : 'hard', text: `${c.tin.minutes} min to get here from ${locationName(state, c.prevLoc)}${c.tin.kind === 'fallback' ? ' (fallback estimate: no route entered)' : ''}, plus ${settings.travelBufferMin} min buffer.` });
+    if (c.tout.minutes > 0 && c.nextItem) r.push({ type: c.tout.kind === 'fallback' ? 'estimate' : 'hard', text: `Ends early enough to reach ${c.nextItem.label} at ${locationName(state, c.nextItem.locationId)} (${c.tout.minutes} min${c.tout.kind === 'fallback' ? ', estimated' : ''} plus buffer).` });
+  } else r.push({ type: 'estimate', text: 'No study places are set up, so travel is not accounted for.' });
+  if (c.prevItem?.kind === 'study' || c.nextItem?.kind === 'study') r.push({ type: 'hard', text: `Keeps at least a ${prefs.breakMin} min break from your other sessions.` });
+  if (len < sessionLen && len < u.totalNeed) r.push({ type: 'heuristic', text: `Shorter than the planned ${fmtDuration(sessionLen)} because the free time here ends at ${fmtTime(c.windowEnd, tz)} or the day's study limit was reached.` });
+  if (!u.splittable) r.push({ type: 'hard', text: 'Cannot be split, so it gets one unbroken session.' });
+  else if (u.totalNeed > len) r.push({ type: 'heuristic', text: `Split into sessions of about ${fmtDuration(sessionLen)} (minimum useful session ${fmtDuration(u.minSession)}).` });
+  const strat = ctx.opts.strategy || 'balanced';
+  if (strat === 'early') r.push({ type: 'heuristic', text: 'Finish-early option: earliest workable time.' });
+  else if (strat === 'minimal') r.push({ type: 'heuristic', text: 'Smallest-change option: fills free time without moving approved sessions.' });
+  else if (dayCount > 1) r.push({ type: 'heuristic', text: `Spaced across the ${dayCount} days with study time before the deadline.` });
+  return r;
+}
+
+function place(ctx, u, c, len, sessionLen, dayCount, placed) {
+  const start = c.start;
+  const end = start + len * MINUTE;
+  const block = {
+    id: `${u.unitId}@${start}`, taskId: u.taskId, stepId: u.stepId, start, end, locationId: c.loc,
+    status: 'planned', locked: false, origin: 'generated', approvedAt: null, actualMin: null, recordedAt: null,
+    reasons: buildReasons(ctx, u, c, len, sessionLen, dayCount),
+  };
+  insertSorted(ctx.timeline, { start, end, kind: 'study', locationId: c.loc, label: 'a study session', ref: block });
+  const day = ctx.byDate.get(msToDate(start, ctx.tz));
+  day.cap -= len;
+  day.studyMin += len;
+  u.blocks.push(block);
+  u.need -= len;
+  placed.push(block);
+  return block;
+}
+
+function placeOne(ctx, u, day, sessionLen, dayCount, placed) {
+  if (day.cap <= 0) return false;
+  const minLen = Math.min(u.need, u.minSession);
+  let want = Math.min(u.need, sessionLen);
+  if (u.need - want > 0 && u.need - want < u.minSession) want = u.need <= ctx.prefs.maxContinuousMin ? u.need : u.need - u.minSession;
+  want = Math.min(want, day.cap);
+  if (want < minLen) return false;
+  const c = findSlot(ctx, u, day, want, minLen);
+  if (!c) return false;
+  let len = Math.min(want, c.maxLen);
+  const rest = u.need - len;
+  if (rest > 0 && rest < u.minSession) {
+    // Never leave a leftover shorter than the minimum useful session.
+    const alt = u.need - u.minSession;
+    if (alt < minLen) return false;
+    len = Math.min(len, alt);
+  }
+  place(ctx, u, c, len, sessionLen, dayCount, placed);
+  return true;
+}
+
+function placeUnit(ctx, u, strategy, placed) {
+  const { prefs } = ctx;
+  const days = ctx.days.filter((d) => d.windows.some(([s, e]) => e > u.earliest && s < u.latest));
+  if (!u.splittable) {
+    if (u.need > prefs.maxContinuousMin) { u.reason = 'tooLong'; return; }
+    for (const d of days) {
+      if (d.cap < u.need) continue;
+      const c = findSlot(ctx, u, d, u.need, u.need);
+      if (c) { place(ctx, u, c, u.need, u.need, 1, placed); return; }
+    }
+    return;
+  }
+  const pref = Math.min(prefs.preferredSessionMin, prefs.maxContinuousMin);
+  const nSess = Math.max(1, Math.ceil(u.need / pref));
+  const sessionLen = Math.min(prefs.maxContinuousMin, Math.max(u.minSession, Math.ceil(u.need / nSess / 5) * 5));
+  if (strategy === 'early') {
+    for (const d of days) {
+      while (u.need > 0 && placeOne(ctx, u, d, sessionLen, days.length, placed));
+      if (u.need <= 0) break;
+    }
+    return;
+  }
+  // Balanced, protect-evenings, and smallest-change: spaced target days first, then fill.
+  const D = days.length;
+  for (let i = 0; i < nSess && u.need > 0 && D; i++) {
+    const target = Math.min(D - 1, Math.floor((i * D) / nSess));
+    for (let j = target; j < D; j++) if (placeOne(ctx, u, days[j], sessionLen, D, placed)) break;
+  }
+  let progress = true;
+  while (u.need > 0 && progress) {
+    progress = false;
+    for (const d of days) {
+      if (u.need <= 0) break;
+      if (placeOne(ctx, u, d, sessionLen, D, placed)) progress = true;
+    }
+  }
+}
+
+function rawCapacity(ctx, from, to) {
+  let total = 0;
+  for (const day of ctx.days) {
+    let m = 0;
+    for (const [s, e] of day.freeInitial) m += overlapMs(s, e, from, to) / MINUTE;
+    total += Math.min(m, day.initialCap);
+  }
+  return Math.round(total);
+}
+
+function diagnose(ctx, u, unitMap, orderIndex) {
+  const { tz, prefs } = ctx;
+  if (u.cycle) return { code: 'cycle', text: 'Its dependencies form a loop, so no order works. Edit the task dependencies.' };
+  if (u.overdue) return { code: 'overdue', text: `The deadline passed (${fmtDateTime(u.deadline, tz)}). Overdue work is not placed automatically. Set a finish-late-by date on the task to plan it.` };
+  if (u.blockedBy) return { code: 'dependency', text: `Waits on "${u.blockedBy.title}", which this attempt could not fully place.` };
+  if (u.reason === 'tooLong') return { code: 'tooLong', text: `Needs one unbroken ${fmtDuration(u.need)} session, longer than your ${fmtDuration(prefs.maxContinuousMin)} limit on continuous work. Allow splitting or raise the limit.` };
+  if (u.reason === 'noLocation') {
+    const eq = u.equipment.length ? 'the required equipment' : 'the required location';
+    return { code: 'noLocation', text: `No place has ${eq}. Check the task's location and equipment, or the places list.` };
+  }
+  if (u.earliest >= u.latest) return { code: 'depLate', text: 'Its prerequisite is planned to finish after this deadline.' };
+  const cap = rawCapacity(ctx, u.earliest, u.latest);
+  if (cap < u.totalNeed) return { code: 'capacity', text: `About ${fmtDuration(cap)} is free within your study hours and daily limits before the deadline, short of the ${fmtDuration(u.totalNeed)} needed.` };
+  if (!u.splittable) return { code: 'window', text: `No single free window of ${fmtDuration(u.totalNeed)} remained before the deadline after other work was placed.` };
+  const rivals = [];
+  for (const other of unitMap.values()) {
+    if (orderIndex.get(other.unitId) >= orderIndex.get(u.unitId) || other.taskId === u.taskId) continue;
+    if (other.blocks.some((b) => b.start < u.latest && b.end > u.earliest) && !rivals.includes(other.task.title)) rivals.push(other.task.title);
+  }
+  const capped = ctx.days.filter((d) => d.cap < u.minSession && d.windows.some(([s, e]) => e > u.earliest && s < u.latest)).map((d) => fmtDate(d.date));
+  let text = 'Free time before the deadline went to work placed first';
+  if (rivals.length) text += ` (${rivals.slice(0, 3).map((t) => `"${t}"`).join(', ')}${rivals.length > 3 ? ', and others' : ''})`;
+  if (capped.length) text += `, and these days reached your daily limit: ${capped.slice(0, 4).join(', ')}${capped.length > 4 ? ', and more' : ''}`;
+  return { code: 'contention', text: `${text}.` };
+}
+
+function generatePlan(state, nowMs, opts = {}) {
+  const strategy = opts.strategy || 'balanced';
+  const ctxOpts = {
+    ...opts,
+    strategy,
+    keepExistingFuture: strategy === 'minimal' || !!opts.keepExistingFuture,
+    protectEveningsAfter: strategy === 'evenings' ? (opts.protectEveningsAfter ?? state.preferences.eveningCutoff) : opts.protectEveningsAfter,
+  };
+  const ctx = buildContext(state, nowMs, ctxOpts);
+  const units = prepareUnits(ctx);
+  const ordered = orderUnits(units);
+  const unitMap = new Map(ordered.map((u) => [u.unitId, u]));
+  const orderIndex = new Map(ordered.map((u, i) => [u.unitId, i]));
+  const placed = [];
+  const unplaced = [];
+  const deferred = [];
+  for (const u of ordered) {
+    if (u.need <= 0) continue;
+    let earliest = ctx.startMs;
+    if (!u.cycle) {
+      for (const dId of u.deps) {
+        const d = unitMap.get(dId);
+        if (!d) continue;
+        if (d.unplacedMin > 0 || d.blockedBy || d.cycle) { u.blockedBy = d.task.title === u.task.title ? { title: d.stepTitle || d.title } : { title: d.task.title }; break; }
+        const lastEnd = Math.max(d.keptEnd, ...d.blocks.map((b) => b.end), 0);
+        earliest = Math.max(earliest, lastEnd);
+      }
+    }
+    u.earliest = earliest;
+    u.latest = Math.min(u.latestRaw, ctx.endMs);
+    if (!u.cycle && !u.overdue && !u.blockedBy && u.latest > u.earliest) {
+      u.locs = candidateLocations(state, u);
+      if (!u.locs.length) u.reason = 'noLocation';
+      else placeUnit(ctx, u, strategy, placed);
+    }
+    if (u.need > 0) {
+      const beyond = u.latestRaw > ctx.endMs && !u.overdue && !u.blockedBy && !u.cycle && u.reason == null;
+      if (beyond) {
+        u.deferredMin = u.need;
+        deferred.push({ unitId: u.unitId, taskId: u.taskId, stepId: u.stepId, title: u.title, minutes: u.need, text: `Due after the ${ctx.horizonDays}-day planning window. The rest is planned as the date gets closer.` });
+      } else {
+        u.unplacedMin = u.need;
+        const d = diagnose(ctx, u, unitMap, orderIndex);
+        unplaced.push({ unitId: u.unitId, taskId: u.taskId, stepId: u.stepId, title: u.title, minutes: u.need, code: d.code, text: d.text });
+      }
+    }
+  }
+  placed.sort((a, b) => a.start - b.start || (a.id < b.id ? -1 : 1));
+  return {
+    strategy, startMs: ctx.startMs, endMs: ctx.endMs, horizonDays: ctx.horizonDays, today: ctx.today,
+    blocks: placed, kept: ctx.kept, history: ctx.history, replaceable: ctx.replaceable,
+    unplaced, deferred,
+    decisions: buildDecisions(ctx, placed, opts),
+    metrics: computeMetrics(ctx, placed, ordered, unplaced, deferred),
+    units: ordered.map((u) => ({ unitId: u.unitId, taskId: u.taskId, stepId: u.stepId, need: u.totalNeed, placed: u.blocks.reduce((s, b) => s + (b.end - b.start) / MINUTE, 0), unplaced: u.unplacedMin, deferred: u.deferredMin, deadline: u.deadline, lastEnd: Math.max(u.keptEnd, ...u.blocks.map((b) => b.end), 0) })),
+  };
+}
+
+function buildDecisions(ctx, placed, opts) {
+  const { prefs, tz, settings, state } = ctx;
+  const out = [];
+  const last = ctx.dates[ctx.dates.length - 1];
+  out.push({ type: 'hard', text: `Plans from ${fmtDateTime(ctx.startMs, tz)} through ${fmtDate(last)} (${ctx.horizonDays}-day window).` });
+  out.push({ type: 'hard', text: `Respects sleep (${fmtClock(prefs.sleep.start)} to ${fmtClock(prefs.sleep.end)}), your study hours, fixed commitments, travel, ${prefs.breakMin} min breaks between sessions, and at most ${fmtDuration(prefs.maxContinuousMin)} per session.` });
+  const extra = opts.relax?.extraDailyMin || 0;
+  out.push({ type: extra ? 'relaxed' : 'hard', text: `Daily study limit: ${fmtDuration(prefs.maxDailyStudyMin + extra)}${extra ? ` (your limit plus ${fmtDuration(extra)})` : ''}.` });
+  if (opts.relax?.useReserve) out.push({ type: 'relaxed', text: 'Uses the flexibility time you normally keep free each day.' });
+  else if (prefs.reserveFlexMin) out.push({ type: 'soft', text: `Leaves at least ${fmtDuration(prefs.reserveFlexMin)} of each day's free study time unplanned.` });
+  if (ctx.opts.keepExistingFuture) out.push({ type: 'hard', text: 'Keeps every approved session where it is.' });
+  else if (ctx.kept.length) out.push({ type: 'hard', text: `Keeps ${ctx.kept.length} locked, in-progress, or recorded session${ctx.kept.length === 1 ? '' : 's'} unchanged.` });
+  if (ctx.opts.protectEveningsAfter != null) out.push({ type: 'soft', text: `No study after ${fmtClock(ctx.opts.protectEveningsAfter)} in this option.` });
+  if (opts.dayCaps) for (const [d, cap] of Object.entries(opts.dayCaps)) out.push({ type: 'soft', text: `Lighter day on ${fmtDate(d)}: at most ${fmtDuration(cap)} of study.` });
+  if (opts.estimateScale) {
+    const names = Object.entries(opts.estimateScale).filter(([, f]) => f !== 1).map(([id, f]) => `${state.tasks.find((t) => t.id === id)?.title || id} (${Math.round(f * 100)}% of the estimate)`);
+    if (names.length) out.push({ type: 'estimate', text: `Uses adjusted estimates: ${names.join(', ')}.` });
+  }
+  if (opts.skipOccurrenceIds?.length) out.push({ type: 'soft', text: `Assumes you skip ${opts.skipOccurrenceIds.length} optional commitment occurrence${opts.skipOccurrenceIds.length === 1 ? '' : 's'}.` });
+  out.push({ type: 'heuristic', text: 'Work is placed in deadline order. High-priority tasks are treated as due 6 hours sooner and low-priority tasks 6 hours later. This is a heuristic, not a guarantee of the best possible schedule.' });
+  const fallbackTrips = placed.reduce((n, b) => n + b.reasons.filter((r) => r.type === 'estimate' && /fallback|estimated/.test(r.text)).length, 0);
+  if (fallbackTrips) out.push({ type: 'estimate', text: `${fallbackTrips} trip${fallbackTrips === 1 ? ' uses' : 's use'} the ${settings.unknownTravelFallbackMin} min fallback travel estimate because no time was entered for that route.` });
+  if (!ctx.homeId && state.locations.length) out.push({ type: 'estimate', text: 'No home place is set, so travel from home in the morning is not counted.' });
+  return out;
+}
+
+function computeMetrics(ctx, placed, units, unplaced, deferred) {
+  const { tz, prefs } = ctx;
+  const future = [...ctx.kept.filter((b) => b.status === 'planned'), ...placed];
+  const perDay = new Map();
+  let evening = 0;
+  let deep = 0;
+  let deepFocus = 0;
+  for (const b of future) {
+    const d = msToDate(b.start, tz);
+    const min = (b.end - b.start) / MINUTE;
+    perDay.set(d, (perDay.get(d) || 0) + min);
+    evening += overlapMs(b.start, b.end, zonedToMs(d, prefs.eveningCutoff, tz), zonedToMs(addDays(d, 1), 0, tz)) / MINUTE;
+  }
+  const unitById = new Map(units.map((u) => [u.unitId, u]));
+  for (const b of placed) {
+    const u = unitById.get(b.stepId ? `${b.taskId}:${b.stepId}` : b.taskId);
+    if (u?.focus !== 'deep') continue;
+    const day = ctx.byDate.get(msToDate(b.start, tz));
+    deep += (b.end - b.start) / MINUTE;
+    deepFocus += focusShare(b.start, b.end, day.focus) * (b.end - b.start) / MINUTE;
+  }
+  let busiest = null;
+  for (const [date, min] of perDay) if (!busiest || min > busiest.min) busiest = { date, min };
+  const byTask = new Map();
+  for (const u of units) {
+    if (!byTask.has(u.taskId)) byTask.set(u.taskId, { deadline: u.deadline, lastEnd: 0, ok: true, any: false });
+    const t = byTask.get(u.taskId);
+    t.lastEnd = Math.max(t.lastEnd, u.keptEnd, ...u.blocks.map((b) => b.end));
+    if (u.unplacedMin > 0 || u.deferredMin > 0 || u.overdue) t.ok = false;
+    if (u.blocks.length || u.keptEnd) t.any = true;
+  }
+  let tightest = null;
+  for (const [taskId, t] of byTask) {
+    if (!t.ok || !t.any || t.deadline > ctx.endMs || t.lastEnd === 0) continue;
+    const buf = (t.deadline - t.lastEnd) / MINUTE;
+    if (!tightest || buf < tightest.minutes) tightest = { taskId, minutes: Math.round(buf) };
+  }
+  return {
+    placedMin: placed.reduce((s, b) => s + (b.end - b.start) / MINUTE, 0),
+    plannedTotalMin: Math.round(future.reduce((s, b) => s + (b.end - Math.max(b.start, ctx.startMs)) / MINUTE, 0)),
+    unplacedMin: unplaced.filter((x) => x.code !== 'overdue').reduce((s, x) => s + x.minutes, 0),
+    overdueMin: unplaced.filter((x) => x.code === 'overdue').reduce((s, x) => s + x.minutes, 0),
+    capacityShortMin: unplaced.filter((x) => ['capacity', 'contention', 'window', 'dependency'].includes(x.code)).reduce((s, x) => s + x.minutes, 0),
+    deferredMin: deferred.reduce((s, x) => s + x.minutes, 0),
+    eveningMin: Math.round(evening),
+    busiest,
+    tightest,
+    deepFocusShare: deep ? deepFocus / deep : null,
+    sessions: placed.length,
+    daysUsed: new Set(placed.map((b) => msToDate(b.start, tz))).size,
+  };
+}
+
+return { PRIORITY_SHIFT, CONFIDENCE_MARGIN, STRATEGIES, subtractIntervals, sleepInterval, partitionPlan, buildContext, freeIntervals, neighbors, locationBefore, usableWindow, candidateLocations, generatePlan };
+})();
+
+// src/core/proposal.js
+__m["src/core/proposal.js"] = (function () {
+// Proposals never touch the active plan. Approval re-checks that nothing the
+// proposal depended on has changed, then swaps in the new sessions.
+
+const { generatePlan, STRATEGIES } = __m["src/core/scheduler.js"];
+const { fingerprint, FINGERPRINT_LABELS } = __m["src/core/model.js"];
+const { withException } = __m["src/core/recurrence.js"];
+const { MINUTE } = __m["src/core/time.js"];
+const byStart = (a, b) => a.start - b.start || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+const unitOf = (b) => (b.stepId ? `${b.taskId}:${b.stepId}` : b.taskId);
+
+// Pairs old and new sessions per task step: identical times are unchanged, the rest
+// pair up in time order as moves, and leftovers are additions or removals.
+function diffBlocks(oldBlocks, newBlocks) {
+  const groups = new Map();
+  const add = (b, side) => {
+    const k = unitOf(b);
+    if (!groups.has(k)) groups.set(k, { old: [], neu: [] });
+    groups.get(k)[side].push(b);
+  };
+  oldBlocks.forEach((b) => add(b, 'old'));
+  newBlocks.forEach((b) => add(b, 'neu'));
+  const added = [];
+  const removed = [];
+  const moved = [];
+  const unchanged = [];
+  for (const { old, neu } of groups.values()) {
+    const o = old.slice().sort(byStart);
+    const n = neu.slice().sort(byStart);
+    const restO = [];
+    const used = new Set();
+    for (const b of o) {
+      const i = n.findIndex((x, j) => !used.has(j) && x.start === b.start && x.end === b.end && x.locationId === b.locationId);
+      if (i >= 0) { used.add(i); unchanged.push({ from: b, to: n[i] }); } else restO.push(b);
+    }
+    const restN = n.filter((_, j) => !used.has(j));
+    const pairs = Math.min(restO.length, restN.length);
+    for (let i = 0; i < pairs; i++) moved.push({ from: restO[i], to: restN[i] });
+    for (let i = pairs; i < restN.length; i++) added.push(restN[i]);
+    for (let i = pairs; i < restO.length; i++) removed.push(restO[i]);
+  }
+  const s = (l) => l.sort((a, b) => ((a.to || a).start - (b.to || b).start));
+  return { added: s(added), removed: s(removed), moved: s(moved), unchanged: s(unchanged) };
+}
+
+function makeProposal(state, nowMs, opts = {}) {
+  const strategy = opts.strategy || 'balanced';
+  const res = generatePlan(state, nowMs, opts);
+  const diff = diffBlocks(res.replaceable, res.blocks);
+  const relaxed = !!(opts.relax && (opts.relax.extraDailyMin || opts.relax.useReserve));
+  const label = relaxed ? 'Relaxed limits' : STRATEGIES[strategy]?.label || strategy;
+  return {
+    id: `alt_${strategy}${relaxed ? '_relaxed' : ''}${opts.variant ? `_${opts.variant}` : ''}`,
+    strategy, label, relaxed,
+    summary: relaxed ? 'Fits more work by exceeding limits you set. Needs your explicit approval.' : STRATEGIES[strategy]?.summary || '',
+    createdAt: nowMs,
+    basis: fingerprint(state),
+    planVersion: state.plan.version,
+    startMs: res.startMs,
+    endMs: res.endMs,
+    newBlocks: res.blocks,
+    replacedIds: res.replaceable.map((b) => b.id),
+    diff: {
+      added: diff.added.map((b) => b.id),
+      removed: diff.removed.map((b) => b.id),
+      moved: diff.moved.map((m) => ({ from: m.from.id, to: m.to.id })),
+      unchanged: diff.unchanged.length,
+    },
+    unplaced: res.unplaced,
+    deferred: res.deferred,
+    decisions: res.decisions,
+    metrics: res.metrics,
+    units: res.units,
+    options: {
+      strategy,
+      relax: opts.relax || null,
+      dayCaps: opts.dayCaps || null,
+      estimateScale: opts.estimateScale || null,
+      skipOccurrenceIds: opts.skipOccurrenceIds || null,
+      protectEveningsAfter: opts.protectEveningsAfter ?? null,
+    },
+    factChanges: opts.factChanges || [],
+  };
+}
+
+function hasMovableFuture(state, nowMs) {
+  return state.plan.blocks.some((b) => b.status === 'planned' && !b.locked && b.start >= nowMs);
+}
+
+// Builds a small set of meaningful alternatives. A relaxed option is added only when
+// every normal option leaves work unplaced, and it is always labeled as relaxing limits.
+function makeAlternatives(state, nowMs, base = {}, { origin = 'plan' } = {}) {
+  const strategies = ['balanced', 'early', 'evenings'];
+  if (hasMovableFuture(state, nowMs)) strategies.unshift('minimal');
+  const list = strategies.map((s) => makeProposal(state, nowMs, { ...base, strategy: s }));
+  if (list.every((p) => p.metrics.capacityShortMin > 0)) {
+    list.push(makeProposal(state, nowMs, { ...base, strategy: 'balanced', relax: { extraDailyMin: 60, useReserve: true } }));
+  }
+  const firstClean = list.find((p) => !p.relaxed && p.metrics.unplacedMin === 0);
+  const selected = origin === 'recovery' && list[0].strategy === 'minimal' && list[0].metrics.unplacedMin === 0 ? list[0] : firstClean || list[0];
+  return { origin, createdAt: nowMs, alternatives: list, selectedId: selected.id, base };
+}
+
+function selectedAlternative(proposal) {
+  if (!proposal) return null;
+  return proposal.alternatives.find((a) => a.id === proposal.selectedId) || proposal.alternatives[0] || null;
+}
+
+function proposalStaleness(state, alt, nowMs) {
+  const reasons = [];
+  const fp = fingerprint(state);
+  for (const k of Object.keys(FINGERPRINT_LABELS)) if (fp[k] !== alt.basis[k]) reasons.push(FINGERPRINT_LABELS[k]);
+  if (alt.newBlocks.some((b) => b.start < nowMs)) reasons.push('Some proposed sessions now start in the past');
+  return { stale: reasons.length > 0, reasons };
+}
+
+function applyFactChanges(next, changes) {
+  for (const ch of changes || []) {
+    if (ch.type === 'taskRemaining') {
+      const t = next.tasks.find((x) => x.id === ch.taskId);
+      if (!t) continue;
+      if (t.steps.length) {
+        const open = t.steps.filter((s) => !s.done);
+        const total = open.reduce((s, x) => s + x.remainingMin, 0) || 1;
+        let left = ch.to;
+        open.forEach((s, i) => {
+          const v = i === open.length - 1 ? left : Math.round((s.remainingMin / total) * ch.to);
+          s.remainingMin = Math.max(0, v);
+          left -= s.remainingMin;
+        });
+      } else t.remainingMin = ch.to;
+    } else if (ch.type === 'skipOccurrence') {
+      const i = next.commitments.findIndex((c) => c.id === ch.commitmentId);
+      if (i >= 0) next.commitments[i] = withException(next.commitments[i], ch.date, { action: 'skip' });
+    }
+  }
+}
+
+function approveProposal(state, alt, nowMs) {
+  const st = proposalStaleness(state, alt, nowMs);
+  if (st.stale) return { ok: false, reasons: st.reasons };
+  const next = structuredClone(state);
+  applyFactChanges(next, alt.factChanges);
+  const removed = new Set(alt.replacedIds);
+  const keptBlocks = state.plan.blocks.filter((b) => !removed.has(b.id));
+  const keptIds = new Set(keptBlocks.map((b) => b.id));
+  const added = alt.newBlocks.filter((b) => !keptIds.has(b.id)).map((b) => ({ ...b, approvedAt: nowMs }));
+  next.plan = {
+    version: state.plan.version + 1,
+    approvedAt: nowMs,
+    strategy: alt.strategy,
+    blocks: structuredClone([...keptBlocks, ...added]).sort(byStart),
+  };
+  next.proposal = null;
+  return { ok: true, state: next };
+}
+
+function cancelProposal(state) {
+  const next = structuredClone(state);
+  next.proposal = null;
+  return next;
+}
+
+function setBlockLock(state, blockId, locked) {
+  const next = structuredClone(state);
+  const b = next.plan.blocks.find((x) => x.id === blockId);
+  if (b) b.locked = !!locked;
+  return next;
+}
+
+function removeBlock(state, blockId) {
+  const next = structuredClone(state);
+  next.plan.blocks = next.plan.blocks.filter((b) => b.id !== blockId);
+  next.plan.version += 1;
+  return next;
+}
+
+// Accounting per task, kept explicit so proposals never reduce remaining effort.
+function futureMinutes(blocks, taskId, nowMs, beforeMs = Infinity) {
+  let m = 0;
+  for (const b of blocks) {
+    if (b.taskId !== taskId || b.status !== 'planned' || b.end <= nowMs) continue;
+    const end = Math.min(b.end, beforeMs);
+    const start = Math.max(b.start, nowMs);
+    if (end > start) m += (end - start) / MINUTE;
+  }
+  return Math.round(m);
+}
+
+return { diffBlocks, makeProposal, hasMovableFuture, makeAlternatives, selectedAlternative, proposalStaleness, approveProposal, cancelProposal, setBlockLock, removeBlock, futureMinutes };
+})();
+
+// src/core/progress.js
+__m["src/core/progress.js"] = (function () {
+// Recording what actually happened. Remaining effort changes only here (or by the
+// user editing a task); proposals and approvals never reduce it.
+
+const { taskRemaining, taskEstimate } = __m["src/core/model.js"];
+const { msToDate } = __m["src/core/time.js"];
+const { futureMinutes } = __m["src/core/proposal.js"];
+const OUTCOMES = {
+  completed: 'Done as planned',
+  partial: 'Partly done',
+  interrupted: 'Interrupted',
+  missed: 'Missed',
+};
+
+function validateProgress(state, input) {
+  const e = {};
+  const task = state.tasks.find((t) => t.id === input.taskId);
+  if (!task) { e.task = 'That task no longer exists.'; return e; }
+  if (input.stepId && !task.steps.some((s) => s.id === input.stepId)) e.step = 'That step no longer exists.';
+  if (!Object.prototype.hasOwnProperty.call(OUTCOMES, input.outcome) && input.outcome !== 'logged') e.outcome = 'Choose what happened.';
+  if (input.outcome !== 'missed' && !(Number.isInteger(input.actualMin) && input.actualMin >= 0 && input.actualMin <= 720)) e.actualMin = 'Time spent must be a whole number from 0 to 720 minutes.';
+  if (input.outcome !== 'missed' && input.finish !== 'task' && input.finish !== 'step' && !(Number.isInteger(input.remainingAfter) && input.remainingAfter >= 0 && input.remainingAfter <= 6000)) e.remainingAfter = 'Remaining effort must be a whole number from 0 to 6000 minutes.';
+  if (input.blockId && !state.plan.blocks.some((b) => b.id === input.blockId)) e.block = 'That session is no longer in the plan.';
+  if (input.outcome === 'missed' && input.finish) e.finish = 'A missed session cannot finish a task or step.';
+  const block = input.blockId ? state.plan.blocks.find((b) => b.id === input.blockId) : null;
+  if (block && (block.taskId !== input.taskId || (block.stepId || null) !== (input.stepId || null))) e.block = 'That session belongs to a different task or step.';
+  if (block && block.status !== 'planned') e.block = 'This session already has a recorded outcome. Use Undo to correct the latest entry.';
+  return e;
+}
+
+function recordProgress(state, input, nowMs) {
+  const errors = validateProgress(state, input);
+  if (Object.keys(errors).length) return { ok: false, errors };
+  const next = structuredClone(state);
+  const task = next.tasks.find((t) => t.id === input.taskId);
+  const step = input.stepId ? task.steps.find((s) => s.id === input.stepId) : null;
+  const unitBefore = step ? step.remainingMin : task.remainingMin;
+  const taskBefore = taskRemaining(task);
+  const missed = input.outcome === 'missed';
+  const actual = missed ? 0 : input.actualMin;
+  let unitAfter = missed ? unitBefore : input.remainingAfter;
+  if (input.finish === 'step' || input.finish === 'task') unitAfter = 0;
+  if (step) {
+    step.remainingMin = unitAfter;
+    if (input.finish === 'step') step.done = true;
+  } else task.remainingMin = unitAfter;
+  if (input.finish === 'task') {
+    task.status = 'done';
+    task.completedAt = nowMs;
+    task.remainingMin = 0;
+    for (const s of task.steps) { s.done = true; s.remainingMin = 0; }
+  } else if (actual > 0 && task.status === 'todo') task.status = 'in_progress';
+  if (input.blockId) {
+    const b = next.plan.blocks.find((x) => x.id === input.blockId);
+    b.status = input.outcome === 'logged' ? 'completed' : input.outcome;
+    b.actualMin = actual;
+    b.recordedAt = nowMs;
+  }
+  next.log.push({
+    id: input.id || `log_${nowMs}_${next.log.length}`,
+    at: nowMs,
+    date: msToDate(nowMs, state.settings.timezone),
+    blockId: input.blockId || null,
+    taskId: task.id,
+    stepId: step ? step.id : null,
+    outcome: input.outcome,
+    actualMin: actual,
+    unitRemainingBefore: unitBefore,
+    unitRemainingAfter: step ? step.remainingMin : task.remainingMin,
+    taskRemainingBefore: taskBefore,
+    taskRemainingAfter: taskRemaining(task),
+    focus: input.focus ?? null,
+    difficulty: input.difficulty ?? null,
+    note: input.note || '',
+    finished: input.finish === 'step' || input.finish === 'task' ? input.finish : null,
+  });
+  return { ok: true, state: next };
+}
+
+function setTaskDone(state, taskId, done, nowMs) {
+  const next = structuredClone(state);
+  const t = next.tasks.find((x) => x.id === taskId);
+  if (!t) return next;
+  if (done) {
+    t.status = 'done';
+    t.completedAt = nowMs;
+    t.remainingMin = 0;
+    for (const s of t.steps) { s.done = true; s.remainingMin = 0; }
+  } else {
+    t.status = next.log.some((l) => l.taskId === taskId) ? 'in_progress' : 'todo';
+    t.completedAt = null;
+  }
+  return next;
+}
+
+// Completed effort (estimate credited by recorded progress) and actual time are tracked
+// separately: 90 minutes spent may only move the remaining estimate by 60.
+function taskAccounting(state, task, nowMs, proposalAlt = null, deadline = Infinity) {
+  const logs = state.log.filter((l) => l.taskId === task.id);
+  const proposedBlocks = proposalAlt ? proposalAlt.newBlocks : [];
+  return {
+    estimate: taskEstimate(task),
+    remaining: taskRemaining(task),
+    completedEffort: logs.reduce((s, l) => s + Math.max(0, l.taskRemainingBefore - l.taskRemainingAfter), 0),
+    actualMin: logs.reduce((s, l) => s + l.actualMin, 0),
+    sessionsRecorded: logs.length,
+    approvedFutureMin: futureMinutes(state.plan.blocks, task.id, nowMs),
+    approvedBeforeDeadlineMin: futureMinutes(state.plan.blocks, task.id, nowMs, deadline),
+    proposedFutureMin: futureMinutes(proposedBlocks, task.id, nowMs),
+  };
+}
+
+return { OUTCOMES, validateProgress, recordProgress, setTaskDone, taskAccounting };
+})();
+
+// src/core/calibration.js
+__m["src/core/calibration.js"] = (function () {
+// Transparent duration calibration. Compares the original estimate of each finished
+// task with the time actually logged for it. Suggestions are offered, never applied
+// automatically, and only when a group has enough observations.
+
+const { taskEstimate, taskRemaining, TASK_KINDS } = __m["src/core/model.js"];
+const MIN_SAMPLES = 3;
+const SUGGEST_THRESHOLD = 0.15;
+
+const median = (xs) => {
+  const s = xs.slice().sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+function observations(state) {
+  const cleared = state.calibration?.clearedAt ?? -Infinity;
+  const out = [];
+  for (const t of state.tasks) {
+    // Review tasks are short fixed-length blocks; they say little about estimation and are excluded.
+    if (t.status !== 'done' || !t.completedAt || t.completedAt <= cleared || t.kind === 'review') continue;
+    const logs = state.log.filter((l) => l.taskId === t.id);
+    if (!logs.length) continue;
+    const estimate = taskEstimate(t);
+    if (!estimate) continue;
+    const actual = logs.reduce((s, l) => s + l.actualMin, 0);
+    if (!actual) continue;
+    out.push({
+      taskId: t.id, title: t.title, category: t.category, kind: t.kind, estimate, actual,
+      ratio: actual / estimate,
+      interrupted: logs.some((l) => l.outcome === 'interrupted'),
+      completedAt: t.completedAt,
+    });
+  }
+  return out;
+}
+
+function calibrationGroups(state) {
+  const obs = observations(state);
+  const groups = new Map();
+  const add = (key, label, o) => {
+    if (!groups.has(key)) groups.set(key, { key, label, all: [], usable: [] });
+    const g = groups.get(key);
+    g.all.push(o);
+    if (!o.interrupted) g.usable.push(o);
+  };
+  for (const o of obs) {
+    add(`ck:${o.category}|${o.kind}`, `${o.category}, ${(TASK_KINDS[o.kind] || o.kind).toLowerCase()}`, o);
+    add(`kind:${o.kind}`, `${TASK_KINDS[o.kind] || o.kind}, any course`, o);
+  }
+  return [...groups.values()].map((g) => {
+    const n = g.usable.length;
+    const ratios = g.usable.map((o) => o.ratio);
+    const ratio = n ? median(ratios) : null;
+    return {
+      ...g, n, excluded: g.all.length - n, ratio,
+      min: n ? Math.min(...ratios) : null, max: n ? Math.max(...ratios) : null,
+      enough: n >= MIN_SAMPLES,
+      suggests: n >= MIN_SAMPLES && Math.abs(ratio - 1) >= SUGGEST_THRESHOLD,
+    };
+  }).sort((a, b) => (a.key.startsWith('ck:') === b.key.startsWith('ck:') ? b.n - a.n : a.key.startsWith('ck:') ? -1 : 1));
+}
+
+const round5 = (n) => Math.max(5, Math.round(n / 5) * 5);
+
+// Same course and type takes precedence over the type alone. Groups never mix task types.
+function calibrationSuggestions(state) {
+  if (!state.settings.calibrationEnabled) return [];
+  const groups = calibrationGroups(state);
+  const byKey = new Map(groups.map((g) => [g.key, g]));
+  const out = [];
+  for (const t of state.tasks) {
+    if (t.status === 'done' || t.kind === 'review') continue;
+    const rem = taskRemaining(t);
+    if (!rem) continue;
+    const cat = byKey.get(`ck:${t.category}|${t.kind}`);
+    const kind = byKey.get(`kind:${t.kind}`);
+    const g = cat?.enough ? cat : kind?.enough ? kind : null;
+    if (!g || !g.suggests) continue;
+    const to = round5(rem * g.ratio);
+    if (to === rem) continue;
+    const dismissKey = `${t.id}:${g.key}:${g.n}`;
+    if (state.calibration.dismissed?.[dismissKey]) continue;
+    if (t.calibratedFrom && t.calibratedFrom.group === g.key && t.calibratedFrom.n === g.n) continue;
+    out.push({ taskId: t.id, title: t.title, from: rem, to, group: g.key, groupLabel: g.label, n: g.n, ratio: g.ratio, excluded: g.excluded, dismissKey });
+  }
+  return out;
+}
+
+function applySuggestion(state, s, nowMs) {
+  const next = structuredClone(state);
+  const t = next.tasks.find((x) => x.id === s.taskId);
+  if (!t) return next;
+  const open = t.steps.filter((x) => !x.done);
+  if (open.length) {
+    const total = open.reduce((a, x) => a + x.remainingMin, 0) || 1;
+    let left = s.to;
+    open.forEach((x, i) => {
+      const v = i === open.length - 1 ? left : Math.round((x.remainingMin / total) * s.to);
+      x.remainingMin = Math.max(0, v);
+      left -= x.remainingMin;
+    });
+  } else t.remainingMin = s.to;
+  t.calibratedFrom = { from: s.from, to: s.to, group: s.group, n: s.n, at: nowMs };
+  return next;
+}
+
+function dismissSuggestion(state, s) {
+  const next = structuredClone(state);
+  next.calibration.dismissed = { ...next.calibration.dismissed, [s.dismissKey]: true };
+  return next;
+}
+
+function clearCalibration(state, nowMs) {
+  const next = structuredClone(state);
+  next.calibration = { clearedAt: nowMs, dismissed: {} };
+  return next;
+}
+
+return { MIN_SAMPLES, SUGGEST_THRESHOLD, observations, calibrationGroups, calibrationSuggestions, applySuggestion, dismissSuggestion, clearCalibration };
+})();
+
+// src/core/revision.js
+__m["src/core/revision.js"] = (function () {
+// Optional revision scheduling with a deliberately simple interval rule.
+// It is a heuristic, not a scientifically optimized spaced-repetition algorithm.
+//
+// Rule: confidence 1 (forgot) resets to 1 day. Otherwise the next interval is the
+// previous interval times a factor: 2 -> x1.2, 3 -> x1.8, 4 -> x2.5, 5 -> x3.
+// First reviews use 1, 1, 2, 4, 7 days for confidence 1 to 5. Capped at 60 days.
+
+const { addDays } = __m["src/core/time.js"];
+const FIRST_INTERVAL = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 7 };
+const FACTOR = { 2: 1.2, 3: 1.8, 4: 2.5, 5: 3 };
+const CONFIDENCE_LABELS = { 1: 'Forgot', 2: 'Shaky', 3: 'Okay', 4: 'Good', 5: 'Solid' };
+
+function nextInterval(prev, confidence) {
+  if (confidence <= 1) return 1;
+  if (!prev) return FIRST_INTERVAL[confidence];
+  return Math.min(60, Math.max(1, Math.round(prev * FACTOR[confidence])));
+}
+
+function addTopic(state, { id, title, category, reviewMin = 20, confidence = 3 }, today) {
+  const next = structuredClone(state);
+  const interval = nextInterval(null, confidence);
+  next.revision.topics.push({ id, title, category: category || 'General', reviewMin, confidence, intervalDays: interval, lastReviewed: today, nextDue: addDays(today, interval), history: [{ date: today, confidence, intervalDays: interval }] });
+  return next;
+}
+
+function logReview(state, topicId, confidence, today, nowMs) {
+  const next = structuredClone(state);
+  const topic = next.revision.topics.find((t) => t.id === topicId);
+  if (!topic) return next;
+  const interval = nextInterval(topic.intervalDays, confidence);
+  topic.confidence = confidence;
+  topic.intervalDays = interval;
+  topic.lastReviewed = today;
+  topic.nextDue = addDays(today, interval);
+  topic.history.push({ date: today, confidence, intervalDays: interval });
+  for (const t of next.tasks) {
+    if (t.revisionTopicId === topicId && t.status !== 'done') { t.status = 'done'; t.completedAt = nowMs; t.remainingMin = 0; }
+  }
+  return next;
+}
+
+function removeTopic(state, topicId) {
+  const next = structuredClone(state);
+  next.revision.topics = next.revision.topics.filter((t) => t.id !== topicId);
+  next.tasks = next.tasks.filter((t) => !(t.revisionTopicId === topicId && t.status !== 'done'));
+  return next;
+}
+
+// Creates at most one open review task per topic whose review falls inside the horizon.
+// Review tasks are ordinary tasks, so they go through the normal scheduling constraints.
+function syncReviewTasks(state, today, horizonDays) {
+  const last = addDays(today, horizonDays - 1);
+  const created = [];
+  const next = structuredClone(state);
+  for (const topic of next.revision.topics) {
+    if (!topic.nextDue || topic.nextDue > last) continue;
+    const open = next.tasks.some((t) => t.revisionTopicId === topic.id && t.status !== 'done');
+    if (open) continue;
+    const due = topic.nextDue < today ? today : topic.nextDue;
+    const id = `rev_${topic.id}_${topic.nextDue}`;
+    if (next.tasks.some((t) => t.id === id)) continue;
+    const task = {
+      id, title: `Review: ${topic.title}`, category: topic.category, kind: 'review', priority: 'medium',
+      deadline: { date: due, time: null }, estimateMin: topic.reviewMin, remainingMin: topic.reviewMin,
+      confidence: 'high', focus: 'normal', location: { mode: 'any', ids: [] }, equipment: [], status: 'todo',
+      notes: 'Created from your revision topics. Log the review in Learning to schedule the next one.',
+      doneWhen: 'Recalled the key ideas without notes, then checked against them.',
+      splittable: false, minSessionMin: null, steps: [], dependsOn: [], lateTarget: null,
+      revisionTopicId: topic.id, calibratedFrom: null, createdAt: null, completedAt: null, source: { system: 'revision', id: topic.id },
+    };
+    next.tasks.push(task);
+    created.push(task);
+  }
+  return { state: created.length ? next : state, created };
+}
+
+return { FIRST_INTERVAL, FACTOR, CONFIDENCE_LABELS, nextInterval, addTopic, logReview, removeTopic, syncReviewTasks };
+})();
+
+// src/core/analysis.js
+__m["src/core/analysis.js"] = (function () {
+// Observable planning issues. Everything here is derived from entered facts and
+// the approved plan; nothing is inferred about the student's wellbeing.
+
+const { MINUTE, HOUR, DAY, addDays, msToDate, zonedToMs, fmtDate, fmtTime, fmtTimeRange, fmtDateTime, fmtDuration, fmtClock, overlapMs } = __m["src/core/time.js"];
+const { expandCommitments } = __m["src/core/recurrence.js"];
+const { travelBetween, isPhysical, locationName } = __m["src/core/travel.js"];
+const { deadlineMs, taskRemaining, findDependencyCycle } = __m["src/core/model.js"];
+const { sleepInterval } = __m["src/core/scheduler.js"];
+const { futureMinutes } = __m["src/core/proposal.js"];
+const SEV = { conflict: 0, warning: 1, info: 2 };
+const LONG_STRETCH_MIN = 180;
+
+function analyze(state, nowMs) {
+  const { settings, preferences: prefs } = state;
+  const tz = settings.timezone;
+  const today = msToDate(nowMs, tz);
+  const horizonEnd = zonedToMs(addDays(today, settings.planningHorizonDays), 0, tz);
+  const occ = expandCommitments(state.commitments, addDays(today, -1), addDays(today, settings.planningHorizonDays), tz).filter((o) => !o.skipped && o.endMs > nowMs - DAY);
+  const issues = [];
+  const push = (i) => issues.push(i);
+
+  // Overlapping fixed commitments: both are kept as entered.
+  for (let i = 0; i < occ.length; i++) {
+    for (let j = i + 1; j < occ.length && occ[j].startMs < occ[i].endMs; j++) {
+      const a = occ[i];
+      const b = occ[j];
+      if (overlapMs(a.startMs, a.endMs, b.startMs, b.endMs) <= 0) continue;
+      push({ id: `overlap:${a.id}:${b.id}`, severity: 'conflict', kind: 'overlap', at: b.startMs,
+        title: `${a.title} overlaps ${b.title}`,
+        detail: `${fmtDate(a.date)}: ${fmtTimeRange(a.startMs, a.endMs, tz)} and ${fmtTimeRange(b.startMs, b.endMs, tz)}. Both are kept exactly as entered. Edit or skip one to resolve it.`,
+        refs: { occurrences: [a.id, b.id], commitments: [a.commitmentId, b.commitmentId] }, action: 'openCommitment' });
+    }
+  }
+
+  // Transitions between consecutive fixed commitments that travel makes impossible or tight.
+  const physical = occ.filter((o) => isPhysical(state, o.locationId) && o.type !== 'protected');
+  for (let i = 0; i + 1 < physical.length; i++) {
+    const a = physical[i];
+    const b = physical[i + 1];
+    if (msToDate(a.startMs, tz) !== msToDate(b.startMs, tz) || b.startMs < a.endMs) continue;
+    const t = travelBetween(state, a.locationId, b.locationId);
+    if (t.minutes <= 0) continue;
+    const gap = (b.startMs - a.endMs) / MINUTE;
+    const est = t.kind === 'fallback' ? ' (fallback estimate)' : '';
+    if (gap < t.minutes) {
+      push({ id: `transition:${a.id}:${b.id}`, severity: 'conflict', kind: 'transition', at: b.startMs,
+        title: `Can't reach ${b.title} in time`,
+        detail: `${fmtDate(a.date)}: ${a.title} ends at ${fmtTime(a.endMs, tz)} at ${locationName(state, a.locationId)}; ${b.title} starts at ${fmtTime(b.startMs, tz)} at ${locationName(state, b.locationId)}. That is ${gap} min apart, and travel takes ${t.minutes} min${est}.`,
+        refs: { occurrences: [a.id, b.id], commitments: [a.commitmentId, b.commitmentId] }, action: 'openCommitment' });
+    } else if (gap < t.minutes + settings.travelBufferMin) {
+      push({ id: `tight:${a.id}:${b.id}`, severity: 'warning', kind: 'tight', at: b.startMs,
+        title: `Tight walk to ${b.title}`,
+        detail: `${fmtDate(a.date)}: ${gap} min between ${a.title} and ${b.title}, for ${t.minutes} min of travel${est} and your ${settings.travelBufferMin} min buffer.`,
+        refs: { occurrences: [a.id, b.id], commitments: [a.commitmentId, b.commitmentId] }, action: 'openCommitment' });
+    }
+  }
+
+  // Commitments inside protected sleep.
+  for (const o of occ) {
+    if (o.startMs < nowMs - HOUR) continue;
+    for (const d of [addDays(o.date, -1), o.date]) {
+      const [s, e] = sleepInterval(d, prefs.sleep, tz);
+      if (overlapMs(o.startMs, o.endMs, s, e) > 0) {
+        push({ id: `sleep:${o.id}:${d}`, severity: 'warning', kind: 'sleep', at: o.startMs, title: `${o.title} overlaps protected sleep`,
+          detail: `${fmtDate(o.date)} ${fmtTimeRange(o.startMs, o.endMs, tz)} falls inside your sleep (${fmtClock(prefs.sleep.start)} to ${fmtClock(prefs.sleep.end)}). The commitment is kept; no study is planned there.`,
+          refs: { commitments: [o.commitmentId] }, action: 'openCommitment' });
+        break;
+      }
+    }
+  }
+
+  // Approved sessions that no longer fit the facts (for example after a commitment was edited).
+  const future = state.plan.blocks.filter((b) => b.status === 'planned' && b.end > nowMs);
+  for (const b of future) {
+    const task = state.tasks.find((t) => t.id === b.taskId);
+    const clash = occ.find((o) => o.type !== 'protected' && overlapMs(b.start, b.end, o.startMs, o.endMs) > 0)
+      || occ.find((o) => o.type === 'protected' && overlapMs(b.start, b.end, o.startMs, o.endMs) > 0);
+    if (clash) push({ id: `blockclash:${b.id}`, severity: 'conflict', kind: 'blockClash', at: b.start, title: `Approved session overlaps ${clash.title}`,
+      detail: `${task?.title || 'A session'} on ${fmtDateTime(b.start, tz)} now overlaps ${clash.title}. Adjust the plan to move it.`, refs: { blocks: [b.id] }, action: 'adjust' });
+    if (task?.status === 'done') push({ id: `donetask:${b.id}`, severity: 'info', kind: 'doneTask', at: b.start, title: `Session for a finished task`,
+      detail: `${task.title} is marked done but still has a session on ${fmtDateTime(b.start, tz)}${b.locked ? ' (locked)' : ''}. Remove it or adjust the plan.`, refs: { blocks: [b.id] }, action: 'openBlock' });
+    if (task && task.status !== 'done' && b.end > deadlineMs(task, settings) && !task.lateTarget) push({ id: `afterdl:${b.id}`, severity: 'conflict', kind: 'afterDeadline', at: b.start,
+      title: `Session after the deadline: ${task.title}`, detail: `The session on ${fmtDateTime(b.start, tz)} ends after the deadline (${fmtDateTime(deadlineMs(task, settings), tz)}).`, refs: { blocks: [b.id] }, action: 'adjust' });
+  }
+
+  // Past sessions without a recorded outcome.
+  const unrecorded = state.plan.blocks.filter((b) => b.status === 'planned' && b.end <= nowMs && b.end > nowMs - 7 * DAY).sort((a, b) => a.start - b.start);
+  if (unrecorded.length) {
+    push({ id: 'unrecorded', severity: 'warning', kind: 'unrecorded', at: unrecorded[0].start,
+      title: `${unrecorded.length} past session${unrecorded.length === 1 ? '' : 's'} not recorded`,
+      detail: 'Record what happened so remaining work stays accurate. Nothing is assumed done until you say so.', refs: { blocks: unrecorded.map((b) => b.id) }, action: 'recover' });
+  }
+  const missed = state.plan.blocks.filter((b) => b.status === 'missed' && b.end > nowMs - 3 * DAY);
+
+  // Coverage: does the approved plan hold enough time before each deadline?
+  const coverage = new Map();
+  for (const t of state.tasks) {
+    if (t.status === 'done') continue;
+    const dl = deadlineMs(t, settings);
+    const remaining = taskRemaining(t);
+    const before = futureMinutes(state.plan.blocks, t.id, nowMs, t.lateTarget && dl <= nowMs ? zonedToMs(t.lateTarget, settings.dateOnlyCutoff, tz) : dl);
+    const gap = Math.max(0, remaining - before);
+    const overdue = dl <= nowMs;
+    coverage.set(t.id, { remaining, planned: before, gap, overdue, deadline: dl, inHorizon: dl <= horizonEnd });
+    if (overdue && remaining > 0) {
+      push({ id: `overdue:${t.id}`, severity: 'conflict', kind: 'overdue', at: dl, title: `Overdue: ${t.title}`,
+        detail: `Was due ${fmtDateTime(dl, tz)} with ${fmtDuration(remaining)} left.${t.lateTarget ? ` Planning toward your finish-late-by date, ${fmtDate(t.lateTarget)}.` : ' Set a finish-late-by date to plan it, or mark it done.'}`, refs: { tasks: [t.id] }, action: 'openTask' });
+    } else if (!overdue && gap > 0 && dl <= horizonEnd) {
+      push({ id: `coverage:${t.id}`, severity: 'warning', kind: 'coverage', at: dl, title: `Not fully planned: ${t.title}`,
+        detail: `The approved plan holds ${fmtDuration(before)} of the ${fmtDuration(remaining)} left before ${fmtDateTime(dl, tz)}.`, refs: { tasks: [t.id] }, action: 'adjust' });
+    }
+  }
+  if (missed.length && issues.some((i) => i.kind === 'coverage')) {
+    push({ id: 'missed', severity: 'warning', kind: 'missed', at: missed[0].start, title: `${missed.length} recent session${missed.length === 1 ? '' : 's'} missed`,
+      detail: 'Their work is still in your remaining effort. Recovery options can re-place it without redoing the whole plan.', refs: { blocks: missed.map((b) => b.id) }, action: 'recover' });
+  }
+
+  const cycle = findDependencyCycle(state.tasks.filter((t) => t.status !== 'done'));
+  if (cycle) push({ id: 'cycle', severity: 'conflict', kind: 'cycle', at: nowMs, title: 'Task dependencies form a loop',
+    detail: `${cycle.map((id) => state.tasks.find((t) => t.id === id)?.title).join(' depends on ')}. None of these can be planned until the loop is removed.`, refs: { tasks: cycle }, action: 'openTask' });
+
+  // Assumptions and uncertainty worth knowing about.
+  const dateOnly = state.tasks.filter((t) => t.status !== 'done' && t.deadline.time == null);
+  if (dateOnly.length) push({ id: 'dateonly', severity: 'info', kind: 'assumption', at: nowMs, title: `${dateOnly.length} deadline${dateOnly.length === 1 ? ' has' : 's have'} no time`,
+    detail: `Treated as due at ${fmtClock(settings.dateOnlyCutoff)} on that date. Change the assumed cutoff in Preferences.`, refs: { tasks: dateOnly.map((t) => t.id) }, action: 'preferences' });
+  const noLoc = occ.filter((o) => o.startMs >= nowMs && !o.locationId && o.type !== 'protected');
+  if (noLoc.length) {
+    const names = [...new Set(noLoc.map((o) => o.title))];
+    push({ id: 'noloc', severity: 'info', kind: 'uncertainty', at: nowMs, title: `${names.length} commitment${names.length === 1 ? ' has' : 's have'} no location`,
+      detail: `${names.slice(0, 4).join(', ')}${names.length > 4 ? ', and others' : ''}. Travel to and from these is assumed to be zero, which may be optimistic.`, refs: { commitments: [...new Set(noLoc.map((o) => o.commitmentId))] }, action: 'openCommitment' });
+  }
+  if (!settings.homeLocationId && state.locations.length) push({ id: 'nohome', severity: 'info', kind: 'uncertainty', at: nowMs, title: 'No home place set',
+    detail: 'Morning and late-night travel from home is not counted. Set a home place under Places and travel.', refs: {}, action: 'places' });
+
+  issues.sort((a, b) => SEV[a.severity] - SEV[b.severity] || a.at - b.at);
+  return { issues, coverage, unrecorded, missed, counts: { conflict: issues.filter((i) => i.severity === 'conflict').length, warning: issues.filter((i) => i.severity === 'warning').length, info: issues.filter((i) => i.severity === 'info').length } };
+}
+
+// Per-day workload indicators for a set of dates.
+function workloadForDates(state, nowMs, dates, alt = null) {
+  const { settings, preferences: prefs } = state;
+  const tz = settings.timezone;
+  const occ = expandCommitments(state.commitments, addDays(dates[0], -1), dates[dates.length - 1], tz).filter((o) => !o.skipped);
+  const replaced = new Set(alt ? alt.replacedIds : []);
+  const approved = state.plan.blocks.filter((b) => b.status !== 'missed');
+  const proposed = alt ? alt.newBlocks : [];
+  return dates.map((date) => {
+    const d0 = zonedToMs(date, 0, tz);
+    const d1 = zonedToMs(addDays(date, 1), 0, tz);
+    const inDay = (s, e) => overlapMs(s, e, d0, d1) / MINUTE;
+    const dayOcc = occ.filter((o) => o.type !== 'protected' && o.type !== 'meal' && inDay(o.startMs, o.endMs) > 0);
+    const commitMin = dayOcc.reduce((s, o) => s + inDay(o.startMs, o.endMs), 0);
+    const studyBlocks = approved.filter((b) => !(alt && replaced.has(b.id)) && inDay(b.start, b.end) > 0);
+    const studyApproved = approved.filter((b) => inDay(b.start, b.end) > 0).reduce((s, b) => s + inDay(b.start, b.end), 0);
+    const propBlocks = proposed.filter((b) => inDay(b.start, b.end) > 0);
+    const studyProposedTotal = [...studyBlocks, ...propBlocks].reduce((s, b) => s + inDay(b.start, b.end), 0);
+    const studyDone = state.plan.blocks.filter((b) => (b.status === 'completed' || b.status === 'partial') && inDay(b.start, b.end) > 0).reduce((s, b) => s + (b.actualMin ?? 0), 0);
+    const deadlines = state.tasks.filter((t) => t.status !== 'done' && t.deadline.date === date);
+    const effective = alt ? [...studyBlocks, ...propBlocks] : studyBlocks;
+    // Longest stretch of commitments and study with gaps shorter than the break length.
+    const items = [...dayOcc.map((o) => [o.startMs, o.endMs]), ...effective.map((b) => [b.start, b.end])].sort((a, b) => a[0] - b[0]);
+    let longest = 0;
+    let cur = null;
+    for (const [s, e] of items) {
+      if (cur && s - cur[1] < prefs.breakMin * MINUTE) cur[1] = Math.max(cur[1], e);
+      else { if (cur) longest = Math.max(longest, cur[1] - cur[0]); cur = [s, e]; }
+    }
+    if (cur) longest = Math.max(longest, cur[1] - cur[0]);
+    const sorted = effective.slice().sort((a, b) => a.start - b.start);
+    let backToBack = 0;
+    for (let i = 1; i < sorted.length; i++) if (sorted[i].start - sorted[i - 1].end < prefs.breakMin * MINUTE) backToBack++;
+    const shown = alt ? studyProposedTotal : studyApproved;
+    const flags = [];
+    if (shown > prefs.maxDailyStudyMin) flags.push({ kind: 'limit', text: `Over your ${fmtDuration(prefs.maxDailyStudyMin)} daily limit` });
+    if (longest / MINUTE > Math.max(LONG_STRETCH_MIN, prefs.maxContinuousMin + 60)) flags.push({ kind: 'stretch', text: `${fmtDuration(longest / MINUTE)} without a ${prefs.breakMin} min break` });
+    if (backToBack) flags.push({ kind: 'breaks', text: `${backToBack} session${backToBack === 1 ? '' : 's'} without a full break` });
+    return { date, commitMin: Math.round(commitMin), studyApproved: Math.round(studyApproved), studyProposedTotal: Math.round(studyProposedTotal), studyDone, deadlines, longestStretchMin: Math.round(longest / MINUTE), backToBack, flags, limit: prefs.maxDailyStudyMin };
+  });
+}
+
+// Three or more open deadlines within 48 hours.
+function deadlineClusters(state, nowMs) {
+  const open = state.tasks.filter((t) => t.status !== 'done').map((t) => ({ t, dl: deadlineMs(t, state.settings) })).filter((x) => x.dl > nowMs).sort((a, b) => a.dl - b.dl);
+  const clusters = [];
+  for (let i = 0; i < open.length; i++) {
+    const group = open.filter((x) => x.dl >= open[i].dl && x.dl - open[i].dl <= 48 * HOUR);
+    if (group.length >= 3 && !clusters.some((c) => c.ids.includes(open[i].t.id))) clusters.push({ start: open[i].dl, ids: group.map((x) => x.t.id), titles: group.map((x) => x.t.title) });
+  }
+  return clusters;
+}
+
+return { LONG_STRETCH_MIN, analyze, workloadForDates, deadlineClusters };
+})();
+
+// src/core/recommend.js
+__m["src/core/recommend.js"] = (function () {
+// "What should I do now?" Picks a task that genuinely fits the time before the
+// next commitment, accounting for travel, equipment, focus, and deadlines. When
+// nothing fits, it says so and points to the next realistic opportunity.
+
+const { buildContext, freeIntervals, neighbors, locationBefore, usableWindow, candidateLocations } = __m["src/core/scheduler.js"];
+const { MINUTE, HOUR, msToDate, msToMinuteOfDay, roundUpTo, fmtTime, fmtDuration, fmtDateTime, fmtRelative } = __m["src/core/time.js"];
+const { travelBetween, travelCost, locationName } = __m["src/core/travel.js"];
+const { taskUnits, deadlineMs, taskRemaining } = __m["src/core/model.js"];
+const { futureMinutes } = __m["src/core/proposal.js"];
+const STEP = 5 * MINUTE;
+const MIN_WINDOW = 15;
+
+function nextOpenWindow(ctx, afterMs, minMin = 30) {
+  for (const day of ctx.days) {
+    for (const [s, e] of freeIntervals(ctx, day)) {
+      if (e <= afterMs) continue;
+      const s2 = Math.max(s, afterMs);
+      if (e - s2 >= minMin * MINUTE) return { start: s2, end: e };
+    }
+  }
+  return null;
+}
+
+function eligibleUnits(state, nowMs) {
+  const out = [];
+  for (const t of state.tasks) {
+    if (t.status === 'done' || taskRemaining(t) <= 0) continue;
+    const blockedBy = t.dependsOn.map((id) => state.tasks.find((x) => x.id === id)).filter((d) => d && d.status !== 'done' && taskRemaining(d) > 0);
+    const units = taskUnits(t);
+    if (!units.length) continue;
+    out.push({ ...units[0], task: t, blockedBy, nextStep: units[1] || null });
+  }
+  return out;
+}
+
+function recommendNow(state, nowMs, { locationId = null, energy = null, windowMin = null, onlyTaskId = null } = {}) {
+  const { settings, preferences: prefs } = state;
+  const tz = settings.timezone;
+  const ctx = buildContext(state, nowMs, { horizonDays: 2, keepExistingFuture: true });
+  const today = msToDate(nowMs, tz);
+  const mood = energy || state.checkins?.[today] || null;
+  const upcomingSession = state.plan.blocks.filter((b) => b.status === 'planned' && b.start > nowMs).sort((a, b) => a.start - b.start)[0] || null;
+  const base = { energy: mood, nextSession: upcomingSession, location: null };
+
+  const inBlock = state.plan.blocks.find((b) => b.status === 'planned' && b.start <= nowMs && b.end > nowMs);
+  if (inBlock && !windowMin) {
+    const task = state.tasks.find((t) => t.id === inBlock.taskId);
+    return { ...base, status: 'in-session', block: inBlock, task, location: inBlock.locationId,
+      headline: `Planned now: ${task?.title || 'study session'}`, sub: `Until ${fmtTime(inBlock.end, tz)} at ${locationName(state, inBlock.locationId)}.`, options: [], pick: null };
+  }
+  const inOcc = ctx.occurrences.find((o) => o.startMs <= nowMs && o.endMs > nowMs);
+  const inSleep = ctx.timeline.find((it) => it.kind === 'sleep' && it.start <= nowMs && it.end > nowMs);
+  const day0 = ctx.days[0];
+  const free = day0 ? freeIntervals(ctx, day0) : [];
+  const cur = free.find(([s, e]) => s <= ctx.startMs && e > ctx.startMs);
+
+  if (!cur || inOcc || inSleep) {
+    const after = inOcc ? inOcc.endMs : nowMs;
+    const next = nextOpenWindow(ctx, after);
+    let headline;
+    let sub;
+    if (inSleep) { headline = 'Protected sleep time'; sub = 'Rest now. Nothing is recommended during sleep.'; }
+    else if (inOcc) { headline = `In ${inOcc.title} until ${fmtTime(inOcc.endMs, tz)}`; sub = 'No study recommended during a fixed commitment.'; }
+    else { headline = 'Outside your study hours'; sub = 'Take the time off. Your study hours are set in Preferences.'; }
+    return { ...base, status: inSleep ? 'resting' : inOcc ? 'busy' : 'off-hours', headline, sub, next, options: [], pick: null, occurrence: inOcc || null };
+  }
+
+  const nb = neighbors(ctx, cur[0], cur[1]);
+  const here = locationId !== null && locationId !== undefined ? locationId : locationBefore(ctx, nowMs);
+  const windowEnd = windowMin ? Math.min(cur[1], ctx.startMs + windowMin * MINUTE) : cur[1];
+  const rawMinutes = Math.round((windowEnd - ctx.startMs) / MINUTE);
+  const nextLabel = nb.next ? (nb.next.kind === 'sleep' ? 'sleep' : nb.next.kind === 'study' ? 'your next planned session' : nb.next.label) : 'the end of your study hours';
+  const nextStart = nb.next && nb.next.start < windowEnd + 1 ? nb.next.start : windowEnd;
+
+  const units = eligibleUnits(state, nowMs).filter((u) => !onlyTaskId || u.taskId === onlyTaskId);
+  const dependents = new Map();
+  for (const t of state.tasks) for (const d of t.dependsOn) if (t.status !== 'done') dependents.set(d, [...(dependents.get(d) || []), t.title]);
+
+  const options = units.map((u) => {
+    const t = u.task;
+    const dl = deadlineMs(t, settings);
+    const minSession = Math.max(5, Math.min(t.minSessionMin ?? prefs.minSessionMin, prefs.maxContinuousMin));
+    const need = u.remaining;
+    const minNeeded = Math.min(need, minSession);
+    const opt = { unitId: u.unitId, taskId: t.id, stepId: u.stepId, title: u.title, task: t, need, nextStep: u.nextStep, fits: false, reasons: [], whyNot: null, score: -Infinity, minutes: 0, locationId: null, travelMin: 0 };
+    if (u.blockedBy.length) { opt.whyNot = `Waits on "${u.blockedBy[0].title}" to be finished first.`; return opt; }
+    let bestLoc = null;
+    for (const loc of candidateLocations(state, { location: t.location, equipment: t.equipment })) {
+      const tin = travelBetween(state, here, loc);
+      const s = roundUpTo(ctx.startMs + travelCost(tin, settings) * MINUTE, STEP);
+      const w = usableWindow(ctx, cur[0], cur[1], nb, loc, here);
+      const e = Math.min(w.e, windowEnd);
+      const minutes = Math.min(prefs.maxContinuousMin, Math.max(0, Math.round((e - s) / MINUTE)));
+      const cand = { loc, minutes, tin, s };
+      if (!bestLoc || cand.minutes - cand.tin.minutes * 0.5 > bestLoc.minutes - bestLoc.tin.minutes * 0.5 || (cand.minutes === bestLoc.minutes && loc === here)) bestLoc = cand;
+    }
+    if (!bestLoc) { opt.whyNot = 'No place has the location or equipment this task needs.'; return opt; }
+    opt.locationId = bestLoc.loc;
+    opt.travelMin = bestLoc.tin.minutes;
+    if (bestLoc.minutes < minNeeded) {
+      const travelNote = bestLoc.tin.minutes ? `, after ${bestLoc.tin.minutes} min to get to ${locationName(state, bestLoc.loc)}` : '';
+      opt.whyNot = `Needs at least ${fmtDuration(minNeeded)}${t.focus === 'deep' ? ' of deep focus' : ''}; only ${fmtDuration(bestLoc.minutes)} fit before ${nextLabel}${travelNote}.`;
+      return opt;
+    }
+    opt.fits = true;
+    opt.minutes = Math.min(bestLoc.minutes, need, Math.max(prefs.preferredSessionMin, minNeeded));
+    opt.sessionStart = bestLoc.s;
+    opt.sessionEnd = bestLoc.s + opt.minutes * MINUTE;
+    const hoursLeft = (dl - nowMs) / HOUR;
+    const overdue = hoursLeft <= 0;
+    // Overdue work matters, but its lateness is already sunk; it should not automatically beat work due tomorrow.
+    let score = overdue ? 7 : Math.max(0, 12 - hoursLeft / 12);
+    opt.reasons.push(overdue ? `Overdue since ${fmtDateTime(dl, tz)}.` : `Due ${fmtDateTime(dl, tz)} (${fmtRelative(dl, nowMs)}).`);
+    const planned = futureMinutes(state.plan.blocks, t.id, nowMs, dl);
+    const gap = taskRemaining(t) - planned;
+    if (gap > 0) { score += 4; opt.reasons.push(`${fmtDuration(gap)} of it has no session in your plan yet.`); }
+    score += { high: 4, medium: 2, low: 0 }[t.priority] || 0;
+    const mod = msToMinuteOfDay(opt.sessionStart, tz);
+    const inFocus = prefs.focusHours.some((w) => mod >= w.start && mod < w.end);
+    if (mood === 'low') {
+      if (t.focus === 'deep') { score -= 6; opt.reasons.push('Deep focus work, but you checked in with low energy.'); }
+      else if (t.focus === 'light') { score += 3; opt.reasons.push('Light work suits your low-energy check-in.'); }
+    } else if (t.focus === 'deep' && (inFocus || mood === 'high')) { score += 3; opt.reasons.push(inFocus ? 'Deep work during your focus hours.' : 'Deep work while your energy is high.'); }
+    if (t.focus === 'light' && rawMinutes < 50) { score += 2; opt.reasons.push('Light work that fits a short gap.'); }
+    if (opt.minutes >= need) { score += 2; opt.reasons.push(`You can finish ${u.stepId ? 'this step' : 'it'} in this window.`); }
+    const plannedLater = state.plan.blocks.some((b) => b.taskId === t.id && b.status === 'planned' && b.start > nowMs && msToDate(b.start, tz) === today);
+    if (plannedLater) { score += 1; opt.reasons.push('Pulls forward work planned for later today.'); }
+    const deps = dependents.get(t.id) || [];
+    if (deps.length) { score += 2 * deps.length; opt.reasons.push(`Unblocks ${deps.map((d) => `"${d}"`).join(', ')}.`); }
+    score -= bestLoc.tin.minutes / 5;
+    opt.reasons.push(`${fmtDuration(opt.minutes)} at ${locationName(state, bestLoc.loc)}${bestLoc.tin.minutes ? ` (${bestLoc.tin.minutes} min away${bestLoc.tin.kind === 'fallback' ? ', estimated' : ''})` : ''}, ending before ${nextLabel} at ${fmtTime(nextStart, tz)}.`);
+    opt.score = score;
+    return opt;
+  });
+  options.sort((a, b) => (b.fits - a.fits) || b.score - a.score || (a.taskId < b.taskId ? -1 : 1));
+  const pick = options.find((o) => o.fits) || null;
+  const usable = rawMinutes;
+  const soonBlock = nb.next && nb.next.kind === 'study' && nb.next.ref && nb.next.start - nowMs <= 30 * MINUTE ? nb.next.ref : null;
+  if ((usable < MIN_WINDOW || !pick) && soonBlock && !windowMin) {
+    const task = state.tasks.find((t) => t.id === soonBlock.taskId);
+    const tin = travelBetween(state, here, soonBlock.locationId);
+    return { ...base, status: 'upcoming', block: soonBlock, task, location: here,
+      headline: `Next planned session at ${fmtTime(soonBlock.start, tz)}`,
+      sub: `${locationName(state, soonBlock.locationId)}${tin.minutes ? `, ${tin.minutes} min away${tin.kind === 'fallback' ? ' (estimated)' : ''}` : ''}. Use the gap to get there and get set up.`,
+      window: { start: ctx.startMs, end: windowEnd, minutes: usable, nextLabel, nextStart }, options, pick: null };
+  }
+  if (usable < MIN_WINDOW || !pick) {
+    const next = nextOpenWindow(ctx, windowEnd + MINUTE);
+    return { ...base, status: 'no-window', location: here,
+      headline: usable < MIN_WINDOW ? `Only ${fmtDuration(Math.max(0, usable))} before ${nextLabel}` : `Nothing fits the ${fmtDuration(usable)} before ${nextLabel}`,
+      sub: 'No realistic study window right now. Take a break.',
+      window: { start: ctx.startMs, end: windowEnd, minutes: usable, nextLabel, nextStart }, options, pick: null, next };
+  }
+  return { ...base, status: 'window', location: here,
+    headline: `${fmtDuration(rawMinutes)} free before ${nextLabel}`,
+    sub: `Until ${fmtTime(nextStart, tz)}.`,
+    window: { start: ctx.startMs, end: windowEnd, minutes: rawMinutes, nextLabel, nextStart }, options, pick };
+}
+
+// A short-on-time fallback: what still fits if only `minutes` are available.
+function fallbackFor(state, nowMs, minutes, opts = {}) {
+  return recommendNow(state, nowMs, { ...opts, windowMin: minutes });
+}
+
+return { recommendNow, fallbackFor };
+})();
+
+// src/core/fragility.js
+__m["src/core/fragility.js"] = (function () {
+// Scenario-based robustness check of the approved plan. It re-runs the real
+// scheduler in "smallest change" mode under two kinds of disruption and reports
+// which deadlines stop fitting. These are deterministic what-ifs, not probabilities.
+
+const { generatePlan, CONFIDENCE_MARGIN } = __m["src/core/scheduler.js"];
+const { deadlineMs, CONFIDENCE } = __m["src/core/model.js"];
+const { HOUR, MINUTE, fmtDateTime, fmtDuration, fmtTime, fmtDate, msToDate } = __m["src/core/time.js"];
+const { fingerprint } = __m["src/core/model.js"];
+const TIGHT_BUFFER_HOURS = 12;
+
+function unplacedByTask(res) {
+  const m = new Map();
+  for (const u of res.unplaced) m.set(u.taskId, (m.get(u.taskId) || 0) + u.minutes);
+  return m;
+}
+
+function stressTest(state, nowMs, { maxSessions = 10, windowHours = 72 } = {}) {
+  const tz = state.settings.timezone;
+  const opts = { strategy: 'minimal', keepExistingFuture: true };
+  const base = generatePlan(state, nowMs, opts);
+  const baseU = unplacedByTask(base);
+  const horizonEnd = base.endMs;
+  const open = state.tasks.filter((t) => t.status !== 'done' && deadlineMs(t, state.settings) > nowMs && deadlineMs(t, state.settings) <= horizonEnd);
+
+  // Scenario 1: estimates run long, by a margin tied to how sure the estimate was.
+  const scale = {};
+  for (const t of open) scale[t.id] = 1 + CONFIDENCE_MARGIN[t.confidence || 'medium'];
+  const over = generatePlan(state, nowMs, { ...opts, estimateScale: scale });
+  const overU = unplacedByTask(over);
+
+  // Scenario 2: lose one upcoming session at a time.
+  const upcoming = state.plan.blocks.filter((b) => b.status === 'planned' && !b.locked && b.start >= nowMs && b.start < nowMs + windowHours * HOUR)
+    .sort((a, b) => a.start - b.start).slice(0, maxSessions);
+  const sessions = [];
+  for (const b of upcoming) {
+    const s2 = { ...state, plan: { ...state.plan, blocks: state.plan.blocks.filter((x) => x.id !== b.id) } };
+    const r = generatePlan(s2, nowMs, { ...opts, extraBusy: [[b.start, b.end]] });
+    const lost = (unplacedByTask(r).get(b.taskId) || 0) - (baseU.get(b.taskId) || 0);
+    const task = state.tasks.find((t) => t.id === b.taskId);
+    const repl = r.blocks.filter((x) => x.taskId === b.taskId).sort((a, c) => a.start - c.start)[0];
+    sessions.push({
+      blockId: b.id, taskId: b.taskId, start: b.start, end: b.end, critical: lost > 0, lostMin: Math.max(0, lost),
+      text: lost > 0
+        ? `If you lose ${fmtDate(msToDate(b.start, tz))} at ${fmtTime(b.start, tz)}, ${fmtDuration(lost)} of "${task?.title}" no longer fits before its deadline without moving other sessions.`
+        : repl ? `Recoverable: the work could move to ${fmtDateTime(repl.start, tz)} without touching other sessions.` : 'Recoverable without changes.',
+    });
+  }
+
+  const tasks = open.map((t) => {
+    const dl = deadlineMs(t, state.settings);
+    const notes = [];
+    let status = 'holds';
+    const baseGap = baseU.get(t.id) || 0;
+    if (baseGap > 0) {
+      status = 'uncovered';
+      notes.push(`${fmtDuration(baseGap)} has no session yet and does not fit in the remaining free time.`);
+    }
+    const overGap = (overU.get(t.id) || 0) - baseGap;
+    const margin = Math.round(CONFIDENCE_MARGIN[t.confidence || 'medium'] * 100);
+    if (overGap > 0) { if (status === 'holds') status = 'fragile'; notes.push(`If it takes ${margin}% longer (estimate marked "${CONFIDENCE[t.confidence]}"), ${fmtDuration(overGap)} would not fit before the deadline.`); }
+    else notes.push(`Absorbs a ${margin}% overrun in free time before the deadline.`);
+    const crit = sessions.filter((s) => s.taskId === t.id && s.critical);
+    if (crit.length) { if (status === 'holds') status = 'fragile'; notes.push(`${crit.length} upcoming session${crit.length === 1 ? ' is' : 's are'} critical: losing ${crit.length === 1 ? 'it' : 'one'} breaks the deadline.`); }
+    const unit = base.units.filter((u) => u.taskId === t.id);
+    const lastEnd = Math.max(0, ...unit.map((u) => u.lastEnd));
+    if (status === 'holds' && lastEnd && (dl - lastEnd) / HOUR < TIGHT_BUFFER_HOURS) {
+      status = 'tight';
+      notes.push(`The last session ends ${fmtDuration((dl - lastEnd) / MINUTE)} before the deadline.`);
+    }
+    return { taskId: t.id, title: t.title, deadline: dl, status, notes };
+  });
+  const order = { uncovered: 0, fragile: 1, tight: 2, holds: 3 };
+  tasks.sort((a, b) => order[a.status] - order[b.status] || a.deadline - b.deadline);
+  return {
+    ranAt: nowMs,
+    basis: fingerprint(state),
+    assumptions: [
+      `Overrun scenario: rough-guess estimates run 50% long, fairly-sure ones 25%, confident ones 10%.`,
+      `Lost-session scenario: each of your next ${upcoming.length} unlocked sessions (within ${windowHours} hours) is removed one at a time.`,
+      'Recovery is tested by placing the lost work into free time without moving any other approved session.',
+      'These are scenario checks, not predictions or probabilities.',
+    ],
+    tasks,
+    sessions,
+  };
+}
+
+return { stressTest };
+})();
+
+// src/data/mockRecords.js
+__m["src/data/mockRecords.js"] = (function () {
+// Synthetic records for the demo. Every person, assignment, and number is invented.
+//
+// The record shapes below (snake_case fields, day codes, 'YYYY-MM-DDTHH:MM' due
+// strings) are ASSUMPTIONS made for this prototype. They are not the verified schema
+// of the class API at github.com/taxpet06/design-engineering-26f-api. The adapter in
+// adapter.js is the only code that knows these shapes; see docs/API-INTEGRATION.md.
+
+const MOCK_RECORDS = {
+  student: { id: 'stu_demo_01', name: 'Demo Student', class_year: 2030, synthetic: true },
+  term: { id: 'term_26f', start: '2026-09-14', end: '2026-11-24' },
+
+  locations: [
+    { id: 'loc_dorm', name: 'Dorm room', kind: 'home', study_ok: true, equipment: ['monitor'] },
+    { id: 'loc_baker', name: 'Baker-Berry Library', kind: 'study', study_ok: true, equipment: ['quiet', 'monitor', 'printer', 'whiteboard'] },
+    { id: 'loc_kemeny', name: 'Kemeny Hall', kind: 'class', study_ok: true, equipment: ['whiteboard'] },
+    { id: 'loc_silsby', name: 'Silsby Hall', kind: 'class', study_ok: false, equipment: [] },
+    { id: 'loc_ecsc', name: 'ECSC', kind: 'class', study_ok: true, equipment: ['workshop', 'whiteboard', 'monitor'] },
+    { id: 'loc_collis', name: 'Collis Center', kind: 'other', study_ok: true, equipment: [] },
+    { id: 'loc_foco', name: 'Class of 1953 Commons', kind: 'dining', study_ok: false, equipment: [] },
+    { id: 'loc_parkhurst', name: 'Parkhurst Hall', kind: 'other', study_ok: false, equipment: [] },
+    { id: 'loc_ccd', name: 'Center for Career Design', kind: 'other', study_ok: false, equipment: [] },
+    { id: 'loc_online', name: 'Online', kind: 'virtual', study_ok: false, equipment: [] },
+  ],
+
+  // Hand-entered demo estimates in minutes. Not measured walking times.
+  // Some pairs are intentionally missing so the fallback estimate is exercised.
+  routes: [
+    ['loc_dorm', 'loc_baker', 8], ['loc_dorm', 'loc_kemeny', 9], ['loc_dorm', 'loc_silsby', 7], ['loc_dorm', 'loc_ecsc', 12],
+    ['loc_dorm', 'loc_collis', 6], ['loc_dorm', 'loc_foco', 5], ['loc_baker', 'loc_kemeny', 4], ['loc_baker', 'loc_silsby', 4],
+    ['loc_baker', 'loc_ecsc', 9], ['loc_baker', 'loc_collis', 3], ['loc_baker', 'loc_foco', 4], ['loc_baker', 'loc_parkhurst', 5],
+    ['loc_kemeny', 'loc_silsby', 5], ['loc_kemeny', 'loc_ecsc', 7], ['loc_kemeny', 'loc_foco', 6], ['loc_kemeny', 'loc_collis', 5],
+    ['loc_silsby', 'loc_foco', 5], ['loc_silsby', 'loc_ecsc', 12], ['loc_silsby', 'loc_collis', 4], ['loc_ecsc', 'loc_foco', 10],
+    ['loc_ecsc', 'loc_collis', 9], ['loc_collis', 'loc_foco', 3],
+  ].map(([from, to, minutes]) => ({ from, to, minutes })),
+
+  sections: [
+    { id: 'sec_cosc10', course: 'COSC 10', title: 'COSC 10 lecture', meets: [{ days: ['MO', 'WE', 'FR'], start: '10:10', end: '11:15' }], location_id: 'loc_kemeny' },
+    { id: 'sec_math13', course: 'MATH 13', title: 'MATH 13 lecture', meets: [{ days: ['MO', 'WE', 'FR'], start: '11:30', end: '12:35' }], location_id: 'loc_kemeny', canceled_dates: ['2026-10-30'] },
+    { id: 'sec_econ1', course: 'ECON 1', title: 'ECON 1 lecture', meets: [{ days: ['TU', 'TH'], start: '10:10', end: '12:00' }], location_id: 'loc_silsby' },
+    { id: 'sec_engs12', course: 'ENGS 12', title: 'ENGS 12 studio', meets: [{ days: ['TU', 'TH'], start: '14:25', end: '16:15' }], location_id: 'loc_ecsc' },
+  ],
+
+  jobs: [
+    { id: 'job_library', title: 'Library desk shift', shifts: [{ days: ['MO', 'WE'], start: '15:00', end: '17:00' }], location_id: 'loc_baker' },
+  ],
+
+  clubs: [
+    { id: 'club_debate', title: 'Debate society', meets: [{ days: ['TH'], start: '19:15', end: '20:45' }], location_id: 'loc_collis', optional: true,
+      changes: [{ date: '2026-10-29', start: '19:45', end: '21:15' }] },
+  ],
+
+  events: [
+    { id: 'evt_advising', title: 'Advising meeting', kind: 'appointment', date: '2026-10-29', start: '13:30', end: '14:00', location_id: 'loc_parkhurst' },
+    { id: 'evt_cosc_oh', title: 'COSC 10 office hours', kind: 'appointment', date: '2026-10-29', start: '12:05', end: '12:35', location_id: 'loc_ecsc' },
+    { id: 'evt_ccd_session', title: 'Career Design info session', kind: 'workshop', date: '2026-10-28', start: '17:15', end: '18:00', location_id: 'loc_ccd' },
+  ],
+
+  assignments: [
+    { id: 'asg_math13_ps7', course: 'MATH 13', title: 'MATH 13 problem set 7', type: 'assignment', due: '2026-10-28T17:00', estimate_min: 150, priority: 'high', focus: 'deep', confidence: 'medium', min_session_min: 40 },
+    { id: 'asg_cosc10_ps5', course: 'COSC 10', title: 'COSC 10 problem set 5', type: 'assignment', due: '2026-10-30T23:59', priority: 'high', focus: 'deep', confidence: 'low', min_session_min: 45,
+      equipment: ['monitor'], preferred_locations: ['loc_baker', 'loc_dorm'],
+      steps: [['Read the spec and starter code', 30, true], ['Implement the graph class', 120], ['Breadth-first search and tests', 90], ['Write-up', 30]],
+      done_when: 'All provided tests pass and the write-up answers each question.' },
+    { id: 'asg_econ1_reading', course: 'ECON 1', title: 'ECON 1 reading, chapters 9 and 10', type: 'reading', due: '2026-10-29T10:10', estimate_min: 60, priority: 'medium', focus: 'light', confidence: 'high', min_session_min: 20 },
+    { id: 'asg_engs12_synth', course: 'ENGS 12', title: 'Synthesize user interviews', type: 'project', due: '2026-10-30', estimate_min: 90, priority: 'medium', focus: 'normal', confidence: 'medium', splittable: false },
+    { id: 'asg_engs12_proto', course: 'ENGS 12', title: 'Prototype v2', type: 'project', due: '2026-11-03T14:25', estimate_min: 240, priority: 'high', focus: 'normal', confidence: 'low', min_session_min: 60,
+      required_locations: ['loc_ecsc'], depends_on: ['asg_engs12_synth'], done_when: 'A working prototype ready for the studio critique.' },
+    { id: 'asg_econ1_midterm', course: 'ECON 1', title: 'ECON 1 midterm prep', type: 'exam', due: '2026-11-05T10:10', estimate_min: 360, priority: 'high', focus: 'deep', confidence: 'medium', min_session_min: 50 },
+  ],
+
+  // Finished work with logged sessions, used to demonstrate duration calibration.
+  completed: [
+    { id: 'asg_cosc10_ps1', course: 'COSC 10', title: 'COSC 10 problem set 1', type: 'assignment', due: '2026-09-25T23:59', estimate_min: 180, sessions: [['2026-09-23', 120], ['2026-09-24', 110]] },
+    { id: 'asg_cosc10_ps2', course: 'COSC 10', title: 'COSC 10 problem set 2', type: 'assignment', due: '2026-10-02T23:59', estimate_min: 200, sessions: [['2026-09-30', 150], ['2026-10-01', 125]] },
+    { id: 'asg_cosc10_ps3', course: 'COSC 10', title: 'COSC 10 problem set 3', type: 'assignment', due: '2026-10-09T23:59', estimate_min: 240, sessions: [['2026-10-07', 160], ['2026-10-08', 150]] },
+    { id: 'asg_cosc10_ps4', course: 'COSC 10', title: 'COSC 10 problem set 4', type: 'assignment', due: '2026-10-16T23:59', estimate_min: 240, sessions: [['2026-10-14', 140], ['2026-10-15', 120, 'interrupted'], ['2026-10-16', 60]] },
+    { id: 'asg_math13_ps4', course: 'MATH 13', title: 'MATH 13 problem set 4', type: 'assignment', due: '2026-10-07T17:00', estimate_min: 120, sessions: [['2026-10-06', 125]] },
+    { id: 'asg_math13_ps5', course: 'MATH 13', title: 'MATH 13 problem set 5', type: 'assignment', due: '2026-10-14T17:00', estimate_min: 120, sessions: [['2026-10-13', 70], ['2026-10-14', 45]] },
+    { id: 'asg_math13_ps6', course: 'MATH 13', title: 'MATH 13 problem set 6', type: 'assignment', due: '2026-10-21T17:00', estimate_min: 120, sessions: [['2026-10-20', 130]] },
+    { id: 'asg_econ1_r1', course: 'ECON 1', title: 'ECON 1 reading, chapters 5 and 6', type: 'reading', due: '2026-10-08T10:10', estimate_min: 60, sessions: [['2026-10-07', 55]] },
+    { id: 'asg_econ1_r2', course: 'ECON 1', title: 'ECON 1 reading, chapters 7 and 8', type: 'reading', due: '2026-10-20T10:10', estimate_min: 60, sessions: [['2026-10-19', 70]] },
+  ],
+
+  revision_topics: [
+    { id: 'top_lagrange', title: 'Lagrange multipliers', course: 'MATH 13', confidence: 2, interval_days: 1, last_reviewed: '2026-10-27', next_due: '2026-10-28', review_min: 20 },
+    { id: 'top_elasticity', title: 'Price elasticity', course: 'ECON 1', confidence: 4, interval_days: 5, last_reviewed: '2026-10-24', next_due: '2026-10-29', review_min: 20 },
+    { id: 'top_bfs', title: 'BFS versus DFS', course: 'COSC 10', confidence: 3, interval_days: 2, last_reviewed: '2026-10-26', next_due: '2026-10-28', review_min: 15 },
+  ],
+};
+
+return { MOCK_RECORDS };
+})();
+
+// src/data/courseSnapshot.js
+__m["src/data/courseSnapshot.js"] = (function () {
+// Verified synthetic course API records, captured for offline use.
+const COURSE_SNAPSHOT = {"baseUrl":"https://api-backend-zeta-five.vercel.app","fetchedAt":"2026-10-15T05:08:34.584044+00:00","records":{"students":[{"id":1,"first_name":"Elena","last_name":"Costa","email":"elena.costa1@dartmouth.edu","year":"Sophomore","major":"Mathematics"},{"id":2,"first_name":"Jade","last_name":"Blake","email":"jade.blake2@dartmouth.edu","year":"Freshman","major":"Studio Art"},{"id":3,"first_name":"Callum","last_name":"Kessler","email":"callum.kessler3@dartmouth.edu","year":"Junior","major":"Mathematics"},{"id":4,"first_name":"Hugo","last_name":"Moreno","email":"hugo.moreno4@dartmouth.edu","year":"Freshman","major":"History"},{"id":5,"first_name":"Freya","last_name":"Vasquez","email":"freya.vasquez5@dartmouth.edu","year":"Senior","major":"Economics"},{"id":6,"first_name":"Nia","last_name":"Garcia","email":"nia.garcia6@dartmouth.edu","year":"Senior","major":"Economics"},{"id":7,"first_name":"Maya","last_name":"Larsen","email":"maya.larsen7@dartmouth.edu","year":"Freshman","major":"History"},{"id":8,"first_name":"Kai","last_name":"Kowalski","email":"kai.kowalski8@dartmouth.edu","year":"Freshman","major":"Physics"},{"id":9,"first_name":"Marcus","last_name":"Costa","email":"marcus.costa9@dartmouth.edu","year":"Junior","major":"Government"},{"id":10,"first_name":"Miles","last_name":"Okafor","email":"miles.okafor10@dartmouth.edu","year":"Senior","major":"Chemistry"},{"id":11,"first_name":"Noah","last_name":"Rossi","email":"noah.rossi11@dartmouth.edu","year":"Freshman","major":"Computer Science"},{"id":12,"first_name":"Ruby","last_name":"Ivanov","email":"ruby.ivanov12@dartmouth.edu","year":"Sophomore","major":"Biology"},{"id":13,"first_name":"Yara","last_name":"Patel","email":"yara.patel13@dartmouth.edu","year":"Freshman","major":"Engineering Sciences"},{"id":14,"first_name":"Felix","last_name":"Kim","email":"felix.kim14@dartmouth.edu","year":"Junior","major":"Studio Art"},{"id":15,"first_name":"Soren","last_name":"Santos","email":"soren.santos15@dartmouth.edu","year":"Sophomore","major":"History"},{"id":16,"first_name":"Jasper","last_name":"Novak","email":"jasper.novak16@dartmouth.edu","year":"Senior","major":"Chemistry"},{"id":17,"first_name":"Felix","last_name":"Dubois","email":"felix.dubois17@dartmouth.edu","year":"Freshman","major":"Physics"},{"id":18,"first_name":"Felix","last_name":"Moreno","email":"felix.moreno18@dartmouth.edu","year":"Junior","major":"History"},{"id":19,"first_name":"Zoe","last_name":"Dlamini","email":"zoe.dlamini19@dartmouth.edu","year":"Senior","major":"English"},{"id":20,"first_name":"Hugo","last_name":"Suzuki","email":"hugo.suzuki20@dartmouth.edu","year":"Senior","major":"Government"},{"id":21,"first_name":"Jasper","last_name":"Osei","email":"jasper.osei21@dartmouth.edu","year":"Sophomore","major":"Physics"},{"id":22,"first_name":"Nia","last_name":"Kessler","email":"nia.kessler22@dartmouth.edu","year":"Junior","major":"Government"},{"id":23,"first_name":"Marcus","last_name":"Dubois","email":"marcus.dubois23@dartmouth.edu","year":"Senior","major":"History"},{"id":24,"first_name":"Dario","last_name":"Takahashi","email":"dario.takahashi24@dartmouth.edu","year":"Sophomore","major":"English"},{"id":25,"first_name":"Ava","last_name":"Silva","email":"ava.silva25@dartmouth.edu","year":"Sophomore","major":"Psychological & Brain Sciences"},{"id":26,"first_name":"Nora","last_name":"Sorensen","email":"nora.sorensen26@dartmouth.edu","year":"Sophomore","major":"Computer Science"},{"id":27,"first_name":"Rhys","last_name":"Fischer","email":"rhys.fischer27@dartmouth.edu","year":"Junior","major":"Computer Science"},{"id":28,"first_name":"Callum","last_name":"Rossi","email":"callum.rossi28@dartmouth.edu","year":"Freshman","major":"Government"},{"id":29,"first_name":"Ruby","last_name":"Alvarez","email":"ruby.alvarez29@dartmouth.edu","year":"Sophomore","major":"Chemistry"},{"id":30,"first_name":"Diego","last_name":"Costa","email":"diego.costa30@dartmouth.edu","year":"Freshman","major":"History"},{"id":31,"first_name":"Ivy","last_name":"Petrov","email":"ivy.petrov31@dartmouth.edu","year":"Senior","major":"Psychological & Brain Sciences"},{"id":32,"first_name":"Yara","last_name":"Takahashi","email":"yara.takahashi32@dartmouth.edu","year":"Junior","major":"Engineering Sciences"},{"id":33,"first_name":"Elena","last_name":"Silva","email":"elena.silva33@dartmouth.edu","year":"Junior","major":"Government"},{"id":34,"first_name":"Dario","last_name":"Okafor","email":"dario.okafor34@dartmouth.edu","year":"Senior","major":"History"},{"id":35,"first_name":"Anaya","last_name":"Dubois","email":"anaya.dubois35@dartmouth.edu","year":"Sophomore","major":"Engineering Sciences"},{"id":36,"first_name":"Kai","last_name":"Okonkwo","email":"kai.okonkwo36@dartmouth.edu","year":"Freshman","major":"Economics"},{"id":37,"first_name":"Owen","last_name":"Nguyen","email":"owen.nguyen37@dartmouth.edu","year":"Freshman","major":"History"},{"id":38,"first_name":"Yara","last_name":"Romero","email":"yara.romero38@dartmouth.edu","year":"Senior","major":"English"},{"id":39,"first_name":"Anaya","last_name":"Petrov","email":"anaya.petrov39@dartmouth.edu","year":"Junior","major":"Studio Art"},{"id":40,"first_name":"Maya","last_name":"Ivanov","email":"maya.ivanov40@dartmouth.edu","year":"Senior","major":"Computer Science"},{"id":41,"first_name":"Jade","last_name":"Chen","email":"jade.chen41@dartmouth.edu","year":"Sophomore","major":"Studio Art"},{"id":42,"first_name":"Elena","last_name":"Reyes","email":"elena.reyes42@dartmouth.edu","year":"Junior","major":"Physics"},{"id":43,"first_name":"Oscar","last_name":"Moreno","email":"oscar.moreno43@dartmouth.edu","year":"Freshman","major":"Studio Art"},{"id":44,"first_name":"Zoe","last_name":"Sorensen","email":"zoe.sorensen44@dartmouth.edu","year":"Freshman","major":"Mathematics"},{"id":45,"first_name":"Maya","last_name":"Novak","email":"maya.novak45@dartmouth.edu","year":"Sophomore","major":"History"},{"id":46,"first_name":"Jasper","last_name":"Kowalczyk","email":"jasper.kowalczyk46@dartmouth.edu","year":"Freshman","major":"Economics"},{"id":47,"first_name":"Nia","last_name":"Nakamura","email":"nia.nakamura47@dartmouth.edu","year":"Junior","major":"English"},{"id":48,"first_name":"Hugo","last_name":"Okafor","email":"hugo.okafor48@dartmouth.edu","year":"Sophomore","major":"Biology"},{"id":49,"first_name":"Soren","last_name":"Farrell","email":"soren.farrell49@dartmouth.edu","year":"Sophomore","major":"Chemistry"},{"id":50,"first_name":"Sofia","last_name":"Yilmaz","email":"sofia.yilmaz50@dartmouth.edu","year":"Freshman","major":"History"},{"id":51,"first_name":"Aisha","last_name":"Bianchi","email":"aisha.bianchi51@dartmouth.edu","year":"Junior","major":"Biology"},{"id":52,"first_name":"Diego","last_name":"Moreno","email":"diego.moreno52@dartmouth.edu","year":"Junior","major":"English"},{"id":53,"first_name":"Sana","last_name":"Ivanov","email":"sana.ivanov53@dartmouth.edu","year":"Freshman","major":"Biology"},{"id":54,"first_name":"Soren","last_name":"Kowalczyk","email":"soren.kowalczyk54@dartmouth.edu","year":"Junior","major":"History"},{"id":55,"first_name":"Oscar","last_name":"Costa","email":"oscar.costa55@dartmouth.edu","year":"Junior","major":"Psychological & Brain Sciences"},{"id":56,"first_name":"Mateo","last_name":"Hansen","email":"mateo.hansen56@dartmouth.edu","year":"Sophomore","major":"Mathematics"},{"id":57,"first_name":"Priya","last_name":"Fischer","email":"priya.fischer57@dartmouth.edu","year":"Senior","major":"Engineering Sciences"},{"id":58,"first_name":"Hugo","last_name":"Takahashi","email":"hugo.takahashi58@dartmouth.edu","year":"Sophomore","major":"Mathematics"},{"id":59,"first_name":"Diego","last_name":"Haddad","email":"diego.haddad59@dartmouth.edu","year":"Junior","major":"Government"},{"id":60,"first_name":"Kai","last_name":"Bianchi","email":"kai.bianchi60@dartmouth.edu","year":"Senior","major":"Economics"},{"id":61,"first_name":"Oscar","last_name":"Osei","email":"oscar.osei61@dartmouth.edu","year":"Sophomore","major":"Chemistry"},{"id":62,"first_name":"Aisha","last_name":"Rossi","email":"aisha.rossi62@dartmouth.edu","year":"Sophomore","major":"Psychological & Brain Sciences"},{"id":63,"first_name":"Amir","last_name":"Nguyen","email":"amir.nguyen63@dartmouth.edu","year":"Junior","major":"Studio Art"},{"id":64,"first_name":"Ethan","last_name":"Larsen","email":"ethan.larsen64@dartmouth.edu","year":"Senior","major":"Computer Science"},{"id":65,"first_name":"Nia","last_name":"Vasquez","email":"nia.vasquez65@dartmouth.edu","year":"Junior","major":"Chemistry"},{"id":66,"first_name":"Miles","last_name":"Rossi","email":"miles.rossi66@dartmouth.edu","year":"Senior","major":"Mathematics"},{"id":67,"first_name":"Sana","last_name":"Kowalczyk","email":"sana.kowalczyk67@dartmouth.edu","year":"Freshman","major":"Government"},{"id":68,"first_name":"Jasper","last_name":"Kowalski","email":"jasper.kowalski68@dartmouth.edu","year":"Sophomore","major":"English"},{"id":69,"first_name":"Anaya","last_name":"Haddad","email":"anaya.haddad69@dartmouth.edu","year":"Freshman","major":"Chemistry"},{"id":70,"first_name":"Nora","last_name":"Kowalski","email":"nora.kowalski70@dartmouth.edu","year":"Senior","major":"Physics"},{"id":71,"first_name":"Ethan","last_name":"Rossi","email":"ethan.rossi71@dartmouth.edu","year":"Senior","major":"Engineering Sciences"},{"id":72,"first_name":"Mateo","last_name":"Abara","email":"mateo.abara72@dartmouth.edu","year":"Senior","major":"Government"},{"id":73,"first_name":"Ethan","last_name":"Silva","email":"ethan.silva73@dartmouth.edu","year":"Junior","major":"Economics"},{"id":74,"first_name":"Rhys","last_name":"Nakamura","email":"rhys.nakamura74@dartmouth.edu","year":"Senior","major":"Chemistry"},{"id":75,"first_name":"Sofia","last_name":"Fischer","email":"sofia.fischer75@dartmouth.edu","year":"Junior","major":"Studio Art"},{"id":76,"first_name":"Talia","last_name":"Yilmaz","email":"talia.yilmaz76@dartmouth.edu","year":"Senior","major":"Computer Science"},{"id":77,"first_name":"Kai","last_name":"Kessler","email":"kai.kessler77@dartmouth.edu","year":"Junior","major":"Biology"},{"id":78,"first_name":"Dario","last_name":"Novak","email":"dario.novak78@dartmouth.edu","year":"Freshman","major":"Psychological & Brain Sciences"},{"id":79,"first_name":"Zoe","last_name":"Kim","email":"zoe.kim79@dartmouth.edu","year":"Junior","major":"Mathematics"},{"id":80,"first_name":"Maya","last_name":"Kim","email":"maya.kim80@dartmouth.edu","year":"Sophomore","major":"Psychological & Brain Sciences"},{"id":81,"first_name":"Noah","last_name":"Vasquez","email":"noah.vasquez81@dartmouth.edu","year":"Senior","major":"Biology"},{"id":82,"first_name":"Callum","last_name":"Blake","email":"callum.blake82@dartmouth.edu","year":"Sophomore","major":"Chemistry"},{"id":83,"first_name":"Leo","last_name":"Chen","email":"leo.chen83@dartmouth.edu","year":"Freshman","major":"Biology"},{"id":84,"first_name":"Ruby","last_name":"Hansen","email":"ruby.hansen84@dartmouth.edu","year":"Junior","major":"Physics"},{"id":85,"first_name":"Sana","last_name":"Yilmaz","email":"sana.yilmaz85@dartmouth.edu","year":"Junior","major":"History"},{"id":86,"first_name":"Ivy","last_name":"Chen","email":"ivy.chen86@dartmouth.edu","year":"Freshman","major":"Studio Art"},{"id":87,"first_name":"Maya","last_name":"Vasquez","email":"maya.vasquez87@dartmouth.edu","year":"Freshman","major":"Mathematics"},{"id":88,"first_name":"Leo","last_name":"Sorensen","email":"leo.sorensen88@dartmouth.edu","year":"Junior","major":"Psychological & Brain Sciences"},{"id":89,"first_name":"Maya","last_name":"Santos","email":"maya.santos89@dartmouth.edu","year":"Senior","major":"Mathematics"},{"id":90,"first_name":"Hugo","last_name":"Okonkwo","email":"hugo.okonkwo90@dartmouth.edu","year":"Junior","major":"Engineering Sciences"}],"terms":[{"id":1,"code":"25W","label":"Winter 2025","start_date":"2025-01-06","end_date":"2025-03-14","is_current":false},{"id":2,"code":"25S","label":"Spring 2025","start_date":"2025-03-31","end_date":"2025-06-06","is_current":false},{"id":3,"code":"25F","label":"Fall 2025","start_date":"2025-09-15","end_date":"2025-11-21","is_current":false},{"id":4,"code":"26W","label":"Winter 2026","start_date":"2026-01-05","end_date":"2026-03-13","is_current":false},{"id":5,"code":"26F","label":"Fall 2026","start_date":"2026-09-15","end_date":"2026-11-20","is_current":true}],"courses":[{"id":1,"code":"MATH 8","title":"Seminar in Mathematics","department":"Mathematics","credits":1,"level":"Intermediate","description":"A study of core concepts in mathematics, building on prerequisite coursework where applicable."},{"id":2,"code":"GOVT 66","title":"Introduction to Government","department":"Government","credits":2,"level":"Intro","description":"A study of core concepts in government, building on prerequisite coursework where applicable."},{"id":3,"code":"BIOL 58","title":"Advanced Biology","department":"Biology","credits":1,"level":"Advanced","description":"A study of core concepts in biology, building on prerequisite coursework where applicable."},{"id":4,"code":"HIST 55","title":"Seminar in History","department":"History","credits":1,"level":"Intermediate","description":"A study of core concepts in history, building on prerequisite coursework where applicable."},{"id":5,"code":"ART 12","title":"Advanced Studio Art","department":"Studio Art","credits":1,"level":"Advanced","description":"A study of core concepts in studio art, building on prerequisite coursework where applicable."},{"id":6,"code":"HIST 62","title":"Topics in History","department":"History","credits":1,"level":"Advanced","description":"A study of core concepts in history, building on prerequisite coursework where applicable."},{"id":7,"code":"ART 51","title":"Introduction to Studio Art","department":"Studio Art","credits":2,"level":"Intro","description":"A study of core concepts in studio art, building on prerequisite coursework where applicable."},{"id":8,"code":"MATH 28","title":"Mathematics Laboratory","department":"Mathematics","credits":1,"level":"Intermediate","description":"A study of core concepts in mathematics, building on prerequisite coursework where applicable."},{"id":9,"code":"ART 13","title":"Seminar in Studio Art","department":"Studio Art","credits":1,"level":"Intermediate","description":"A study of core concepts in studio art, building on prerequisite coursework where applicable."},{"id":10,"code":"ENGL 57","title":"Introduction to English","department":"English","credits":1,"level":"Intro","description":"A study of core concepts in english, building on prerequisite coursework where applicable."},{"id":11,"code":"ENGL 86","title":"Advanced English","department":"English","credits":1,"level":"Advanced","description":"A study of core concepts in english, building on prerequisite coursework where applicable."},{"id":12,"code":"ENGL 11","title":"Topics in English","department":"English","credits":1,"level":"Advanced","description":"A study of core concepts in english, building on prerequisite coursework where applicable."},{"id":13,"code":"HIST 72","title":"Topics in History","department":"History","credits":2,"level":"Advanced","description":"A study of core concepts in history, building on prerequisite coursework where applicable."},{"id":14,"code":"ART 84","title":"Seminar in Studio Art","department":"Studio Art","credits":1,"level":"Intermediate","description":"A study of core concepts in studio art, building on prerequisite coursework where applicable."},{"id":15,"code":"CHEM 59","title":"Introduction to Chemistry","department":"Chemistry","credits":1,"level":"Intro","description":"A study of core concepts in chemistry, building on prerequisite coursework where applicable."},{"id":16,"code":"COSC 18","title":"Computer Science II","department":"Computer Science","credits":2,"level":"Intermediate","description":"A study of core concepts in computer science, building on prerequisite coursework where applicable."},{"id":17,"code":"MATH 26","title":"Topics in Mathematics","department":"Mathematics","credits":1,"level":"Advanced","description":"A study of core concepts in mathematics, building on prerequisite coursework where applicable."},{"id":18,"code":"CHEM 29","title":"Chemistry Laboratory","department":"Chemistry","credits":1,"level":"Intermediate","description":"A study of core concepts in chemistry, building on prerequisite coursework where applicable."},{"id":19,"code":"COSC 64","title":"Foundations of Computer Science","department":"Computer Science","credits":2,"level":"Intro","description":"A study of core concepts in computer science, building on prerequisite coursework where applicable."},{"id":20,"code":"PHYS 70","title":"Seminar in Physics","department":"Physics","credits":1,"level":"Intermediate","description":"A study of core concepts in physics, building on prerequisite coursework where applicable."},{"id":21,"code":"BIOL 65","title":"Topics in Biology","department":"Biology","credits":1,"level":"Advanced","description":"A study of core concepts in biology, building on prerequisite coursework where applicable."},{"id":22,"code":"MATH 27","title":"Mathematics Laboratory","department":"Mathematics","credits":2,"level":"Intermediate","description":"A study of core concepts in mathematics, building on prerequisite coursework where applicable."},{"id":23,"code":"GOVT 49","title":"Advanced Government","department":"Government","credits":1,"level":"Advanced","description":"A study of core concepts in government, building on prerequisite coursework where applicable."},{"id":24,"code":"ENGL 55","title":"English II","department":"English","credits":2,"level":"Intermediate","description":"A study of core concepts in english, building on prerequisite coursework where applicable."},{"id":25,"code":"HIST 43","title":"History II","department":"History","credits":1,"level":"Intermediate","description":"A study of core concepts in history, building on prerequisite coursework where applicable."},{"id":26,"code":"HIST 80","title":"Introduction to History","department":"History","credits":1,"level":"Intro","description":"A study of core concepts in history, building on prerequisite coursework where applicable."},{"id":27,"code":"PBS 89","title":"Topics in Psychological & Brain Sciences","department":"Psychological & Brain Sciences","credits":2,"level":"Advanced","description":"A study of core concepts in psychological & brain sciences, building on prerequisite coursework where applicable."},{"id":28,"code":"MATH 80","title":"Mathematics I","department":"Mathematics","credits":2,"level":"Intermediate","description":"A study of core concepts in mathematics, building on prerequisite coursework where applicable."},{"id":29,"code":"PBS 4","title":"Psychological & Brain Sciences I","department":"Psychological & Brain Sciences","credits":1,"level":"Intermediate","description":"A study of core concepts in psychological & brain sciences, building on prerequisite coursework where applicable."},{"id":30,"code":"ENGS 82","title":"Engineering Sciences II","department":"Engineering Sciences","credits":1,"level":"Intermediate","description":"A study of core concepts in engineering sciences, building on prerequisite coursework where applicable."},{"id":31,"code":"HIST 49","title":"Advanced History","department":"History","credits":1,"level":"Advanced","description":"A study of core concepts in history, building on prerequisite coursework where applicable."},{"id":32,"code":"ECON 36","title":"Topics in Economics","department":"Economics","credits":2,"level":"Advanced","description":"A study of core concepts in economics, building on prerequisite coursework where applicable."},{"id":33,"code":"ECON 72","title":"Economics II","department":"Economics","credits":1,"level":"Intermediate","description":"A study of core concepts in economics, building on prerequisite coursework where applicable."},{"id":34,"code":"PHYS 80","title":"Topics in Physics","department":"Physics","credits":1,"level":"Advanced","description":"A study of core concepts in physics, building on prerequisite coursework where applicable."},{"id":35,"code":"GOVT 73","title":"Government II","department":"Government","credits":1,"level":"Intermediate","description":"A study of core concepts in government, building on prerequisite coursework where applicable."},{"id":36,"code":"ART 47","title":"Studio Art I","department":"Studio Art","credits":1,"level":"Intermediate","description":"A study of core concepts in studio art, building on prerequisite coursework where applicable."},{"id":37,"code":"BIOL 44","title":"Foundations of Biology","department":"Biology","credits":1,"level":"Intro","description":"A study of core concepts in biology, building on prerequisite coursework where applicable."},{"id":38,"code":"PBS 71","title":"Topics in Psychological & Brain Sciences","department":"Psychological & Brain Sciences","credits":1,"level":"Advanced","description":"A study of core concepts in psychological & brain sciences, building on prerequisite coursework where applicable."},{"id":39,"code":"ART 67","title":"Seminar in Studio Art","department":"Studio Art","credits":2,"level":"Intermediate","description":"A study of core concepts in studio art, building on prerequisite coursework where applicable."},{"id":40,"code":"ECON 35","title":"Economics Laboratory","department":"Economics","credits":2,"level":"Intermediate","description":"A study of core concepts in economics, building on prerequisite coursework where applicable."},{"id":41,"code":"ART 40","title":"Foundations of Studio Art","department":"Studio Art","credits":1,"level":"Intro","description":"A study of core concepts in studio art, building on prerequisite coursework where applicable."},{"id":42,"code":"ENGL 38","title":"Introduction to English","department":"English","credits":1,"level":"Intro","description":"A study of core concepts in english, building on prerequisite coursework where applicable."},{"id":43,"code":"PBS 48","title":"Advanced Psychological & Brain Sciences","department":"Psychological & Brain Sciences","credits":1,"level":"Advanced","description":"A study of core concepts in psychological & brain sciences, building on prerequisite coursework where applicable."},{"id":44,"code":"ART 10","title":"Introduction to Studio Art","department":"Studio Art","credits":1,"level":"Intro","description":"A study of core concepts in studio art, building on prerequisite coursework where applicable."},{"id":45,"code":"ECON 89","title":"Topics in Economics","department":"Economics","credits":1,"level":"Advanced","description":"A study of core concepts in economics, building on prerequisite coursework where applicable."},{"id":46,"code":"CHEM 22","title":"Foundations of Chemistry","department":"Chemistry","credits":1,"level":"Intro","description":"A study of core concepts in chemistry, building on prerequisite coursework where applicable."},{"id":47,"code":"COSC 25","title":"Foundations of Computer Science","department":"Computer Science","credits":1,"level":"Intro","description":"A study of core concepts in computer science, building on prerequisite coursework where applicable."},{"id":48,"code":"ENGL 74","title":"English I","department":"English","credits":1,"level":"Intermediate","description":"A study of core concepts in english, building on prerequisite coursework where applicable."},{"id":49,"code":"HIST 69","title":"Foundations of History","department":"History","credits":1,"level":"Intro","description":"A study of core concepts in history, building on prerequisite coursework where applicable."},{"id":50,"code":"MATH 1","title":"Advanced Mathematics","department":"Mathematics","credits":1,"level":"Advanced","description":"A study of core concepts in mathematics, building on prerequisite coursework where applicable."},{"id":51,"code":"PHYS 19","title":"Introduction to Physics","department":"Physics","credits":1,"level":"Intro","description":"A study of core concepts in physics, building on prerequisite coursework where applicable."},{"id":52,"code":"ECON 43","title":"Economics Laboratory","department":"Economics","credits":1,"level":"Intermediate","description":"A study of core concepts in economics, building on prerequisite coursework where applicable."},{"id":53,"code":"PHYS 69","title":"Advanced Physics","department":"Physics","credits":1,"level":"Advanced","description":"A study of core concepts in physics, building on prerequisite coursework where applicable."},{"id":54,"code":"PHYS 29","title":"Physics Laboratory","department":"Physics","credits":1,"level":"Intermediate","description":"A study of core concepts in physics, building on prerequisite coursework where applicable."},{"id":55,"code":"HIST 24","title":"History Laboratory","department":"History","credits":1,"level":"Intermediate","description":"A study of core concepts in history, building on prerequisite coursework where applicable."}],"sections":[{"id":1,"course_id":49,"instructor_id":1,"term":"26F","section_number":1,"days":["Wed"],"time":"14:15-15:05","room":"Kemeny 007","capacity":30},{"id":2,"course_id":54,"instructor_id":2,"term":"26W","section_number":3,"days":["Tue","Thu","Fri"],"time":"15:20-16:10","room":"Kemeny 007","capacity":30},{"id":3,"course_id":46,"instructor_id":17,"term":"26F","section_number":3,"days":["Mon","Wed","Fri"],"time":"15:20-16:10","room":"Steele 006","capacity":60},{"id":4,"course_id":21,"instructor_id":22,"term":"25F","section_number":2,"days":["Tue","Thu"],"time":"09:05-09:55","room":"Kemeny 108","capacity":60},{"id":5,"course_id":12,"instructor_id":21,"term":"25S","section_number":1,"days":["Tue","Thu"],"time":"09:05-09:55","room":"Silsby 028","capacity":12},{"id":6,"course_id":31,"instructor_id":5,"term":"25S","section_number":1,"days":["Tue","Thu"],"time":"14:15-15:05","room":"Steele 006","capacity":30},{"id":7,"course_id":5,"instructor_id":7,"term":"25W","section_number":1,"days":["Tue","Thu"],"time":"15:20-16:10","room":"Kemeny 007","capacity":30},{"id":8,"course_id":1,"instructor_id":15,"term":"25S","section_number":3,"days":["Wed"],"time":"13:10-14:00","room":"Carson L01","capacity":60},{"id":9,"course_id":16,"instructor_id":18,"term":"26W","section_number":2,"days":["Tue","Thu"],"time":"09:05-09:55","room":"Wilder 104","capacity":30},{"id":10,"course_id":41,"instructor_id":20,"term":"26F","section_number":3,"days":["Mon","Wed","Fri"],"time":"11:15-12:05","room":"Silsby 028","capacity":12},{"id":11,"course_id":50,"instructor_id":15,"term":"25S","section_number":1,"days":["Mon","Wed","Fri"],"time":"11:15-12:05","room":"Wilder 104","capacity":12},{"id":12,"course_id":51,"instructor_id":21,"term":"26W","section_number":2,"days":["Tue","Thu","Fri"],"time":"10:10-11:00","room":"Wilder 104","capacity":45},{"id":13,"course_id":5,"instructor_id":17,"term":"25W","section_number":3,"days":["Mon","Wed","Fri"],"time":"09:05-09:55","room":"Kemeny 108","capacity":45},{"id":14,"course_id":1,"instructor_id":2,"term":"25F","section_number":3,"days":["Mon","Wed","Fri"],"time":"14:15-15:05","room":"Silsby 028","capacity":30},{"id":15,"course_id":46,"instructor_id":15,"term":"25S","section_number":2,"days":["Wed"],"time":"15:20-16:10","room":"Kemeny 007","capacity":20},{"id":16,"course_id":9,"instructor_id":17,"term":"26F","section_number":2,"days":["Tue","Thu"],"time":"11:15-12:05","room":"Wilder 104","capacity":30},{"id":17,"course_id":3,"instructor_id":1,"term":"25F","section_number":3,"days":["Wed"],"time":"09:05-09:55","room":"Rockefeller 002","capacity":12},{"id":18,"course_id":1,"instructor_id":12,"term":"26F","section_number":3,"days":["Mon","Wed"],"time":"11:15-12:05","room":"Kemeny 108","capacity":12},{"id":19,"course_id":40,"instructor_id":19,"term":"26F","section_number":2,"days":["Mon","Wed"],"time":"11:15-12:05","room":"Haldeman 041","capacity":60},{"id":20,"course_id":15,"instructor_id":12,"term":"25W","section_number":3,"days":["Mon","Wed","Fri"],"time":"14:15-15:05","room":"Wilder 104","capacity":45},{"id":21,"course_id":34,"instructor_id":3,"term":"25S","section_number":1,"days":["Mon","Wed"],"time":"08:00-08:50","room":"Rockefeller 002","capacity":45},{"id":22,"course_id":41,"instructor_id":7,"term":"25W","section_number":3,"days":["Mon","Wed","Fri"],"time":"15:20-16:10","room":"Kemeny 108","capacity":45},{"id":23,"course_id":2,"instructor_id":8,"term":"26W","section_number":1,"days":["Tue","Thu","Fri"],"time":"15:20-16:10","room":"Haldeman 041","capacity":45},{"id":24,"course_id":54,"instructor_id":24,"term":"26F","section_number":1,"days":["Tue","Thu"],"time":"08:00-08:50","room":"Steele 006","capacity":60},{"id":25,"course_id":29,"instructor_id":22,"term":"25F","section_number":1,"days":["Wed"],"time":"14:15-15:05","room":"Rockefeller 002","capacity":45},{"id":26,"course_id":14,"instructor_id":17,"term":"25W","section_number":3,"days":["Mon","Wed","Fri"],"time":"08:00-08:50","room":"Kemeny 007","capacity":60},{"id":27,"course_id":36,"instructor_id":16,"term":"25S","section_number":3,"days":["Tue","Thu","Fri"],"time":"14:15-15:05","room":"Haldeman 041","capacity":30},{"id":28,"course_id":44,"instructor_id":18,"term":"25S","section_number":2,"days":["Mon","Wed"],"time":"08:00-08:50","room":"Kemeny 007","capacity":60},{"id":29,"course_id":41,"instructor_id":1,"term":"25W","section_number":2,"days":["Tue","Thu"],"time":"14:15-15:05","room":"Kemeny 007","capacity":20},{"id":30,"course_id":32,"instructor_id":20,"term":"25W","section_number":1,"days":["Mon","Wed","Fri"],"time":"10:10-11:00","room":"Steele 006","capacity":45},{"id":31,"course_id":6,"instructor_id":19,"term":"26W","section_number":2,"days":["Tue","Thu"],"time":"08:00-08:50","room":"Kemeny 108","capacity":30},{"id":32,"course_id":7,"instructor_id":24,"term":"26W","section_number":1,"days":["Tue","Thu","Fri"],"time":"15:20-16:10","room":"Carson L01","capacity":20},{"id":33,"course_id":51,"instructor_id":7,"term":"25F","section_number":2,"days":["Wed"],"time":"14:15-15:05","room":"Carson L01","capacity":45},{"id":34,"course_id":35,"instructor_id":8,"term":"26F","section_number":2,"days":["Mon","Wed"],"time":"08:00-08:50","room":"Rockefeller 002","capacity":30},{"id":35,"course_id":39,"instructor_id":11,"term":"26F","section_number":2,"days":["Wed"],"time":"09:05-09:55","room":"Carson L01","capacity":45},{"id":36,"course_id":4,"instructor_id":17,"term":"25S","section_number":2,"days":["Tue","Thu","Fri"],"time":"15:20-16:10","room":"Rockefeller 002","capacity":20},{"id":37,"course_id":29,"instructor_id":11,"term":"26F","section_number":3,"days":["Tue","Thu"],"time":"09:05-09:55","room":"Steele 006","capacity":20},{"id":38,"course_id":46,"instructor_id":18,"term":"25F","section_number":2,"days":["Wed"],"time":"11:15-12:05","room":"Haldeman 041","capacity":20},{"id":39,"course_id":5,"instructor_id":8,"term":"26W","section_number":3,"days":["Mon","Wed"],"time":"08:00-08:50","room":"Carson L01","capacity":60},{"id":40,"course_id":46,"instructor_id":22,"term":"26F","section_number":1,"days":["Tue","Thu","Fri"],"time":"15:20-16:10","room":"Carson L01","capacity":60},{"id":41,"course_id":11,"instructor_id":7,"term":"25F","section_number":1,"days":["Wed"],"time":"09:05-09:55","room":"Wilder 104","capacity":45},{"id":42,"course_id":34,"instructor_id":6,"term":"26F","section_number":3,"days":["Mon","Wed","Fri"],"time":"09:05-09:55","room":"Carson L01","capacity":12},{"id":43,"course_id":45,"instructor_id":16,"term":"25F","section_number":2,"days":["Tue","Thu"],"time":"14:15-15:05","room":"Steele 006","capacity":45},{"id":44,"course_id":41,"instructor_id":14,"term":"25W","section_number":2,"days":["Wed"],"time":"11:15-12:05","room":"Rockefeller 002","capacity":30},{"id":45,"course_id":31,"instructor_id":23,"term":"26W","section_number":2,"days":["Mon","Wed","Fri"],"time":"10:10-11:00","room":"Steele 006","capacity":45},{"id":46,"course_id":28,"instructor_id":7,"term":"26F","section_number":2,"days":["Mon","Wed","Fri"],"time":"14:15-15:05","room":"Haldeman 041","capacity":45},{"id":47,"course_id":11,"instructor_id":2,"term":"25W","section_number":3,"days":["Mon","Wed"],"time":"15:20-16:10","room":"Carson L01","capacity":12},{"id":48,"course_id":52,"instructor_id":17,"term":"25F","section_number":1,"days":["Tue","Thu"],"time":"14:15-15:05","room":"Steele 006","capacity":20},{"id":49,"course_id":33,"instructor_id":16,"term":"26F","section_number":1,"days":["Tue","Thu"],"time":"09:05-09:55","room":"Steele 006","capacity":45},{"id":50,"course_id":13,"instructor_id":17,"term":"26F","section_number":2,"days":["Tue","Thu","Fri"],"time":"13:10-14:00","room":"Rockefeller 002","capacity":60},{"id":51,"course_id":48,"instructor_id":2,"term":"25F","section_number":2,"days":["Tue","Thu","Fri"],"time":"15:20-16:10","room":"Kemeny 007","capacity":45},{"id":52,"course_id":8,"instructor_id":23,"term":"25S","section_number":1,"days":["Tue","Thu","Fri"],"time":"13:10-14:00","room":"Silsby 028","capacity":45},{"id":53,"course_id":49,"instructor_id":13,"term":"25S","section_number":1,"days":["Tue","Thu"],"time":"15:20-16:10","room":"Silsby 028","capacity":20},{"id":54,"course_id":55,"instructor_id":22,"term":"26F","section_number":1,"days":["Tue","Thu"],"time":"08:00-08:50","room":"Rockefeller 002","capacity":30},{"id":55,"course_id":43,"instructor_id":7,"term":"25S","section_number":3,"days":["Tue","Thu"],"time":"13:10-14:00","room":"Kemeny 007","capacity":45},{"id":56,"course_id":6,"instructor_id":6,"term":"26F","section_number":2,"days":["Tue","Thu"],"time":"10:10-11:00","room":"Silsby 028","capacity":45},{"id":57,"course_id":48,"instructor_id":13,"term":"26W","section_number":1,"days":["Mon","Wed","Fri"],"time":"09:05-09:55","room":"Wilder 104","capacity":60},{"id":58,"course_id":19,"instructor_id":6,"term":"25F","section_number":3,"days":["Tue","Thu","Fri"],"time":"14:15-15:05","room":"Kemeny 108","capacity":12},{"id":59,"course_id":33,"instructor_id":22,"term":"26F","section_number":2,"days":["Tue","Thu"],"time":"14:15-15:05","room":"Kemeny 108","capacity":12},{"id":60,"course_id":53,"instructor_id":7,"term":"25F","section_number":3,"days":["Mon","Wed"],"time":"15:20-16:10","room":"Haldeman 041","capacity":45},{"id":61,"course_id":46,"instructor_id":24,"term":"26F","section_number":3,"days":["Mon","Wed","Fri"],"time":"15:20-16:10","room":"Steele 006","capacity":20},{"id":62,"course_id":46,"instructor_id":19,"term":"26F","section_number":3,"days":["Tue","Thu","Fri"],"time":"10:10-11:00","room":"Rockefeller 002","capacity":60},{"id":63,"course_id":30,"instructor_id":22,"term":"26F","section_number":3,"days":["Wed"],"time":"15:20-16:10","room":"Silsby 028","capacity":20},{"id":64,"course_id":10,"instructor_id":1,"term":"26F","section_number":1,"days":["Mon","Wed","Fri"],"time":"15:20-16:10","room":"Carson L01","capacity":45},{"id":65,"course_id":13,"instructor_id":3,"term":"25F","section_number":1,"days":["Mon","Wed","Fri"],"time":"08:00-08:50","room":"Carson L01","capacity":12},{"id":66,"course_id":42,"instructor_id":19,"term":"26F","section_number":3,"days":["Mon","Wed","Fri"],"time":"10:10-11:00","room":"Steele 006","capacity":60},{"id":67,"course_id":21,"instructor_id":7,"term":"26F","section_number":2,"days":["Wed"],"time":"13:10-14:00","room":"Kemeny 007","capacity":30},{"id":68,"course_id":39,"instructor_id":13,"term":"25F","section_number":1,"days":["Wed"],"time":"14:15-15:05","room":"Carson L01","capacity":45},{"id":69,"course_id":48,"instructor_id":10,"term":"25S","section_number":3,"days":["Mon","Wed","Fri"],"time":"09:05-09:55","room":"Wilder 104","capacity":20},{"id":70,"course_id":13,"instructor_id":5,"term":"25F","section_number":1,"days":["Wed"],"time":"13:10-14:00","room":"Kemeny 007","capacity":45},{"id":71,"course_id":28,"instructor_id":18,"term":"26F","section_number":2,"days":["Tue","Thu","Fri"],"time":"15:20-16:10","room":"Silsby 028","capacity":45},{"id":72,"course_id":2,"instructor_id":21,"term":"26F","section_number":2,"days":["Mon","Wed","Fri"],"time":"09:05-09:55","room":"Wilder 104","capacity":45},{"id":73,"course_id":8,"instructor_id":11,"term":"25W","section_number":1,"days":["Mon","Wed","Fri"],"time":"10:10-11:00","room":"Rockefeller 002","capacity":20},{"id":74,"course_id":13,"instructor_id":7,"term":"25S","section_number":3,"days":["Tue","Thu","Fri"],"time":"08:00-08:50","room":"Kemeny 007","capacity":45},{"id":75,"course_id":13,"instructor_id":13,"term":"26F","section_number":1,"days":["Tue","Thu","Fri"],"time":"13:10-14:00","room":"Wilder 104","capacity":45},{"id":76,"course_id":47,"instructor_id":3,"term":"25W","section_number":1,"days":["Wed"],"time":"14:15-15:05","room":"Rockefeller 002","capacity":12},{"id":77,"course_id":34,"instructor_id":24,"term":"25W","section_number":2,"days":["Mon","Wed"],"time":"09:05-09:55","room":"Kemeny 108","capacity":30},{"id":78,"course_id":36,"instructor_id":18,"term":"25W","section_number":1,"days":["Mon","Wed"],"time":"10:10-11:00","room":"Kemeny 108","capacity":45},{"id":79,"course_id":1,"instructor_id":5,"term":"25F","section_number":1,"days":["Tue","Thu","Fri"],"time":"13:10-14:00","room":"Kemeny 108","capacity":45},{"id":80,"course_id":9,"instructor_id":16,"term":"25S","section_number":2,"days":["Mon","Wed","Fri"],"time":"08:00-08:50","room":"Kemeny 108","capacity":12},{"id":81,"course_id":3,"instructor_id":22,"term":"25F","section_number":3,"days":["Tue","Thu"],"time":"15:20-16:10","room":"Steele 006","capacity":45},{"id":82,"course_id":2,"instructor_id":4,"term":"26F","section_number":1,"days":["Mon","Wed","Fri"],"time":"08:00-08:50","room":"Kemeny 108","capacity":20},{"id":83,"course_id":42,"instructor_id":17,"term":"25S","section_number":3,"days":["Tue","Thu"],"time":"10:10-11:00","room":"Silsby 028","capacity":60},{"id":84,"course_id":1,"instructor_id":20,"term":"26F","section_number":3,"days":["Wed"],"time":"13:10-14:00","room":"Kemeny 108","capacity":30},{"id":85,"course_id":4,"instructor_id":19,"term":"26W","section_number":3,"days":["Mon","Wed"],"time":"15:20-16:10","room":"Carson L01","capacity":45},{"id":86,"course_id":11,"instructor_id":6,"term":"25W","section_number":1,"days":["Mon","Wed"],"time":"13:10-14:00","room":"Steele 006","capacity":60},{"id":87,"course_id":11,"instructor_id":2,"term":"25S","section_number":3,"days":["Tue","Thu","Fri"],"time":"11:15-12:05","room":"Kemeny 108","capacity":12},{"id":88,"course_id":8,"instructor_id":9,"term":"26F","section_number":1,"days":["Tue","Thu","Fri"],"time":"14:15-15:05","room":"Wilder 104","capacity":60},{"id":89,"course_id":53,"instructor_id":13,"term":"25W","section_number":3,"days":["Tue","Thu","Fri"],"time":"10:10-11:00","room":"Carson L01","capacity":20},{"id":90,"course_id":29,"instructor_id":4,"term":"25W","section_number":2,"days":["Mon","Wed"],"time":"08:00-08:50","room":"Kemeny 007","capacity":60},{"id":91,"course_id":52,"instructor_id":3,"term":"26W","section_number":2,"days":["Tue","Thu"],"time":"14:15-15:05","room":"Kemeny 108","capacity":20},{"id":92,"course_id":12,"instructor_id":18,"term":"25F","section_number":2,"days":["Tue","Thu","Fri"],"time":"10:10-11:00","room":"Kemeny 108","capacity":45},{"id":93,"course_id":47,"instructor_id":16,"term":"26W","section_number":3,"days":["Tue","Thu","Fri"],"time":"11:15-12:05","room":"Haldeman 041","capacity":20},{"id":94,"course_id":5,"instructor_id":2,"term":"25S","section_number":1,"days":["Tue","Thu"],"time":"15:20-16:10","room":"Kemeny 108","capacity":45},{"id":95,"course_id":17,"instructor_id":18,"term":"26F","section_number":3,"days":["Mon","Wed","Fri"],"time":"15:20-16:10","room":"Silsby 028","capacity":60},{"id":96,"course_id":8,"instructor_id":13,"term":"25S","section_number":3,"days":["Mon","Wed","Fri"],"time":"08:00-08:50","room":"Haldeman 041","capacity":45},{"id":97,"course_id":14,"instructor_id":6,"term":"25S","section_number":2,"days":["Tue","Thu","Fri"],"time":"14:15-15:05","room":"Wilder 104","capacity":12},{"id":98,"course_id":52,"instructor_id":9,"term":"25W","section_number":1,"days":["Wed"],"time":"15:20-16:10","room":"Wilder 104","capacity":20},{"id":99,"course_id":3,"instructor_id":1,"term":"25F","section_number":2,"days":["Wed"],"time":"09:05-09:55","room":"Carson L01","capacity":12},{"id":100,"course_id":2,"instructor_id":9,"term":"26W","section_number":1,"days":["Wed"],"time":"15:20-16:10","room":"Haldeman 041","capacity":20},{"id":101,"course_id":44,"instructor_id":3,"term":"26W","section_number":1,"days":["Wed"],"time":"10:10-11:00","room":"Carson L01","capacity":60},{"id":102,"course_id":24,"instructor_id":8,"term":"26W","section_number":3,"days":["Mon","Wed"],"time":"10:10-11:00","room":"Steele 006","capacity":30},{"id":103,"course_id":4,"instructor_id":7,"term":"25F","section_number":1,"days":["Mon","Wed"],"time":"11:15-12:05","room":"Wilder 104","capacity":45},{"id":104,"course_id":21,"instructor_id":6,"term":"25S","section_number":3,"days":["Wed"],"time":"09:05-09:55","room":"Haldeman 041","capacity":12},{"id":105,"course_id":15,"instructor_id":1,"term":"25F","section_number":1,"days":["Tue","Thu","Fri"],"time":"10:10-11:00","room":"Kemeny 007","capacity":30},{"id":106,"course_id":7,"instructor_id":22,"term":"25W","section_number":1,"days":["Wed"],"time":"10:10-11:00","room":"Rockefeller 002","capacity":12},{"id":107,"course_id":41,"instructor_id":6,"term":"25S","section_number":3,"days":["Wed"],"time":"10:10-11:00","room":"Rockefeller 002","capacity":60},{"id":108,"course_id":10,"instructor_id":16,"term":"26F","section_number":2,"days":["Wed"],"time":"08:00-08:50","room":"Haldeman 041","capacity":20},{"id":109,"course_id":43,"instructor_id":23,"term":"26W","section_number":1,"days":["Mon","Wed","Fri"],"time":"10:10-11:00","room":"Carson L01","capacity":30},{"id":110,"course_id":37,"instructor_id":8,"term":"26F","section_number":2,"days":["Tue","Thu"],"time":"14:15-15:05","room":"Silsby 028","capacity":30}],"enrollments":[{"id":1,"student_id":1,"section_id":51,"status":"completed","final_grade":"B","enrolled_at":"2025-09-19"},{"id":2,"student_id":1,"section_id":74,"status":"completed","final_grade":"B","enrolled_at":"2025-06-05"},{"id":3,"student_id":1,"section_id":45,"status":"completed","final_grade":"A-","enrolled_at":"2026-03-01"},{"id":4,"student_id":1,"section_id":103,"status":"completed","final_grade":"A-","enrolled_at":"2025-10-03"},{"id":5,"student_id":1,"section_id":77,"status":"completed","final_grade":"C+","enrolled_at":"2025-02-17"},{"id":6,"student_id":2,"section_id":70,"status":"completed","final_grade":"C-","enrolled_at":"2025-11-11"},{"id":7,"student_id":2,"section_id":99,"status":"completed","final_grade":"D","enrolled_at":"2025-10-18"},{"id":8,"student_id":2,"section_id":4,"status":"completed","final_grade":"E","enrolled_at":"2025-10-31"},{"id":9,"student_id":2,"section_id":65,"status":"completed","final_grade":"A-","enrolled_at":"2025-10-14"},{"id":10,"student_id":2,"section_id":24,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":11,"student_id":2,"section_id":19,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":12,"student_id":2,"section_id":23,"status":"completed","final_grade":"A","enrolled_at":"2026-02-08"},{"id":13,"student_id":3,"section_id":110,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":14,"student_id":3,"section_id":14,"status":"completed","final_grade":"C+","enrolled_at":"2025-10-13"},{"id":15,"student_id":3,"section_id":27,"status":"completed","final_grade":"A","enrolled_at":"2025-05-04"},{"id":16,"student_id":3,"section_id":11,"status":"completed","final_grade":"C+","enrolled_at":"2025-04-08"},{"id":17,"student_id":3,"section_id":71,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":18,"student_id":3,"section_id":21,"status":"completed","final_grade":"E","enrolled_at":"2025-05-17"},{"id":19,"student_id":3,"section_id":77,"status":"completed","final_grade":"E","enrolled_at":"2025-01-20"},{"id":20,"student_id":4,"section_id":67,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":21,"student_id":4,"section_id":32,"status":"completed","final_grade":"B","enrolled_at":"2026-02-17"},{"id":22,"student_id":4,"section_id":62,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":23,"student_id":4,"section_id":54,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":24,"student_id":4,"section_id":16,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":25,"student_id":4,"section_id":77,"status":"completed","final_grade":"A","enrolled_at":"2025-01-07"},{"id":26,"student_id":4,"section_id":38,"status":"completed","final_grade":"C","enrolled_at":"2025-11-19"},{"id":27,"student_id":4,"section_id":11,"status":"completed","final_grade":"C+","enrolled_at":"2025-06-02"},{"id":28,"student_id":5,"section_id":36,"status":"completed","final_grade":"B+","enrolled_at":"2025-05-05"},{"id":29,"student_id":5,"section_id":85,"status":"completed","final_grade":"C-","enrolled_at":"2026-02-24"},{"id":30,"student_id":5,"section_id":9,"status":"completed","final_grade":"C+","enrolled_at":"2026-02-26"},{"id":31,"student_id":5,"section_id":33,"status":"completed","final_grade":"A","enrolled_at":"2025-09-27"},{"id":32,"student_id":5,"section_id":34,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-25"},{"id":33,"student_id":5,"section_id":77,"status":"completed","final_grade":"B-","enrolled_at":"2025-02-25"},{"id":34,"student_id":6,"section_id":100,"status":"completed","final_grade":"E","enrolled_at":"2026-02-06"},{"id":35,"student_id":6,"section_id":17,"status":"completed","final_grade":"A-","enrolled_at":"2025-11-09"},{"id":36,"student_id":6,"section_id":8,"status":"completed","final_grade":"C","enrolled_at":"2025-05-27"},{"id":37,"student_id":6,"section_id":64,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":38,"student_id":6,"section_id":37,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":39,"student_id":6,"section_id":73,"status":"completed","final_grade":"C","enrolled_at":"2025-03-11"},{"id":40,"student_id":7,"section_id":40,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":41,"student_id":7,"section_id":39,"status":"completed","final_grade":"C","enrolled_at":"2026-02-03"},{"id":42,"student_id":7,"section_id":99,"status":"completed","final_grade":"B","enrolled_at":"2025-10-15"},{"id":43,"student_id":7,"section_id":21,"status":"completed","final_grade":"C-","enrolled_at":"2025-04-06"},{"id":44,"student_id":7,"section_id":105,"status":"completed","final_grade":"B","enrolled_at":"2025-11-13"},{"id":45,"student_id":7,"section_id":24,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":46,"student_id":7,"section_id":65,"status":"completed","final_grade":"A","enrolled_at":"2025-10-26"},{"id":47,"student_id":7,"section_id":93,"status":"completed","final_grade":"D","enrolled_at":"2026-02-24"},{"id":48,"student_id":8,"section_id":64,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":49,"student_id":8,"section_id":4,"status":"completed","final_grade":"A","enrolled_at":"2025-10-23"},{"id":50,"student_id":8,"section_id":51,"status":"completed","final_grade":"B+","enrolled_at":"2025-11-13"},{"id":51,"student_id":8,"section_id":54,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-26"},{"id":52,"student_id":9,"section_id":63,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-20"},{"id":53,"student_id":9,"section_id":49,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":54,"student_id":9,"section_id":62,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-16"},{"id":55,"student_id":9,"section_id":26,"status":"completed","final_grade":"C+","enrolled_at":"2025-02-08"},{"id":56,"student_id":9,"section_id":83,"status":"completed","final_grade":"B-","enrolled_at":"2025-06-02"},{"id":57,"student_id":9,"section_id":46,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":58,"student_id":9,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":59,"student_id":10,"section_id":13,"status":"completed","final_grade":"E","enrolled_at":"2025-02-11"},{"id":60,"student_id":10,"section_id":40,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":61,"student_id":10,"section_id":67,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":62,"student_id":10,"section_id":74,"status":"completed","final_grade":"B","enrolled_at":"2025-04-19"},{"id":63,"student_id":10,"section_id":97,"status":"completed","final_grade":"B","enrolled_at":"2025-05-06"},{"id":64,"student_id":10,"section_id":48,"status":"completed","final_grade":"C","enrolled_at":"2025-11-16"},{"id":65,"student_id":10,"section_id":32,"status":"completed","final_grade":"A-","enrolled_at":"2026-01-31"},{"id":66,"student_id":10,"section_id":20,"status":"completed","final_grade":"D","enrolled_at":"2025-01-24"},{"id":67,"student_id":11,"section_id":57,"status":"completed","final_grade":"B","enrolled_at":"2026-01-26"},{"id":68,"student_id":11,"section_id":59,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":69,"student_id":11,"section_id":82,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":70,"student_id":11,"section_id":35,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":71,"student_id":11,"section_id":87,"status":"completed","final_grade":"D","enrolled_at":"2025-04-11"},{"id":72,"student_id":11,"section_id":94,"status":"completed","final_grade":"D","enrolled_at":"2025-04-11"},{"id":73,"student_id":11,"section_id":96,"status":"completed","final_grade":"B-","enrolled_at":"2025-05-02"},{"id":74,"student_id":11,"section_id":107,"status":"completed","final_grade":"B","enrolled_at":"2025-04-18"},{"id":75,"student_id":12,"section_id":47,"status":"completed","final_grade":"C+","enrolled_at":"2025-01-22"},{"id":76,"student_id":12,"section_id":78,"status":"completed","final_grade":"B-","enrolled_at":"2025-01-10"},{"id":77,"student_id":12,"section_id":32,"status":"completed","final_grade":"A","enrolled_at":"2026-01-13"},{"id":78,"student_id":12,"section_id":110,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-16"},{"id":79,"student_id":12,"section_id":1,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":80,"student_id":13,"section_id":8,"status":"completed","final_grade":"A-","enrolled_at":"2025-05-08"},{"id":81,"student_id":13,"section_id":43,"status":"completed","final_grade":"C","enrolled_at":"2025-10-21"},{"id":82,"student_id":13,"section_id":2,"status":"completed","final_grade":"A-","enrolled_at":"2026-01-30"},{"id":83,"student_id":13,"section_id":104,"status":"completed","final_grade":"C+","enrolled_at":"2025-04-20"},{"id":84,"student_id":13,"section_id":101,"status":"completed","final_grade":"C+","enrolled_at":"2026-01-27"},{"id":85,"student_id":13,"section_id":5,"status":"completed","final_grade":"C","enrolled_at":"2025-03-31"},{"id":86,"student_id":13,"section_id":58,"status":"completed","final_grade":"B","enrolled_at":"2025-10-30"},{"id":87,"student_id":14,"section_id":32,"status":"completed","final_grade":"D","enrolled_at":"2026-02-26"},{"id":88,"student_id":14,"section_id":57,"status":"completed","final_grade":"A-","enrolled_at":"2026-02-04"},{"id":89,"student_id":14,"section_id":89,"status":"completed","final_grade":"A","enrolled_at":"2025-01-23"},{"id":90,"student_id":14,"section_id":67,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":91,"student_id":14,"section_id":61,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":92,"student_id":14,"section_id":58,"status":"completed","final_grade":"B-","enrolled_at":"2025-10-22"},{"id":93,"student_id":15,"section_id":62,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":94,"student_id":15,"section_id":44,"status":"completed","final_grade":"C-","enrolled_at":"2025-01-20"},{"id":95,"student_id":15,"section_id":12,"status":"completed","final_grade":"D","enrolled_at":"2026-01-30"},{"id":96,"student_id":15,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":97,"student_id":15,"section_id":109,"status":"completed","final_grade":"C+","enrolled_at":"2026-01-27"},{"id":98,"student_id":15,"section_id":3,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":99,"student_id":15,"section_id":46,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":100,"student_id":15,"section_id":70,"status":"completed","final_grade":"E","enrolled_at":"2025-11-07"},{"id":101,"student_id":16,"section_id":22,"status":"completed","final_grade":"C","enrolled_at":"2025-02-03"},{"id":102,"student_id":16,"section_id":101,"status":"completed","final_grade":"C-","enrolled_at":"2026-02-13"},{"id":103,"student_id":16,"section_id":18,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":104,"student_id":16,"section_id":24,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":105,"student_id":16,"section_id":19,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-15"},{"id":106,"student_id":16,"section_id":67,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":107,"student_id":16,"section_id":42,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-21"},{"id":108,"student_id":16,"section_id":99,"status":"completed","final_grade":"C","enrolled_at":"2025-10-30"},{"id":109,"student_id":17,"section_id":81,"status":"completed","final_grade":"C-","enrolled_at":"2025-11-01"},{"id":110,"student_id":17,"section_id":101,"status":"completed","final_grade":"C","enrolled_at":"2026-02-07"},{"id":111,"student_id":17,"section_id":20,"status":"completed","final_grade":"C-","enrolled_at":"2025-01-12"},{"id":112,"student_id":17,"section_id":89,"status":"completed","final_grade":"A-","enrolled_at":"2025-02-14"},{"id":113,"student_id":18,"section_id":15,"status":"completed","final_grade":"E","enrolled_at":"2025-04-25"},{"id":114,"student_id":18,"section_id":101,"status":"completed","final_grade":"E","enrolled_at":"2026-02-03"},{"id":115,"student_id":18,"section_id":51,"status":"completed","final_grade":"D","enrolled_at":"2025-11-12"},{"id":116,"student_id":18,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":117,"student_id":18,"section_id":24,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":118,"student_id":18,"section_id":17,"status":"completed","final_grade":"B","enrolled_at":"2025-10-03"},{"id":119,"student_id":18,"section_id":47,"status":"completed","final_grade":"C-","enrolled_at":"2025-02-21"},{"id":120,"student_id":18,"section_id":74,"status":"completed","final_grade":"C","enrolled_at":"2025-05-18"},{"id":121,"student_id":19,"section_id":80,"status":"completed","final_grade":"B+","enrolled_at":"2025-06-02"},{"id":122,"student_id":19,"section_id":52,"status":"completed","final_grade":"C","enrolled_at":"2025-04-24"},{"id":123,"student_id":19,"section_id":89,"status":"completed","final_grade":"C","enrolled_at":"2025-01-18"},{"id":124,"student_id":19,"section_id":84,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":125,"student_id":20,"section_id":23,"status":"completed","final_grade":"C-","enrolled_at":"2026-01-05"},{"id":126,"student_id":20,"section_id":16,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-23"},{"id":127,"student_id":20,"section_id":43,"status":"completed","final_grade":"A-","enrolled_at":"2025-11-05"},{"id":128,"student_id":20,"section_id":44,"status":"completed","final_grade":"A-","enrolled_at":"2025-01-18"},{"id":129,"student_id":20,"section_id":3,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":130,"student_id":20,"section_id":26,"status":"completed","final_grade":"B-","enrolled_at":"2025-02-04"},{"id":131,"student_id":21,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":132,"student_id":21,"section_id":93,"status":"completed","final_grade":"D","enrolled_at":"2026-02-25"},{"id":133,"student_id":21,"section_id":40,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":134,"student_id":21,"section_id":81,"status":"completed","final_grade":"C-","enrolled_at":"2025-09-28"},{"id":135,"student_id":22,"section_id":29,"status":"completed","final_grade":"B-","enrolled_at":"2025-01-30"},{"id":136,"student_id":22,"section_id":56,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":137,"student_id":22,"section_id":71,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":138,"student_id":22,"section_id":69,"status":"completed","final_grade":"C","enrolled_at":"2025-04-29"},{"id":139,"student_id":22,"section_id":84,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-19"},{"id":140,"student_id":22,"section_id":62,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":141,"student_id":22,"section_id":27,"status":"completed","final_grade":"A-","enrolled_at":"2025-06-04"},{"id":142,"student_id":22,"section_id":19,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":143,"student_id":23,"section_id":36,"status":"completed","final_grade":"C+","enrolled_at":"2025-04-07"},{"id":144,"student_id":23,"section_id":18,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":145,"student_id":23,"section_id":40,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-15"},{"id":146,"student_id":23,"section_id":70,"status":"completed","final_grade":"A","enrolled_at":"2025-10-30"},{"id":147,"student_id":23,"section_id":65,"status":"completed","final_grade":"E","enrolled_at":"2025-09-19"},{"id":148,"student_id":23,"section_id":105,"status":"completed","final_grade":"B-","enrolled_at":"2025-10-12"},{"id":149,"student_id":23,"section_id":13,"status":"completed","final_grade":"B+","enrolled_at":"2025-03-01"},{"id":150,"student_id":23,"section_id":49,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":151,"student_id":24,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":152,"student_id":24,"section_id":65,"status":"completed","final_grade":"A-","enrolled_at":"2025-09-20"},{"id":153,"student_id":24,"section_id":105,"status":"completed","final_grade":"A-","enrolled_at":"2025-10-05"},{"id":154,"student_id":24,"section_id":56,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-26"},{"id":155,"student_id":24,"section_id":99,"status":"completed","final_grade":"B-","enrolled_at":"2025-11-17"},{"id":156,"student_id":25,"section_id":86,"status":"completed","final_grade":"C-","enrolled_at":"2025-03-11"},{"id":157,"student_id":25,"section_id":37,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":158,"student_id":25,"section_id":1,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":159,"student_id":25,"section_id":96,"status":"completed","final_grade":"B","enrolled_at":"2025-05-01"},{"id":160,"student_id":25,"section_id":56,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":161,"student_id":25,"section_id":65,"status":"completed","final_grade":"E","enrolled_at":"2025-10-23"},{"id":162,"student_id":25,"section_id":14,"status":"completed","final_grade":"C","enrolled_at":"2025-10-08"},{"id":163,"student_id":25,"section_id":10,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":164,"student_id":26,"section_id":71,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":165,"student_id":26,"section_id":14,"status":"completed","final_grade":"C","enrolled_at":"2025-10-01"},{"id":166,"student_id":26,"section_id":8,"status":"completed","final_grade":"C","enrolled_at":"2025-05-10"},{"id":167,"student_id":26,"section_id":19,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":168,"student_id":26,"section_id":53,"status":"completed","final_grade":"B","enrolled_at":"2025-05-30"},{"id":169,"student_id":26,"section_id":35,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":170,"student_id":26,"section_id":80,"status":"completed","final_grade":"B+","enrolled_at":"2025-05-16"},{"id":171,"student_id":26,"section_id":60,"status":"completed","final_grade":"E","enrolled_at":"2025-11-15"},{"id":172,"student_id":27,"section_id":18,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-19"},{"id":173,"student_id":27,"section_id":85,"status":"completed","final_grade":"C","enrolled_at":"2026-01-12"},{"id":174,"student_id":27,"section_id":84,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":175,"student_id":27,"section_id":68,"status":"completed","final_grade":"C","enrolled_at":"2025-09-19"},{"id":176,"student_id":27,"section_id":82,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":177,"student_id":28,"section_id":98,"status":"completed","final_grade":"B","enrolled_at":"2025-01-25"},{"id":178,"student_id":28,"section_id":52,"status":"completed","final_grade":"E","enrolled_at":"2025-05-16"},{"id":179,"student_id":28,"section_id":4,"status":"completed","final_grade":"C","enrolled_at":"2025-09-22"},{"id":180,"student_id":28,"section_id":38,"status":"completed","final_grade":"D","enrolled_at":"2025-09-18"},{"id":181,"student_id":28,"section_id":82,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":182,"student_id":28,"section_id":67,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":183,"student_id":28,"section_id":80,"status":"completed","final_grade":"E","enrolled_at":"2025-04-19"},{"id":184,"student_id":29,"section_id":1,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":185,"student_id":29,"section_id":21,"status":"completed","final_grade":"A","enrolled_at":"2025-05-14"},{"id":186,"student_id":29,"section_id":68,"status":"completed","final_grade":"C-","enrolled_at":"2025-10-12"},{"id":187,"student_id":29,"section_id":30,"status":"completed","final_grade":"B-","enrolled_at":"2025-03-06"},{"id":188,"student_id":30,"section_id":17,"status":"completed","final_grade":"B+","enrolled_at":"2025-11-10"},{"id":189,"student_id":30,"section_id":57,"status":"completed","final_grade":"B","enrolled_at":"2026-01-31"},{"id":190,"student_id":30,"section_id":75,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":191,"student_id":30,"section_id":23,"status":"completed","final_grade":"C+","enrolled_at":"2026-02-11"},{"id":192,"student_id":30,"section_id":2,"status":"completed","final_grade":"C-","enrolled_at":"2026-01-24"},{"id":193,"student_id":30,"section_id":63,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-24"},{"id":194,"student_id":31,"section_id":5,"status":"completed","final_grade":"C-","enrolled_at":"2025-04-21"},{"id":195,"student_id":31,"section_id":107,"status":"completed","final_grade":"A-","enrolled_at":"2025-03-31"},{"id":196,"student_id":31,"section_id":46,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-22"},{"id":197,"student_id":31,"section_id":1,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":198,"student_id":31,"section_id":52,"status":"completed","final_grade":"A","enrolled_at":"2025-04-15"},{"id":199,"student_id":31,"section_id":101,"status":"completed","final_grade":"C","enrolled_at":"2026-02-22"},{"id":200,"student_id":32,"section_id":66,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":201,"student_id":32,"section_id":43,"status":"completed","final_grade":"C","enrolled_at":"2025-10-02"},{"id":202,"student_id":32,"section_id":2,"status":"completed","final_grade":"A","enrolled_at":"2026-02-07"},{"id":203,"student_id":32,"section_id":60,"status":"completed","final_grade":"B","enrolled_at":"2025-11-13"},{"id":204,"student_id":32,"section_id":65,"status":"completed","final_grade":"B","enrolled_at":"2025-10-18"},{"id":205,"student_id":32,"section_id":32,"status":"completed","final_grade":"C","enrolled_at":"2026-01-28"},{"id":206,"student_id":33,"section_id":90,"status":"completed","final_grade":"B","enrolled_at":"2025-02-27"},{"id":207,"student_id":33,"section_id":94,"status":"completed","final_grade":"A","enrolled_at":"2025-04-02"},{"id":208,"student_id":33,"section_id":92,"status":"completed","final_grade":"A-","enrolled_at":"2025-09-23"},{"id":209,"student_id":33,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":210,"student_id":33,"section_id":107,"status":"completed","final_grade":"C-","enrolled_at":"2025-04-19"},{"id":211,"student_id":34,"section_id":81,"status":"completed","final_grade":"A","enrolled_at":"2025-11-15"},{"id":212,"student_id":34,"section_id":37,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":213,"student_id":34,"section_id":10,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":214,"student_id":34,"section_id":30,"status":"completed","final_grade":"B","enrolled_at":"2025-01-07"},{"id":215,"student_id":34,"section_id":20,"status":"completed","final_grade":"B+","enrolled_at":"2025-01-18"},{"id":216,"student_id":35,"section_id":49,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-16"},{"id":217,"student_id":35,"section_id":77,"status":"completed","final_grade":"C","enrolled_at":"2025-03-01"},{"id":218,"student_id":35,"section_id":98,"status":"completed","final_grade":"B","enrolled_at":"2025-01-28"},{"id":219,"student_id":35,"section_id":37,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-25"},{"id":220,"student_id":35,"section_id":53,"status":"completed","final_grade":"B","enrolled_at":"2025-05-06"},{"id":221,"student_id":35,"section_id":13,"status":"completed","final_grade":"D","enrolled_at":"2025-01-16"},{"id":222,"student_id":36,"section_id":89,"status":"completed","final_grade":"A-","enrolled_at":"2025-01-07"},{"id":223,"student_id":36,"section_id":30,"status":"completed","final_grade":"C+","enrolled_at":"2025-02-07"},{"id":224,"student_id":36,"section_id":25,"status":"completed","final_grade":"B-","enrolled_at":"2025-11-02"},{"id":225,"student_id":36,"section_id":87,"status":"completed","final_grade":"B+","enrolled_at":"2025-04-28"},{"id":226,"student_id":36,"section_id":108,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":227,"student_id":37,"section_id":31,"status":"completed","final_grade":"D","enrolled_at":"2026-02-21"},{"id":228,"student_id":37,"section_id":68,"status":"completed","final_grade":"C-","enrolled_at":"2025-11-13"},{"id":229,"student_id":37,"section_id":6,"status":"completed","final_grade":"C+","enrolled_at":"2025-06-02"},{"id":230,"student_id":37,"section_id":96,"status":"completed","final_grade":"A","enrolled_at":"2025-04-06"},{"id":231,"student_id":37,"section_id":57,"status":"completed","final_grade":"C+","enrolled_at":"2026-02-03"},{"id":232,"student_id":37,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":233,"student_id":37,"section_id":1,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":234,"student_id":37,"section_id":23,"status":"completed","final_grade":"C-","enrolled_at":"2026-01-26"},{"id":235,"student_id":38,"section_id":19,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":236,"student_id":38,"section_id":107,"status":"completed","final_grade":"C+","enrolled_at":"2025-05-15"},{"id":237,"student_id":38,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":238,"student_id":38,"section_id":54,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":239,"student_id":39,"section_id":17,"status":"completed","final_grade":"C","enrolled_at":"2025-11-11"},{"id":240,"student_id":39,"section_id":68,"status":"completed","final_grade":"A-","enrolled_at":"2025-11-20"},{"id":241,"student_id":39,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":242,"student_id":39,"section_id":97,"status":"completed","final_grade":"C-","enrolled_at":"2025-05-07"},{"id":243,"student_id":40,"section_id":5,"status":"completed","final_grade":"A-","enrolled_at":"2025-04-27"},{"id":244,"student_id":40,"section_id":12,"status":"completed","final_grade":"B-","enrolled_at":"2026-02-27"},{"id":245,"student_id":40,"section_id":68,"status":"completed","final_grade":"B+","enrolled_at":"2025-09-16"},{"id":246,"student_id":40,"section_id":50,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":247,"student_id":41,"section_id":61,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":248,"student_id":41,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":249,"student_id":41,"section_id":38,"status":"completed","final_grade":"B","enrolled_at":"2025-09-22"},{"id":250,"student_id":41,"section_id":52,"status":"completed","final_grade":"A","enrolled_at":"2025-05-06"},{"id":251,"student_id":41,"section_id":28,"status":"completed","final_grade":"D","enrolled_at":"2025-06-04"},{"id":252,"student_id":41,"section_id":82,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":253,"student_id":41,"section_id":5,"status":"completed","final_grade":"B","enrolled_at":"2025-05-08"},{"id":254,"student_id":41,"section_id":1,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":255,"student_id":42,"section_id":18,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":256,"student_id":42,"section_id":70,"status":"completed","final_grade":"A","enrolled_at":"2025-11-19"},{"id":257,"student_id":42,"section_id":110,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-25"},{"id":258,"student_id":42,"section_id":30,"status":"completed","final_grade":"B","enrolled_at":"2025-01-11"},{"id":259,"student_id":42,"section_id":41,"status":"completed","final_grade":"E","enrolled_at":"2025-10-13"},{"id":260,"student_id":42,"section_id":89,"status":"completed","final_grade":"B-","enrolled_at":"2025-02-21"},{"id":261,"student_id":43,"section_id":75,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":262,"student_id":43,"section_id":67,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":263,"student_id":43,"section_id":18,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-18"},{"id":264,"student_id":43,"section_id":81,"status":"completed","final_grade":"A","enrolled_at":"2025-10-05"},{"id":265,"student_id":43,"section_id":59,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":266,"student_id":43,"section_id":38,"status":"completed","final_grade":"B","enrolled_at":"2025-11-13"},{"id":267,"student_id":43,"section_id":57,"status":"completed","final_grade":"E","enrolled_at":"2026-02-08"},{"id":268,"student_id":44,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":269,"student_id":44,"section_id":49,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-18"},{"id":270,"student_id":44,"section_id":69,"status":"completed","final_grade":"B","enrolled_at":"2025-05-31"},{"id":271,"student_id":44,"section_id":110,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":272,"student_id":44,"section_id":22,"status":"completed","final_grade":"B","enrolled_at":"2025-02-18"},{"id":273,"student_id":44,"section_id":15,"status":"completed","final_grade":"D","enrolled_at":"2025-04-27"},{"id":274,"student_id":44,"section_id":21,"status":"completed","final_grade":"A","enrolled_at":"2025-05-26"},{"id":275,"student_id":45,"section_id":43,"status":"completed","final_grade":"B","enrolled_at":"2025-11-19"},{"id":276,"student_id":45,"section_id":69,"status":"completed","final_grade":"B-","enrolled_at":"2025-05-21"},{"id":277,"student_id":45,"section_id":55,"status":"completed","final_grade":"B+","enrolled_at":"2025-05-08"},{"id":278,"student_id":45,"section_id":23,"status":"completed","final_grade":"B+","enrolled_at":"2026-02-12"},{"id":279,"student_id":45,"section_id":32,"status":"completed","final_grade":"B-","enrolled_at":"2026-02-08"},{"id":280,"student_id":45,"section_id":58,"status":"completed","final_grade":"A","enrolled_at":"2025-10-05"},{"id":281,"student_id":46,"section_id":53,"status":"completed","final_grade":"D","enrolled_at":"2025-06-01"},{"id":282,"student_id":46,"section_id":44,"status":"completed","final_grade":"D","enrolled_at":"2025-02-13"},{"id":283,"student_id":46,"section_id":100,"status":"completed","final_grade":"C-","enrolled_at":"2026-02-04"},{"id":284,"student_id":46,"section_id":85,"status":"completed","final_grade":"C","enrolled_at":"2026-01-17"},{"id":285,"student_id":47,"section_id":64,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-21"},{"id":286,"student_id":47,"section_id":76,"status":"completed","final_grade":"A","enrolled_at":"2025-02-08"},{"id":287,"student_id":47,"section_id":41,"status":"completed","final_grade":"B-","enrolled_at":"2025-11-02"},{"id":288,"student_id":47,"section_id":108,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":289,"student_id":48,"section_id":110,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":290,"student_id":48,"section_id":44,"status":"completed","final_grade":"C","enrolled_at":"2025-02-17"},{"id":291,"student_id":48,"section_id":8,"status":"completed","final_grade":"A","enrolled_at":"2025-05-29"},{"id":292,"student_id":48,"section_id":100,"status":"completed","final_grade":"C","enrolled_at":"2026-03-05"},{"id":293,"student_id":48,"section_id":16,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":294,"student_id":48,"section_id":104,"status":"completed","final_grade":"A-","enrolled_at":"2025-04-02"},{"id":295,"student_id":48,"section_id":84,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":296,"student_id":48,"section_id":9,"status":"completed","final_grade":"C-","enrolled_at":"2026-01-12"},{"id":297,"student_id":49,"section_id":50,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":298,"student_id":49,"section_id":38,"status":"completed","final_grade":"B-","enrolled_at":"2025-10-08"},{"id":299,"student_id":49,"section_id":49,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":300,"student_id":49,"section_id":42,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":301,"student_id":49,"section_id":67,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":302,"student_id":49,"section_id":84,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"},{"id":303,"student_id":49,"section_id":5,"status":"completed","final_grade":"B-","enrolled_at":"2025-05-30"},{"id":304,"student_id":50,"section_id":6,"status":"completed","final_grade":"E","enrolled_at":"2025-04-09"},{"id":305,"student_id":50,"section_id":103,"status":"completed","final_grade":"C-","enrolled_at":"2025-10-04"},{"id":306,"student_id":50,"section_id":11,"status":"completed","final_grade":"C","enrolled_at":"2025-03-31"},{"id":307,"student_id":50,"section_id":60,"status":"completed","final_grade":"B-","enrolled_at":"2025-10-06"},{"id":308,"student_id":50,"section_id":15,"status":"completed","final_grade":"B+","enrolled_at":"2025-05-31"},{"id":309,"student_id":50,"section_id":73,"status":"completed","final_grade":"B+","enrolled_at":"2025-02-06"},{"id":310,"student_id":50,"section_id":90,"status":"completed","final_grade":"B","enrolled_at":"2025-01-27"},{"id":311,"student_id":51,"section_id":6,"status":"completed","final_grade":"B+","enrolled_at":"2025-05-30"},{"id":312,"student_id":51,"section_id":82,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":313,"student_id":51,"section_id":80,"status":"completed","final_grade":"C-","enrolled_at":"2025-04-18"},{"id":314,"student_id":51,"section_id":73,"status":"completed","final_grade":"E","enrolled_at":"2025-02-02"},{"id":315,"student_id":51,"section_id":7,"status":"completed","final_grade":"B","enrolled_at":"2025-02-14"},{"id":316,"student_id":51,"section_id":56,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-25"},{"id":317,"student_id":51,"section_id":78,"status":"completed","final_grade":"E","enrolled_at":"2025-01-10"},{"id":318,"student_id":52,"section_id":27,"status":"completed","final_grade":"A","enrolled_at":"2025-06-02"},{"id":319,"student_id":52,"section_id":84,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-26"},{"id":320,"student_id":52,"section_id":10,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":321,"student_id":52,"section_id":64,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":322,"student_id":52,"section_id":34,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-15"},{"id":323,"student_id":53,"section_id":86,"status":"completed","final_grade":"E","enrolled_at":"2025-03-11"},{"id":324,"student_id":53,"section_id":39,"status":"completed","final_grade":"B-","enrolled_at":"2026-02-26"},{"id":325,"student_id":53,"section_id":56,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":326,"student_id":53,"section_id":13,"status":"completed","final_grade":"B+","enrolled_at":"2025-03-05"},{"id":327,"student_id":53,"section_id":103,"status":"completed","final_grade":"B","enrolled_at":"2025-09-28"},{"id":328,"student_id":54,"section_id":19,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-17"},{"id":329,"student_id":54,"section_id":48,"status":"completed","final_grade":"A-","enrolled_at":"2025-10-13"},{"id":330,"student_id":54,"section_id":14,"status":"completed","final_grade":"E","enrolled_at":"2025-10-28"},{"id":331,"student_id":54,"section_id":58,"status":"completed","final_grade":"C+","enrolled_at":"2025-10-29"},{"id":332,"student_id":54,"section_id":47,"status":"completed","final_grade":"C","enrolled_at":"2025-02-04"},{"id":333,"student_id":54,"section_id":71,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":334,"student_id":54,"section_id":46,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":335,"student_id":54,"section_id":59,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":336,"student_id":55,"section_id":79,"status":"completed","final_grade":"D","enrolled_at":"2025-09-20"},{"id":337,"student_id":55,"section_id":58,"status":"completed","final_grade":"B","enrolled_at":"2025-10-30"},{"id":338,"student_id":55,"section_id":33,"status":"completed","final_grade":"C+","enrolled_at":"2025-11-13"},{"id":339,"student_id":55,"section_id":52,"status":"completed","final_grade":"B","enrolled_at":"2025-05-08"},{"id":340,"student_id":55,"section_id":22,"status":"completed","final_grade":"B-","enrolled_at":"2025-02-17"},{"id":341,"student_id":55,"section_id":43,"status":"completed","final_grade":"C+","enrolled_at":"2025-11-18"},{"id":342,"student_id":56,"section_id":41,"status":"completed","final_grade":"B+","enrolled_at":"2025-10-19"},{"id":343,"student_id":56,"section_id":73,"status":"completed","final_grade":"A-","enrolled_at":"2025-02-27"},{"id":344,"student_id":56,"section_id":57,"status":"completed","final_grade":"A-","enrolled_at":"2026-02-18"},{"id":345,"student_id":56,"section_id":46,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":346,"student_id":56,"section_id":80,"status":"completed","final_grade":"C+","enrolled_at":"2025-04-29"},{"id":347,"student_id":56,"section_id":27,"status":"completed","final_grade":"C+","enrolled_at":"2025-04-29"},{"id":348,"student_id":56,"section_id":8,"status":"completed","final_grade":"A-","enrolled_at":"2025-05-22"},{"id":349,"student_id":57,"section_id":31,"status":"completed","final_grade":"B-","enrolled_at":"2026-01-08"},{"id":350,"student_id":57,"section_id":44,"status":"completed","final_grade":"B","enrolled_at":"2025-03-08"},{"id":351,"student_id":57,"section_id":46,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-26"},{"id":352,"student_id":57,"section_id":50,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":353,"student_id":57,"section_id":67,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":354,"student_id":57,"section_id":49,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":355,"student_id":57,"section_id":24,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":356,"student_id":58,"section_id":99,"status":"completed","final_grade":"A-","enrolled_at":"2025-11-04"},{"id":357,"student_id":58,"section_id":101,"status":"completed","final_grade":"A-","enrolled_at":"2026-01-15"},{"id":358,"student_id":58,"section_id":56,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":359,"student_id":58,"section_id":28,"status":"completed","final_grade":"A-","enrolled_at":"2025-06-03"},{"id":360,"student_id":58,"section_id":55,"status":"completed","final_grade":"C","enrolled_at":"2025-05-15"},{"id":361,"student_id":58,"section_id":18,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":362,"student_id":58,"section_id":74,"status":"completed","final_grade":"C","enrolled_at":"2025-04-17"},{"id":363,"student_id":58,"section_id":16,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-26"},{"id":364,"student_id":59,"section_id":25,"status":"completed","final_grade":"C","enrolled_at":"2025-09-17"},{"id":365,"student_id":59,"section_id":105,"status":"completed","final_grade":"B-","enrolled_at":"2025-11-12"},{"id":366,"student_id":59,"section_id":59,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":367,"student_id":59,"section_id":20,"status":"completed","final_grade":"D","enrolled_at":"2025-02-01"},{"id":368,"student_id":59,"section_id":78,"status":"completed","final_grade":"A","enrolled_at":"2025-01-21"},{"id":369,"student_id":59,"section_id":102,"status":"completed","final_grade":"E","enrolled_at":"2026-02-19"},{"id":370,"student_id":60,"section_id":37,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":371,"student_id":60,"section_id":7,"status":"completed","final_grade":"E","enrolled_at":"2025-02-06"},{"id":372,"student_id":60,"section_id":94,"status":"completed","final_grade":"E","enrolled_at":"2025-06-02"},{"id":373,"student_id":60,"section_id":65,"status":"completed","final_grade":"A","enrolled_at":"2025-10-09"},{"id":374,"student_id":60,"section_id":100,"status":"completed","final_grade":"B","enrolled_at":"2026-03-07"},{"id":375,"student_id":60,"section_id":26,"status":"completed","final_grade":"B+","enrolled_at":"2025-01-15"},{"id":376,"student_id":60,"section_id":60,"status":"completed","final_grade":"C","enrolled_at":"2025-11-03"},{"id":377,"student_id":61,"section_id":56,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":378,"student_id":61,"section_id":70,"status":"completed","final_grade":"C-","enrolled_at":"2025-10-23"},{"id":379,"student_id":61,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":380,"student_id":61,"section_id":64,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":381,"student_id":62,"section_id":74,"status":"completed","final_grade":"A-","enrolled_at":"2025-05-12"},{"id":382,"student_id":62,"section_id":3,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":383,"student_id":62,"section_id":43,"status":"completed","final_grade":"C+","enrolled_at":"2025-10-08"},{"id":384,"student_id":62,"section_id":39,"status":"completed","final_grade":"A","enrolled_at":"2026-01-16"},{"id":385,"student_id":63,"section_id":110,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-15"},{"id":386,"student_id":63,"section_id":7,"status":"completed","final_grade":"A-","enrolled_at":"2025-01-19"},{"id":387,"student_id":63,"section_id":46,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":388,"student_id":63,"section_id":81,"status":"completed","final_grade":"C-","enrolled_at":"2025-10-12"},{"id":389,"student_id":63,"section_id":31,"status":"completed","final_grade":"A-","enrolled_at":"2026-02-10"},{"id":390,"student_id":63,"section_id":87,"status":"completed","final_grade":"B-","enrolled_at":"2025-05-18"},{"id":391,"student_id":63,"section_id":88,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-20"},{"id":392,"student_id":64,"section_id":12,"status":"completed","final_grade":"B+","enrolled_at":"2026-02-04"},{"id":393,"student_id":64,"section_id":76,"status":"completed","final_grade":"C-","enrolled_at":"2025-01-30"},{"id":394,"student_id":64,"section_id":48,"status":"completed","final_grade":"C","enrolled_at":"2025-09-30"},{"id":395,"student_id":64,"section_id":98,"status":"completed","final_grade":"E","enrolled_at":"2025-02-07"},{"id":396,"student_id":64,"section_id":75,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-17"},{"id":397,"student_id":65,"section_id":74,"status":"completed","final_grade":"E","enrolled_at":"2025-06-03"},{"id":398,"student_id":65,"section_id":36,"status":"completed","final_grade":"A","enrolled_at":"2025-05-15"},{"id":399,"student_id":65,"section_id":49,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":400,"student_id":65,"section_id":3,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-22"},{"id":401,"student_id":65,"section_id":32,"status":"completed","final_grade":"B-","enrolled_at":"2026-02-17"},{"id":402,"student_id":66,"section_id":62,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":403,"student_id":66,"section_id":50,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":404,"student_id":66,"section_id":17,"status":"completed","final_grade":"B+","enrolled_at":"2025-11-12"},{"id":405,"student_id":66,"section_id":39,"status":"completed","final_grade":"C-","enrolled_at":"2026-02-11"},{"id":406,"student_id":66,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":407,"student_id":66,"section_id":105,"status":"completed","final_grade":"A-","enrolled_at":"2025-10-11"},{"id":408,"student_id":66,"section_id":47,"status":"completed","final_grade":"A-","enrolled_at":"2025-03-03"},{"id":409,"student_id":67,"section_id":41,"status":"completed","final_grade":"C-","enrolled_at":"2025-10-30"},{"id":410,"student_id":67,"section_id":101,"status":"completed","final_grade":"A","enrolled_at":"2026-02-04"},{"id":411,"student_id":67,"section_id":76,"status":"completed","final_grade":"B","enrolled_at":"2025-02-15"},{"id":412,"student_id":67,"section_id":85,"status":"completed","final_grade":"B","enrolled_at":"2026-01-10"},{"id":413,"student_id":68,"section_id":29,"status":"completed","final_grade":"B","enrolled_at":"2025-02-05"},{"id":414,"student_id":68,"section_id":94,"status":"completed","final_grade":"C+","enrolled_at":"2025-04-20"},{"id":415,"student_id":68,"section_id":66,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":416,"student_id":68,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":417,"student_id":68,"section_id":88,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-18"},{"id":418,"student_id":69,"section_id":18,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":419,"student_id":69,"section_id":88,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-26"},{"id":420,"student_id":69,"section_id":76,"status":"completed","final_grade":"C+","enrolled_at":"2025-02-08"},{"id":421,"student_id":69,"section_id":70,"status":"completed","final_grade":"C-","enrolled_at":"2025-10-29"},{"id":422,"student_id":69,"section_id":93,"status":"completed","final_grade":"B-","enrolled_at":"2026-01-11"},{"id":423,"student_id":69,"section_id":106,"status":"completed","final_grade":"A-","enrolled_at":"2025-02-26"},{"id":424,"student_id":69,"section_id":90,"status":"completed","final_grade":"B-","enrolled_at":"2025-01-11"},{"id":425,"student_id":70,"section_id":43,"status":"completed","final_grade":"A-","enrolled_at":"2025-10-16"},{"id":426,"student_id":70,"section_id":72,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-16"},{"id":427,"student_id":70,"section_id":55,"status":"completed","final_grade":"C-","enrolled_at":"2025-05-11"},{"id":428,"student_id":70,"section_id":13,"status":"completed","final_grade":"A","enrolled_at":"2025-01-30"},{"id":429,"student_id":70,"section_id":100,"status":"completed","final_grade":"A","enrolled_at":"2026-01-21"},{"id":430,"student_id":70,"section_id":110,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":431,"student_id":70,"section_id":62,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":432,"student_id":71,"section_id":5,"status":"completed","final_grade":"D","enrolled_at":"2025-04-21"},{"id":433,"student_id":71,"section_id":88,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-17"},{"id":434,"student_id":71,"section_id":48,"status":"completed","final_grade":"B-","enrolled_at":"2025-11-02"},{"id":435,"student_id":71,"section_id":53,"status":"completed","final_grade":"E","enrolled_at":"2025-04-09"},{"id":436,"student_id":71,"section_id":22,"status":"completed","final_grade":"C","enrolled_at":"2025-01-25"},{"id":437,"student_id":71,"section_id":76,"status":"completed","final_grade":"C-","enrolled_at":"2025-01-16"},{"id":438,"student_id":72,"section_id":102,"status":"completed","final_grade":"E","enrolled_at":"2026-02-03"},{"id":439,"student_id":72,"section_id":57,"status":"completed","final_grade":"E","enrolled_at":"2026-02-16"},{"id":440,"student_id":72,"section_id":82,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":441,"student_id":72,"section_id":98,"status":"completed","final_grade":"C+","enrolled_at":"2025-01-27"},{"id":442,"student_id":72,"section_id":50,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-20"},{"id":443,"student_id":73,"section_id":7,"status":"completed","final_grade":"A-","enrolled_at":"2025-02-12"},{"id":444,"student_id":73,"section_id":84,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":445,"student_id":73,"section_id":10,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":446,"student_id":73,"section_id":2,"status":"completed","final_grade":"C-","enrolled_at":"2026-02-14"},{"id":447,"student_id":74,"section_id":15,"status":"completed","final_grade":"D","enrolled_at":"2025-05-17"},{"id":448,"student_id":74,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":449,"student_id":74,"section_id":76,"status":"completed","final_grade":"C","enrolled_at":"2025-01-10"},{"id":450,"student_id":74,"section_id":48,"status":"completed","final_grade":"D","enrolled_at":"2025-10-27"},{"id":451,"student_id":74,"section_id":7,"status":"completed","final_grade":"B+","enrolled_at":"2025-01-25"},{"id":452,"student_id":75,"section_id":26,"status":"completed","final_grade":"C","enrolled_at":"2025-02-06"},{"id":453,"student_id":75,"section_id":48,"status":"completed","final_grade":"A","enrolled_at":"2025-10-02"},{"id":454,"student_id":75,"section_id":78,"status":"completed","final_grade":"C+","enrolled_at":"2025-01-07"},{"id":455,"student_id":75,"section_id":105,"status":"completed","final_grade":"A-","enrolled_at":"2025-11-15"},{"id":456,"student_id":76,"section_id":73,"status":"completed","final_grade":"D","enrolled_at":"2025-01-16"},{"id":457,"student_id":76,"section_id":92,"status":"completed","final_grade":"C","enrolled_at":"2025-09-30"},{"id":458,"student_id":76,"section_id":35,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":459,"student_id":76,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-16"},{"id":460,"student_id":76,"section_id":100,"status":"completed","final_grade":"B+","enrolled_at":"2026-01-22"},{"id":461,"student_id":76,"section_id":26,"status":"completed","final_grade":"A-","enrolled_at":"2025-03-12"},{"id":462,"student_id":76,"section_id":6,"status":"completed","final_grade":"B","enrolled_at":"2025-03-31"},{"id":463,"student_id":76,"section_id":44,"status":"completed","final_grade":"D","enrolled_at":"2025-02-05"},{"id":464,"student_id":77,"section_id":62,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":465,"student_id":77,"section_id":11,"status":"completed","final_grade":"B","enrolled_at":"2025-05-09"},{"id":466,"student_id":77,"section_id":68,"status":"completed","final_grade":"C+","enrolled_at":"2025-10-27"},{"id":467,"student_id":77,"section_id":75,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-24"},{"id":468,"student_id":78,"section_id":33,"status":"completed","final_grade":"C+","enrolled_at":"2025-10-20"},{"id":469,"student_id":78,"section_id":103,"status":"completed","final_grade":"B+","enrolled_at":"2025-11-09"},{"id":470,"student_id":78,"section_id":64,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-16"},{"id":471,"student_id":78,"section_id":18,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-25"},{"id":472,"student_id":78,"section_id":20,"status":"completed","final_grade":"A","enrolled_at":"2025-03-04"},{"id":473,"student_id":78,"section_id":58,"status":"completed","final_grade":"E","enrolled_at":"2025-10-23"},{"id":474,"student_id":78,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":475,"student_id":78,"section_id":81,"status":"completed","final_grade":"E","enrolled_at":"2025-09-21"},{"id":476,"student_id":79,"section_id":68,"status":"completed","final_grade":"B+","enrolled_at":"2025-11-15"},{"id":477,"student_id":79,"section_id":71,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":478,"student_id":79,"section_id":18,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":479,"student_id":79,"section_id":16,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-15"},{"id":480,"student_id":79,"section_id":51,"status":"completed","final_grade":"C-","enrolled_at":"2025-10-31"},{"id":481,"student_id":79,"section_id":101,"status":"completed","final_grade":"B-","enrolled_at":"2026-02-03"},{"id":482,"student_id":79,"section_id":13,"status":"completed","final_grade":"A-","enrolled_at":"2025-03-12"},{"id":483,"student_id":79,"section_id":96,"status":"completed","final_grade":"B-","enrolled_at":"2025-04-27"},{"id":484,"student_id":80,"section_id":20,"status":"completed","final_grade":"C-","enrolled_at":"2025-01-22"},{"id":485,"student_id":80,"section_id":72,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":486,"student_id":80,"section_id":68,"status":"completed","final_grade":"B+","enrolled_at":"2025-10-24"},{"id":487,"student_id":80,"section_id":35,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":488,"student_id":80,"section_id":57,"status":"completed","final_grade":"C","enrolled_at":"2026-01-25"},{"id":489,"student_id":81,"section_id":52,"status":"completed","final_grade":"E","enrolled_at":"2025-05-02"},{"id":490,"student_id":81,"section_id":53,"status":"completed","final_grade":"B","enrolled_at":"2025-04-15"},{"id":491,"student_id":81,"section_id":107,"status":"completed","final_grade":"A","enrolled_at":"2025-06-01"},{"id":492,"student_id":81,"section_id":26,"status":"completed","final_grade":"E","enrolled_at":"2025-01-23"},{"id":493,"student_id":81,"section_id":55,"status":"completed","final_grade":"A","enrolled_at":"2025-04-26"},{"id":494,"student_id":82,"section_id":17,"status":"completed","final_grade":"C+","enrolled_at":"2025-09-18"},{"id":495,"student_id":82,"section_id":13,"status":"completed","final_grade":"C-","enrolled_at":"2025-02-10"},{"id":496,"student_id":82,"section_id":49,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-16"},{"id":497,"student_id":82,"section_id":34,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":498,"student_id":82,"section_id":8,"status":"completed","final_grade":"A-","enrolled_at":"2025-06-04"},{"id":499,"student_id":82,"section_id":28,"status":"completed","final_grade":"B+","enrolled_at":"2025-04-12"},{"id":500,"student_id":83,"section_id":43,"status":"completed","final_grade":"E","enrolled_at":"2025-11-13"},{"id":501,"student_id":83,"section_id":26,"status":"completed","final_grade":"D","enrolled_at":"2025-01-13"},{"id":502,"student_id":83,"section_id":7,"status":"completed","final_grade":"A","enrolled_at":"2025-01-27"},{"id":503,"student_id":83,"section_id":9,"status":"completed","final_grade":"B","enrolled_at":"2026-01-07"},{"id":504,"student_id":83,"section_id":53,"status":"completed","final_grade":"D","enrolled_at":"2025-04-20"},{"id":505,"student_id":83,"section_id":36,"status":"completed","final_grade":"C","enrolled_at":"2025-04-03"},{"id":506,"student_id":83,"section_id":56,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":507,"student_id":83,"section_id":31,"status":"completed","final_grade":"A-","enrolled_at":"2026-03-02"},{"id":508,"student_id":84,"section_id":10,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-20"},{"id":509,"student_id":84,"section_id":15,"status":"completed","final_grade":"A","enrolled_at":"2025-04-22"},{"id":510,"student_id":84,"section_id":98,"status":"completed","final_grade":"B","enrolled_at":"2025-01-11"},{"id":511,"student_id":84,"section_id":53,"status":"completed","final_grade":"D","enrolled_at":"2025-04-24"},{"id":512,"student_id":85,"section_id":49,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-23"},{"id":513,"student_id":85,"section_id":100,"status":"completed","final_grade":"C-","enrolled_at":"2026-01-24"},{"id":514,"student_id":85,"section_id":85,"status":"completed","final_grade":"E","enrolled_at":"2026-01-31"},{"id":515,"student_id":85,"section_id":75,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-24"},{"id":516,"student_id":85,"section_id":51,"status":"completed","final_grade":"B-","enrolled_at":"2025-09-28"},{"id":517,"student_id":85,"section_id":22,"status":"completed","final_grade":"E","enrolled_at":"2025-02-20"},{"id":518,"student_id":85,"section_id":90,"status":"completed","final_grade":"E","enrolled_at":"2025-02-01"},{"id":519,"student_id":86,"section_id":14,"status":"completed","final_grade":"C+","enrolled_at":"2025-10-10"},{"id":520,"student_id":86,"section_id":71,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-18"},{"id":521,"student_id":86,"section_id":29,"status":"completed","final_grade":"B+","enrolled_at":"2025-01-19"},{"id":522,"student_id":86,"section_id":78,"status":"completed","final_grade":"C+","enrolled_at":"2025-02-25"},{"id":523,"student_id":86,"section_id":20,"status":"completed","final_grade":"A","enrolled_at":"2025-03-08"},{"id":524,"student_id":86,"section_id":95,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":525,"student_id":86,"section_id":100,"status":"completed","final_grade":"A","enrolled_at":"2026-03-11"},{"id":526,"student_id":87,"section_id":12,"status":"completed","final_grade":"C","enrolled_at":"2026-03-04"},{"id":527,"student_id":87,"section_id":103,"status":"completed","final_grade":"B+","enrolled_at":"2025-10-20"},{"id":528,"student_id":87,"section_id":77,"status":"completed","final_grade":"B-","enrolled_at":"2025-02-03"},{"id":529,"student_id":87,"section_id":107,"status":"completed","final_grade":"B+","enrolled_at":"2025-05-03"},{"id":530,"student_id":87,"section_id":81,"status":"completed","final_grade":"E","enrolled_at":"2025-10-22"},{"id":531,"student_id":87,"section_id":29,"status":"completed","final_grade":"A-","enrolled_at":"2025-02-10"},{"id":532,"student_id":87,"section_id":109,"status":"completed","final_grade":"B+","enrolled_at":"2026-01-26"},{"id":533,"student_id":87,"section_id":55,"status":"completed","final_grade":"A","enrolled_at":"2025-06-04"},{"id":534,"student_id":88,"section_id":92,"status":"completed","final_grade":"C-","enrolled_at":"2025-09-29"},{"id":535,"student_id":88,"section_id":21,"status":"completed","final_grade":"D","enrolled_at":"2025-06-02"},{"id":536,"student_id":88,"section_id":9,"status":"completed","final_grade":"A-","enrolled_at":"2026-02-23"},{"id":537,"student_id":88,"section_id":99,"status":"completed","final_grade":"B+","enrolled_at":"2025-10-30"},{"id":538,"student_id":88,"section_id":97,"status":"completed","final_grade":"A-","enrolled_at":"2025-04-16"},{"id":539,"student_id":88,"section_id":77,"status":"completed","final_grade":"C+","enrolled_at":"2025-01-18"},{"id":540,"student_id":88,"section_id":10,"status":"waitlisted","final_grade":null,"enrolled_at":"2026-09-24"},{"id":541,"student_id":89,"section_id":100,"status":"completed","final_grade":"C","enrolled_at":"2026-01-19"},{"id":542,"student_id":89,"section_id":93,"status":"completed","final_grade":"B+","enrolled_at":"2026-03-12"},{"id":543,"student_id":89,"section_id":88,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-17"},{"id":544,"student_id":89,"section_id":18,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-24"},{"id":545,"student_id":89,"section_id":33,"status":"completed","final_grade":"A-","enrolled_at":"2025-10-22"},{"id":546,"student_id":89,"section_id":44,"status":"completed","final_grade":"A-","enrolled_at":"2025-02-21"},{"id":547,"student_id":89,"section_id":99,"status":"completed","final_grade":"E","enrolled_at":"2025-11-06"},{"id":548,"student_id":90,"section_id":60,"status":"completed","final_grade":"B","enrolled_at":"2025-11-06"},{"id":549,"student_id":90,"section_id":73,"status":"completed","final_grade":"B+","enrolled_at":"2025-01-13"},{"id":550,"student_id":90,"section_id":57,"status":"completed","final_grade":"B","enrolled_at":"2026-01-18"},{"id":551,"student_id":90,"section_id":66,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-21"},{"id":552,"student_id":90,"section_id":108,"status":"enrolled","final_grade":null,"enrolled_at":"2026-09-19"}],"assignments":[{"id":1,"section_id":1,"title":"Problem Set 1","type":"homework","points_possible":20,"due_date":"2026-10-20"},{"id":2,"section_id":1,"title":"Homework 2","type":"project","points_possible":10,"due_date":"2026-09-30"},{"id":3,"section_id":1,"title":"Homework 3","type":"homework","points_possible":50,"due_date":"2026-10-09"},{"id":4,"section_id":1,"title":"Homework 4","type":"project","points_possible":50,"due_date":"2026-10-14"},{"id":5,"section_id":3,"title":"Homework 1","type":"project","points_possible":50,"due_date":"2026-10-25"},{"id":6,"section_id":3,"title":"Homework 2","type":"project","points_possible":50,"due_date":"2026-09-16"},{"id":7,"section_id":10,"title":"Project Milestone 1","type":"homework","points_possible":100,"due_date":"2026-11-15"},{"id":8,"section_id":10,"title":"Midterm 2","type":"homework","points_possible":100,"due_date":"2026-09-24"},{"id":9,"section_id":10,"title":"Midterm 3","type":"project","points_possible":10,"due_date":"2026-10-26"},{"id":10,"section_id":16,"title":"Midterm 1","type":"project","points_possible":100,"due_date":"2026-10-06"},{"id":11,"section_id":16,"title":"Problem Set 2","type":"project","points_possible":100,"due_date":"2026-11-10"},{"id":12,"section_id":18,"title":"Midterm 1","type":"exam","points_possible":20,"due_date":"2026-10-03"},{"id":13,"section_id":18,"title":"Homework 2","type":"homework","points_possible":20,"due_date":"2026-10-14"},{"id":14,"section_id":18,"title":"Homework 3","type":"project","points_possible":20,"due_date":"2026-10-12"},{"id":15,"section_id":18,"title":"Project Milestone 4","type":"exam","points_possible":50,"due_date":"2026-09-23"},{"id":16,"section_id":19,"title":"Lab Report 1","type":"homework","points_possible":20,"due_date":"2026-09-20"},{"id":17,"section_id":19,"title":"Problem Set 2","type":"exam","points_possible":10,"due_date":"2026-11-18"},{"id":18,"section_id":19,"title":"Lab Report 3","type":"project","points_possible":10,"due_date":"2026-10-13"},{"id":19,"section_id":24,"title":"Homework 1","type":"exam","points_possible":20,"due_date":"2026-11-02"},{"id":20,"section_id":24,"title":"Project Milestone 2","type":"homework","points_possible":50,"due_date":"2026-09-17"},{"id":21,"section_id":24,"title":"Problem Set 3","type":"homework","points_possible":50,"due_date":"2026-10-30"},{"id":22,"section_id":34,"title":"Homework 1","type":"exam","points_possible":100,"due_date":"2026-10-03"},{"id":23,"section_id":34,"title":"Problem Set 2","type":"exam","points_possible":20,"due_date":"2026-11-06"},{"id":24,"section_id":34,"title":"Problem Set 3","type":"homework","points_possible":100,"due_date":"2026-11-18"},{"id":25,"section_id":35,"title":"Homework 1","type":"homework","points_possible":20,"due_date":"2026-09-27"},{"id":26,"section_id":35,"title":"Homework 2","type":"exam","points_possible":10,"due_date":"2026-10-15"},{"id":27,"section_id":35,"title":"Lab Report 3","type":"project","points_possible":50,"due_date":"2026-11-15"},{"id":28,"section_id":35,"title":"Lab Report 4","type":"homework","points_possible":10,"due_date":"2026-09-15"},{"id":29,"section_id":37,"title":"Homework 1","type":"exam","points_possible":20,"due_date":"2026-11-14"},{"id":30,"section_id":37,"title":"Problem Set 2","type":"project","points_possible":50,"due_date":"2026-09-26"},{"id":31,"section_id":40,"title":"Project Milestone 1","type":"homework","points_possible":10,"due_date":"2026-10-01"},{"id":32,"section_id":40,"title":"Lab Report 2","type":"project","points_possible":100,"due_date":"2026-11-19"},{"id":33,"section_id":40,"title":"Problem Set 3","type":"exam","points_possible":10,"due_date":"2026-09-20"},{"id":34,"section_id":42,"title":"Midterm 1","type":"exam","points_possible":20,"due_date":"2026-10-25"},{"id":35,"section_id":42,"title":"Project Milestone 2","type":"exam","points_possible":10,"due_date":"2026-10-18"},{"id":36,"section_id":42,"title":"Project Milestone 3","type":"exam","points_possible":50,"due_date":"2026-10-07"},{"id":37,"section_id":46,"title":"Homework 1","type":"homework","points_possible":50,"due_date":"2026-10-31"},{"id":38,"section_id":46,"title":"Homework 2","type":"exam","points_possible":100,"due_date":"2026-09-17"},{"id":39,"section_id":46,"title":"Lab Report 3","type":"project","points_possible":10,"due_date":"2026-10-13"},{"id":40,"section_id":49,"title":"Homework 1","type":"project","points_possible":20,"due_date":"2026-09-18"},{"id":41,"section_id":49,"title":"Lab Report 2","type":"project","points_possible":10,"due_date":"2026-10-24"},{"id":42,"section_id":50,"title":"Problem Set 1","type":"homework","points_possible":100,"due_date":"2026-10-12"},{"id":43,"section_id":50,"title":"Lab Report 2","type":"exam","points_possible":50,"due_date":"2026-10-02"},{"id":44,"section_id":54,"title":"Problem Set 1","type":"homework","points_possible":100,"due_date":"2026-10-20"},{"id":45,"section_id":54,"title":"Midterm 2","type":"project","points_possible":10,"due_date":"2026-11-14"},{"id":46,"section_id":54,"title":"Lab Report 3","type":"homework","points_possible":10,"due_date":"2026-10-25"},{"id":47,"section_id":56,"title":"Lab Report 1","type":"homework","points_possible":20,"due_date":"2026-09-21"},{"id":48,"section_id":56,"title":"Homework 2","type":"homework","points_possible":20,"due_date":"2026-10-07"},{"id":49,"section_id":56,"title":"Project Milestone 3","type":"homework","points_possible":50,"due_date":"2026-10-09"},{"id":50,"section_id":59,"title":"Project Milestone 1","type":"project","points_possible":20,"due_date":"2026-11-13"},{"id":51,"section_id":59,"title":"Project Milestone 2","type":"exam","points_possible":100,"due_date":"2026-10-14"},{"id":52,"section_id":61,"title":"Project Milestone 1","type":"homework","points_possible":10,"due_date":"2026-11-13"},{"id":53,"section_id":61,"title":"Midterm 2","type":"project","points_possible":20,"due_date":"2026-09-20"},{"id":54,"section_id":62,"title":"Homework 1","type":"project","points_possible":10,"due_date":"2026-09-30"},{"id":55,"section_id":62,"title":"Lab Report 2","type":"exam","points_possible":20,"due_date":"2026-11-15"},{"id":56,"section_id":63,"title":"Homework 1","type":"project","points_possible":50,"due_date":"2026-09-27"},{"id":57,"section_id":63,"title":"Problem Set 2","type":"homework","points_possible":50,"due_date":"2026-10-17"},{"id":58,"section_id":63,"title":"Midterm 3","type":"project","points_possible":100,"due_date":"2026-11-05"},{"id":59,"section_id":64,"title":"Project Milestone 1","type":"homework","points_possible":50,"due_date":"2026-09-19"},{"id":60,"section_id":64,"title":"Project Milestone 2","type":"project","points_possible":10,"due_date":"2026-10-27"},{"id":61,"section_id":66,"title":"Problem Set 1","type":"exam","points_possible":10,"due_date":"2026-11-04"},{"id":62,"section_id":66,"title":"Lab Report 2","type":"project","points_possible":100,"due_date":"2026-10-08"},{"id":63,"section_id":67,"title":"Midterm 1","type":"homework","points_possible":100,"due_date":"2026-11-15"},{"id":64,"section_id":67,"title":"Homework 2","type":"project","points_possible":100,"due_date":"2026-10-03"},{"id":65,"section_id":71,"title":"Homework 1","type":"project","points_possible":100,"due_date":"2026-09-27"},{"id":66,"section_id":71,"title":"Problem Set 2","type":"exam","points_possible":10,"due_date":"2026-09-22"},{"id":67,"section_id":71,"title":"Project Milestone 3","type":"exam","points_possible":50,"due_date":"2026-09-15"},{"id":68,"section_id":71,"title":"Lab Report 4","type":"homework","points_possible":100,"due_date":"2026-11-16"},{"id":69,"section_id":72,"title":"Lab Report 1","type":"exam","points_possible":20,"due_date":"2026-11-19"},{"id":70,"section_id":72,"title":"Project Milestone 2","type":"homework","points_possible":10,"due_date":"2026-11-13"},{"id":71,"section_id":72,"title":"Problem Set 3","type":"project","points_possible":100,"due_date":"2026-09-30"},{"id":72,"section_id":72,"title":"Problem Set 4","type":"exam","points_possible":50,"due_date":"2026-09-24"},{"id":73,"section_id":75,"title":"Lab Report 1","type":"homework","points_possible":20,"due_date":"2026-10-09"},{"id":74,"section_id":75,"title":"Midterm 2","type":"project","points_possible":100,"due_date":"2026-09-24"},{"id":75,"section_id":75,"title":"Lab Report 3","type":"project","points_possible":50,"due_date":"2026-11-05"},{"id":76,"section_id":82,"title":"Lab Report 1","type":"exam","points_possible":100,"due_date":"2026-11-12"},{"id":77,"section_id":82,"title":"Problem Set 2","type":"homework","points_possible":20,"due_date":"2026-10-10"},{"id":78,"section_id":84,"title":"Problem Set 1","type":"project","points_possible":20,"due_date":"2026-10-21"},{"id":79,"section_id":84,"title":"Lab Report 2","type":"homework","points_possible":100,"due_date":"2026-10-15"},{"id":80,"section_id":88,"title":"Homework 1","type":"homework","points_possible":100,"due_date":"2026-11-12"},{"id":81,"section_id":88,"title":"Project Milestone 2","type":"homework","points_possible":10,"due_date":"2026-10-12"},{"id":82,"section_id":88,"title":"Project Milestone 3","type":"project","points_possible":10,"due_date":"2026-10-14"},{"id":83,"section_id":95,"title":"Lab Report 1","type":"project","points_possible":100,"due_date":"2026-09-21"},{"id":84,"section_id":95,"title":"Lab Report 2","type":"project","points_possible":10,"due_date":"2026-09-25"},{"id":85,"section_id":95,"title":"Lab Report 3","type":"project","points_possible":50,"due_date":"2026-11-12"},{"id":86,"section_id":108,"title":"Project Milestone 1","type":"exam","points_possible":50,"due_date":"2026-09-27"},{"id":87,"section_id":108,"title":"Problem Set 2","type":"exam","points_possible":10,"due_date":"2026-11-03"},{"id":88,"section_id":108,"title":"Homework 3","type":"homework","points_possible":50,"due_date":"2026-10-16"},{"id":89,"section_id":108,"title":"Lab Report 4","type":"homework","points_possible":100,"due_date":"2026-10-01"},{"id":90,"section_id":110,"title":"Homework 1","type":"homework","points_possible":100,"due_date":"2026-11-12"},{"id":91,"section_id":110,"title":"Problem Set 2","type":"project","points_possible":20,"due_date":"2026-11-07"},{"id":92,"section_id":110,"title":"Project Milestone 3","type":"exam","points_possible":100,"due_date":"2026-09-19"},{"id":93,"section_id":110,"title":"Lab Report 4","type":"exam","points_possible":100,"due_date":"2026-10-22"}],"submissions":[{"id":1,"assignment_id":1,"student_id":12,"score":18,"late":false,"submitted_at":"2026-09-30"},{"id":2,"assignment_id":1,"student_id":25,"score":15,"late":false,"submitted_at":"2026-10-04"},{"id":3,"assignment_id":1,"student_id":29,"score":13,"late":true,"submitted_at":"2026-10-08"},{"id":4,"assignment_id":1,"student_id":31,"score":14,"late":false,"submitted_at":"2026-10-06"},{"id":5,"assignment_id":1,"student_id":37,"score":16,"late":false,"submitted_at":"2026-09-22"},{"id":6,"assignment_id":1,"student_id":41,"score":12,"late":false,"submitted_at":"2026-09-18"},{"id":7,"assignment_id":2,"student_id":12,"score":9,"late":false,"submitted_at":"2026-09-20"},{"id":8,"assignment_id":2,"student_id":25,"score":9,"late":false,"submitted_at":"2026-09-26"},{"id":9,"assignment_id":2,"student_id":29,"score":6,"late":false,"submitted_at":"2026-09-24"},{"id":10,"assignment_id":2,"student_id":31,"score":9,"late":false,"submitted_at":"2026-09-29"},{"id":11,"assignment_id":2,"student_id":37,"score":8,"late":false,"submitted_at":"2026-09-16"},{"id":12,"assignment_id":2,"student_id":41,"score":9,"late":false,"submitted_at":"2026-09-29"},{"id":13,"assignment_id":3,"student_id":25,"score":34,"late":false,"submitted_at":"2026-09-25"},{"id":14,"assignment_id":3,"student_id":29,"score":45,"late":false,"submitted_at":"2026-10-02"},{"id":15,"assignment_id":3,"student_id":31,"score":38,"late":false,"submitted_at":"2026-09-23"},{"id":16,"assignment_id":3,"student_id":37,"score":33,"late":false,"submitted_at":"2026-10-06"},{"id":17,"assignment_id":3,"student_id":41,"score":41,"late":false,"submitted_at":"2026-09-29"},{"id":18,"assignment_id":4,"student_id":25,"score":49,"late":false,"submitted_at":"2026-09-30"},{"id":19,"assignment_id":4,"student_id":29,"score":46,"late":false,"submitted_at":"2026-10-07"},{"id":20,"assignment_id":4,"student_id":31,"score":36,"late":false,"submitted_at":"2026-10-07"},{"id":21,"assignment_id":4,"student_id":37,"score":36,"late":false,"submitted_at":"2026-09-19"},{"id":22,"assignment_id":4,"student_id":41,"score":49,"late":false,"submitted_at":"2026-09-26"},{"id":23,"assignment_id":5,"student_id":15,"score":41,"late":false,"submitted_at":"2026-09-26"},{"id":24,"assignment_id":5,"student_id":62,"score":36,"late":false,"submitted_at":"2026-10-10"},{"id":25,"assignment_id":6,"student_id":15,"score":44,"late":true,"submitted_at":"2026-09-15"},{"id":26,"assignment_id":6,"student_id":20,"score":31,"late":false,"submitted_at":"2026-09-15"},{"id":27,"assignment_id":6,"student_id":62,"score":42,"late":false,"submitted_at":"2026-09-15"},{"id":28,"assignment_id":6,"student_id":65,"score":33,"late":true,"submitted_at":"2026-09-15"},{"id":29,"assignment_id":7,"student_id":25,"score":64,"late":false,"submitted_at":"2026-09-25"},{"id":30,"assignment_id":7,"student_id":34,"score":86,"late":true,"submitted_at":"2026-11-08"},{"id":31,"assignment_id":7,"student_id":52,"score":97,"late":false,"submitted_at":"2026-10-05"},{"id":32,"assignment_id":7,"student_id":84,"score":92,"late":false,"submitted_at":"2026-10-01"},{"id":33,"assignment_id":8,"student_id":25,"score":70,"late":false,"submitted_at":"2026-09-18"},{"id":34,"assignment_id":8,"student_id":34,"score":77,"late":false,"submitted_at":"2026-09-16"},{"id":35,"assignment_id":8,"student_id":52,"score":81,"late":false,"submitted_at":"2026-09-17"},{"id":36,"assignment_id":8,"student_id":73,"score":85,"late":false,"submitted_at":"2026-09-23"},{"id":37,"assignment_id":9,"student_id":25,"score":7,"late":false,"submitted_at":"2026-10-03"},{"id":38,"assignment_id":9,"student_id":34,"score":9,"late":false,"submitted_at":"2026-09-29"},{"id":39,"assignment_id":9,"student_id":52,"score":7,"late":false,"submitted_at":"2026-10-21"},{"id":40,"assignment_id":9,"student_id":73,"score":9,"late":false,"submitted_at":"2026-09-20"},{"id":41,"assignment_id":9,"student_id":84,"score":9,"late":true,"submitted_at":"2026-10-07"},{"id":42,"assignment_id":10,"student_id":4,"score":94,"late":false,"submitted_at":"2026-09-17"},{"id":43,"assignment_id":10,"student_id":48,"score":94,"late":false,"submitted_at":"2026-09-21"},{"id":44,"assignment_id":10,"student_id":58,"score":76,"late":false,"submitted_at":"2026-09-22"},{"id":45,"assignment_id":10,"student_id":79,"score":96,"late":false,"submitted_at":"2026-09-30"},{"id":46,"assignment_id":11,"student_id":4,"score":61,"late":false,"submitted_at":"2026-10-21"},{"id":47,"assignment_id":11,"student_id":48,"score":92,"late":true,"submitted_at":"2026-11-09"},{"id":48,"assignment_id":11,"student_id":58,"score":61,"late":true,"submitted_at":"2026-10-09"},{"id":49,"assignment_id":11,"student_id":79,"score":79,"late":false,"submitted_at":"2026-11-04"},{"id":50,"assignment_id":12,"student_id":16,"score":15,"late":false,"submitted_at":"2026-09-22"},{"id":51,"assignment_id":12,"student_id":23,"score":14,"late":false,"submitted_at":"2026-09-22"},{"id":52,"assignment_id":12,"student_id":42,"score":14,"late":false,"submitted_at":"2026-09-16"},{"id":53,"assignment_id":12,"student_id":58,"score":20,"late":false,"submitted_at":"2026-09-20"},{"id":54,"assignment_id":12,"student_id":78,"score":17,"late":false,"submitted_at":"2026-09-30"},{"id":55,"assignment_id":12,"student_id":79,"score":16,"late":false,"submitted_at":"2026-09-19"},{"id":56,"assignment_id":12,"student_id":89,"score":16,"late":false,"submitted_at":"2026-09-24"},{"id":57,"assignment_id":13,"student_id":16,"score":13,"late":false,"submitted_at":"2026-09-25"},{"id":58,"assignment_id":13,"student_id":23,"score":14,"late":true,"submitted_at":"2026-09-26"},{"id":59,"assignment_id":13,"student_id":42,"score":15,"late":false,"submitted_at":"2026-10-13"},{"id":60,"assignment_id":13,"student_id":58,"score":13,"late":false,"submitted_at":"2026-09-17"},{"id":61,"assignment_id":13,"student_id":69,"score":13,"late":false,"submitted_at":"2026-09-19"},{"id":62,"assignment_id":13,"student_id":78,"score":17,"late":false,"submitted_at":"2026-10-03"},{"id":63,"assignment_id":13,"student_id":89,"score":18,"late":false,"submitted_at":"2026-10-12"},{"id":64,"assignment_id":14,"student_id":16,"score":13,"late":true,"submitted_at":"2026-09-26"},{"id":65,"assignment_id":14,"student_id":58,"score":17,"late":false,"submitted_at":"2026-10-04"},{"id":66,"assignment_id":14,"student_id":69,"score":17,"late":false,"submitted_at":"2026-09-29"},{"id":67,"assignment_id":14,"student_id":78,"score":19,"late":false,"submitted_at":"2026-09-20"},{"id":68,"assignment_id":14,"student_id":79,"score":16,"late":false,"submitted_at":"2026-09-28"},{"id":69,"assignment_id":14,"student_id":89,"score":14,"late":false,"submitted_at":"2026-09-15"},{"id":70,"assignment_id":15,"student_id":16,"score":38,"late":true,"submitted_at":"2026-09-22"},{"id":71,"assignment_id":15,"student_id":23,"score":48,"late":false,"submitted_at":"2026-09-15"},{"id":72,"assignment_id":15,"student_id":42,"score":37,"late":false,"submitted_at":"2026-09-15"},{"id":73,"assignment_id":15,"student_id":58,"score":47,"late":false,"submitted_at":"2026-09-17"},{"id":74,"assignment_id":15,"student_id":69,"score":31,"late":false,"submitted_at":"2026-09-22"},{"id":75,"assignment_id":15,"student_id":78,"score":46,"late":false,"submitted_at":"2026-09-16"},{"id":76,"assignment_id":15,"student_id":79,"score":37,"late":false,"submitted_at":"2026-09-21"},{"id":77,"assignment_id":15,"student_id":89,"score":46,"late":false,"submitted_at":"2026-09-22"},{"id":78,"assignment_id":16,"student_id":2,"score":16,"late":false,"submitted_at":"2026-09-16"},{"id":79,"assignment_id":16,"student_id":22,"score":15,"late":false,"submitted_at":"2026-09-16"},{"id":80,"assignment_id":16,"student_id":26,"score":16,"late":false,"submitted_at":"2026-09-16"},{"id":81,"assignment_id":16,"student_id":38,"score":15,"late":false,"submitted_at":"2026-09-17"},{"id":82,"assignment_id":17,"student_id":2,"score":8,"late":false,"submitted_at":"2026-10-10"},{"id":83,"assignment_id":17,"student_id":22,"score":8,"late":true,"submitted_at":"2026-11-11"},{"id":84,"assignment_id":17,"student_id":26,"score":6,"late":false,"submitted_at":"2026-10-30"},{"id":85,"assignment_id":17,"student_id":38,"score":9,"late":false,"submitted_at":"2026-10-14"},{"id":86,"assignment_id":18,"student_id":2,"score":7,"late":false,"submitted_at":"2026-09-25"},{"id":87,"assignment_id":18,"student_id":26,"score":10,"late":false,"submitted_at":"2026-10-05"},{"id":88,"assignment_id":18,"student_id":38,"score":8,"late":false,"submitted_at":"2026-09-25"},{"id":89,"assignment_id":19,"student_id":2,"score":15,"late":false,"submitted_at":"2026-10-10"},{"id":90,"assignment_id":19,"student_id":7,"score":16,"late":false,"submitted_at":"2026-10-21"},{"id":91,"assignment_id":19,"student_id":16,"score":17,"late":false,"submitted_at":"2026-10-24"},{"id":92,"assignment_id":19,"student_id":18,"score":14,"late":false,"submitted_at":"2026-10-17"},{"id":93,"assignment_id":19,"student_id":57,"score":17,"late":false,"submitted_at":"2026-10-17"},{"id":94,"assignment_id":20,"student_id":2,"score":37,"late":false,"submitted_at":"2026-09-15"},{"id":95,"assignment_id":20,"student_id":7,"score":42,"late":false,"submitted_at":"2026-09-15"},{"id":96,"assignment_id":20,"student_id":16,"score":45,"late":false,"submitted_at":"2026-09-15"},{"id":97,"assignment_id":20,"student_id":18,"score":44,"late":false,"submitted_at":"2026-09-15"},{"id":98,"assignment_id":20,"student_id":57,"score":39,"late":false,"submitted_at":"2026-09-16"},{"id":99,"assignment_id":21,"student_id":2,"score":45,"late":false,"submitted_at":"2026-10-05"},{"id":100,"assignment_id":21,"student_id":7,"score":43,"late":false,"submitted_at":"2026-09-17"},{"id":101,"assignment_id":21,"student_id":16,"score":43,"late":false,"submitted_at":"2026-10-11"},{"id":102,"assignment_id":21,"student_id":18,"score":40,"late":false,"submitted_at":"2026-10-24"},{"id":103,"assignment_id":22,"student_id":82,"score":94,"late":false,"submitted_at":"2026-09-17"},{"id":104,"assignment_id":24,"student_id":82,"score":72,"late":false,"submitted_at":"2026-10-21"},{"id":105,"assignment_id":25,"student_id":11,"score":15,"late":false,"submitted_at":"2026-09-16"},{"id":106,"assignment_id":25,"student_id":26,"score":14,"late":false,"submitted_at":"2026-09-24"},{"id":107,"assignment_id":25,"student_id":76,"score":15,"late":false,"submitted_at":"2026-09-15"},{"id":108,"assignment_id":25,"student_id":80,"score":20,"late":false,"submitted_at":"2026-09-24"},{"id":109,"assignment_id":26,"student_id":11,"score":6,"late":false,"submitted_at":"2026-09-29"},{"id":110,"assignment_id":26,"student_id":26,"score":10,"late":true,"submitted_at":"2026-09-24"},{"id":111,"assignment_id":26,"student_id":76,"score":9,"late":false,"submitted_at":"2026-10-08"},{"id":112,"assignment_id":26,"student_id":80,"score":9,"late":false,"submitted_at":"2026-09-21"},{"id":113,"assignment_id":27,"student_id":11,"score":42,"late":false,"submitted_at":"2026-10-09"},{"id":114,"assignment_id":27,"student_id":26,"score":34,"late":true,"submitted_at":"2026-11-09"},{"id":115,"assignment_id":27,"student_id":76,"score":31,"late":false,"submitted_at":"2026-10-06"},{"id":116,"assignment_id":27,"student_id":80,"score":42,"late":false,"submitted_at":"2026-10-15"},{"id":117,"assignment_id":28,"student_id":26,"score":7,"late":true,"submitted_at":"2026-09-15"},{"id":118,"assignment_id":28,"student_id":76,"score":10,"late":false,"submitted_at":"2026-09-15"},{"id":119,"assignment_id":28,"student_id":80,"score":9,"late":false,"submitted_at":"2026-09-15"},{"id":120,"assignment_id":29,"student_id":25,"score":19,"late":false,"submitted_at":"2026-10-15"},{"id":121,"assignment_id":29,"student_id":34,"score":17,"late":false,"submitted_at":"2026-10-14"},{"id":122,"assignment_id":29,"student_id":60,"score":16,"late":false,"submitted_at":"2026-10-22"},{"id":123,"assignment_id":30,"student_id":6,"score":37,"late":false,"submitted_at":"2026-09-22"},{"id":124,"assignment_id":30,"student_id":25,"score":40,"late":false,"submitted_at":"2026-09-15"},{"id":125,"assignment_id":30,"student_id":34,"score":46,"late":false,"submitted_at":"2026-09-24"},{"id":126,"assignment_id":31,"student_id":7,"score":7,"late":false,"submitted_at":"2026-09-26"},{"id":127,"assignment_id":31,"student_id":10,"score":6,"late":false,"submitted_at":"2026-09-15"},{"id":128,"assignment_id":31,"student_id":21,"score":9,"late":false,"submitted_at":"2026-09-15"},{"id":129,"assignment_id":32,"student_id":7,"score":71,"late":false,"submitted_at":"2026-09-18"},{"id":130,"assignment_id":32,"student_id":10,"score":72,"late":false,"submitted_at":"2026-11-05"},{"id":131,"assignment_id":32,"student_id":21,"score":91,"late":false,"submitted_at":"2026-10-01"},{"id":132,"assignment_id":33,"student_id":7,"score":8,"late":false,"submitted_at":"2026-09-18"},{"id":133,"assignment_id":33,"student_id":21,"score":7,"late":false,"submitted_at":"2026-09-15"},{"id":134,"assignment_id":34,"student_id":49,"score":20,"late":false,"submitted_at":"2026-10-19"},{"id":135,"assignment_id":35,"student_id":49,"score":10,"late":false,"submitted_at":"2026-10-05"},{"id":136,"assignment_id":36,"student_id":49,"score":36,"late":false,"submitted_at":"2026-09-30"},{"id":137,"assignment_id":37,"student_id":9,"score":48,"late":false,"submitted_at":"2026-10-03"},{"id":138,"assignment_id":37,"student_id":15,"score":40,"late":false,"submitted_at":"2026-10-08"},{"id":139,"assignment_id":37,"student_id":54,"score":32,"late":false,"submitted_at":"2026-10-09"},{"id":140,"assignment_id":37,"student_id":56,"score":48,"late":false,"submitted_at":"2026-09-26"},{"id":141,"assignment_id":38,"student_id":9,"score":62,"late":false,"submitted_at":"2026-09-16"},{"id":142,"assignment_id":38,"student_id":15,"score":81,"late":false,"submitted_at":"2026-09-15"},{"id":143,"assignment_id":38,"student_id":54,"score":75,"late":false,"submitted_at":"2026-09-15"},{"id":144,"assignment_id":38,"student_id":56,"score":77,"late":false,"submitted_at":"2026-09-15"},{"id":145,"assignment_id":39,"student_id":54,"score":9,"late":false,"submitted_at":"2026-09-22"},{"id":146,"assignment_id":39,"student_id":56,"score":9,"late":false,"submitted_at":"2026-09-21"},{"id":147,"assignment_id":39,"student_id":63,"score":9,"late":false,"submitted_at":"2026-10-10"},{"id":148,"assignment_id":40,"student_id":23,"score":20,"late":false,"submitted_at":"2026-09-17"},{"id":149,"assignment_id":40,"student_id":49,"score":16,"late":false,"submitted_at":"2026-09-16"},{"id":150,"assignment_id":40,"student_id":57,"score":15,"late":false,"submitted_at":"2026-09-17"},{"id":151,"assignment_id":40,"student_id":65,"score":14,"late":false,"submitted_at":"2026-09-15"},{"id":152,"assignment_id":40,"student_id":85,"score":12,"late":false,"submitted_at":"2026-09-16"},{"id":153,"assignment_id":41,"student_id":23,"score":6,"late":false,"submitted_at":"2026-10-19"},{"id":154,"assignment_id":41,"student_id":57,"score":8,"late":false,"submitted_at":"2026-10-23"},{"id":155,"assignment_id":41,"student_id":85,"score":9,"late":false,"submitted_at":"2026-10-04"},{"id":156,"assignment_id":42,"student_id":49,"score":84,"late":false,"submitted_at":"2026-10-08"},{"id":157,"assignment_id":42,"student_id":57,"score":89,"late":false,"submitted_at":"2026-10-08"},{"id":158,"assignment_id":42,"student_id":66,"score":72,"late":false,"submitted_at":"2026-09-29"},{"id":159,"assignment_id":43,"student_id":40,"score":37,"late":false,"submitted_at":"2026-09-24"},{"id":160,"assignment_id":43,"student_id":49,"score":32,"late":false,"submitted_at":"2026-09-15"},{"id":161,"assignment_id":43,"student_id":57,"score":48,"late":false,"submitted_at":"2026-09-19"},{"id":162,"assignment_id":43,"student_id":66,"score":44,"late":false,"submitted_at":"2026-09-21"},{"id":163,"assignment_id":44,"student_id":4,"score":81,"late":false,"submitted_at":"2026-09-19"},{"id":164,"assignment_id":44,"student_id":38,"score":84,"late":false,"submitted_at":"2026-10-19"},{"id":165,"assignment_id":45,"student_id":4,"score":9,"late":false,"submitted_at":"2026-10-26"},{"id":166,"assignment_id":45,"student_id":38,"score":9,"late":false,"submitted_at":"2026-11-12"},{"id":167,"assignment_id":46,"student_id":4,"score":8,"late":true,"submitted_at":"2026-09-18"},{"id":168,"assignment_id":46,"student_id":38,"score":8,"late":false,"submitted_at":"2026-10-01"},{"id":169,"assignment_id":47,"student_id":22,"score":16,"late":true,"submitted_at":"2026-09-16"},{"id":170,"assignment_id":47,"student_id":25,"score":15,"late":false,"submitted_at":"2026-09-19"},{"id":171,"assignment_id":47,"student_id":53,"score":19,"late":false,"submitted_at":"2026-09-17"},{"id":172,"assignment_id":47,"student_id":58,"score":18,"late":false,"submitted_at":"2026-09-15"},{"id":173,"assignment_id":47,"student_id":61,"score":17,"late":false,"submitted_at":"2026-09-16"},{"id":174,"assignment_id":47,"student_id":83,"score":16,"late":false,"submitted_at":"2026-09-15"},{"id":175,"assignment_id":48,"student_id":53,"score":15,"late":false,"submitted_at":"2026-09-17"},{"id":176,"assignment_id":48,"student_id":58,"score":12,"late":false,"submitted_at":"2026-09-21"},{"id":177,"assignment_id":48,"student_id":61,"score":20,"late":false,"submitted_at":"2026-10-06"},{"id":178,"assignment_id":48,"student_id":83,"score":17,"late":false,"submitted_at":"2026-10-03"},{"id":179,"assignment_id":49,"student_id":22,"score":37,"late":false,"submitted_at":"2026-09-22"},{"id":180,"assignment_id":49,"student_id":25,"score":42,"late":false,"submitted_at":"2026-09-16"},{"id":181,"assignment_id":49,"student_id":53,"score":43,"late":false,"submitted_at":"2026-09-25"},{"id":182,"assignment_id":49,"student_id":58,"score":31,"late":false,"submitted_at":"2026-09-19"},{"id":183,"assignment_id":49,"student_id":61,"score":40,"late":false,"submitted_at":"2026-10-02"},{"id":184,"assignment_id":49,"student_id":83,"score":44,"late":false,"submitted_at":"2026-09-30"},{"id":185,"assignment_id":50,"student_id":11,"score":12,"late":false,"submitted_at":"2026-11-02"},{"id":186,"assignment_id":50,"student_id":43,"score":17,"late":true,"submitted_at":"2026-11-06"},{"id":187,"assignment_id":50,"student_id":54,"score":15,"late":false,"submitted_at":"2026-09-29"},{"id":188,"assignment_id":50,"student_id":59,"score":13,"late":false,"submitted_at":"2026-10-18"},{"id":189,"assignment_id":51,"student_id":11,"score":71,"late":false,"submitted_at":"2026-09-26"},{"id":190,"assignment_id":51,"student_id":43,"score":94,"late":false,"submitted_at":"2026-09-30"},{"id":191,"assignment_id":51,"student_id":59,"score":81,"late":false,"submitted_at":"2026-10-11"},{"id":192,"assignment_id":52,"student_id":14,"score":7,"late":false,"submitted_at":"2026-10-02"},{"id":193,"assignment_id":52,"student_id":41,"score":9,"late":false,"submitted_at":"2026-10-19"},{"id":194,"assignment_id":53,"student_id":14,"score":15,"late":false,"submitted_at":"2026-09-19"},{"id":195,"assignment_id":53,"student_id":41,"score":18,"late":false,"submitted_at":"2026-09-19"},{"id":196,"assignment_id":54,"student_id":4,"score":8,"late":false,"submitted_at":"2026-09-27"},{"id":197,"assignment_id":54,"student_id":15,"score":7,"late":false,"submitted_at":"2026-09-20"},{"id":198,"assignment_id":54,"student_id":22,"score":8,"late":false,"submitted_at":"2026-09-20"},{"id":199,"assignment_id":54,"student_id":66,"score":9,"late":false,"submitted_at":"2026-09-19"},{"id":200,"assignment_id":54,"student_id":70,"score":8,"late":false,"submitted_at":"2026-09-27"},{"id":201,"assignment_id":54,"student_id":77,"score":9,"late":false,"submitted_at":"2026-09-15"},{"id":202,"assignment_id":55,"student_id":4,"score":19,"late":true,"submitted_at":"2026-09-25"},{"id":203,"assignment_id":55,"student_id":15,"score":18,"late":false,"submitted_at":"2026-11-02"},{"id":204,"assignment_id":55,"student_id":22,"score":15,"late":false,"submitted_at":"2026-11-04"},{"id":205,"assignment_id":55,"student_id":66,"score":17,"late":false,"submitted_at":"2026-09-21"},{"id":206,"assignment_id":55,"student_id":70,"score":17,"late":false,"submitted_at":"2026-10-21"},{"id":207,"assignment_id":55,"student_id":77,"score":14,"late":false,"submitted_at":"2026-09-24"},{"id":208,"assignment_id":59,"student_id":8,"score":40,"late":false,"submitted_at":"2026-09-16"},{"id":209,"assignment_id":59,"student_id":52,"score":42,"late":false,"submitted_at":"2026-09-18"},{"id":210,"assignment_id":60,"student_id":6,"score":8,"late":true,"submitted_at":"2026-10-09"},{"id":211,"assignment_id":60,"student_id":8,"score":8,"late":false,"submitted_at":"2026-09-17"},{"id":212,"assignment_id":60,"student_id":52,"score":9,"late":false,"submitted_at":"2026-10-15"},{"id":213,"assignment_id":60,"student_id":61,"score":8,"late":false,"submitted_at":"2026-10-08"},{"id":214,"assignment_id":61,"student_id":32,"score":6,"late":false,"submitted_at":"2026-09-24"},{"id":215,"assignment_id":61,"student_id":68,"score":7,"late":false,"submitted_at":"2026-11-01"},{"id":216,"assignment_id":61,"student_id":90,"score":10,"late":false,"submitted_at":"2026-10-04"},{"id":217,"assignment_id":62,"student_id":32,"score":96,"late":false,"submitted_at":"2026-10-04"},{"id":218,"assignment_id":62,"student_id":68,"score":87,"late":false,"submitted_at":"2026-09-17"},{"id":219,"assignment_id":63,"student_id":4,"score":92,"late":false,"submitted_at":"2026-09-16"},{"id":220,"assignment_id":63,"student_id":10,"score":92,"late":false,"submitted_at":"2026-09-26"},{"id":221,"assignment_id":63,"student_id":14,"score":89,"late":false,"submitted_at":"2026-10-25"},{"id":222,"assignment_id":63,"student_id":16,"score":61,"late":false,"submitted_at":"2026-10-04"},{"id":223,"assignment_id":63,"student_id":43,"score":93,"late":true,"submitted_at":"2026-10-17"},{"id":224,"assignment_id":63,"student_id":49,"score":91,"late":false,"submitted_at":"2026-10-06"},{"id":225,"assignment_id":63,"student_id":57,"score":72,"late":false,"submitted_at":"2026-10-15"},{"id":226,"assignment_id":64,"student_id":4,"score":99,"late":false,"submitted_at":"2026-09-18"},{"id":227,"assignment_id":64,"student_id":10,"score":99,"late":true,"submitted_at":"2026-09-22"},{"id":228,"assignment_id":64,"student_id":16,"score":80,"late":false,"submitted_at":"2026-09-29"},{"id":229,"assignment_id":64,"student_id":28,"score":76,"late":false,"submitted_at":"2026-09-27"},{"id":230,"assignment_id":64,"student_id":43,"score":63,"late":false,"submitted_at":"2026-09-17"},{"id":231,"assignment_id":64,"student_id":49,"score":83,"late":false,"submitted_at":"2026-09-25"},{"id":232,"assignment_id":64,"student_id":57,"score":80,"late":false,"submitted_at":"2026-09-30"},{"id":233,"assignment_id":65,"student_id":3,"score":63,"late":false,"submitted_at":"2026-09-19"},{"id":234,"assignment_id":65,"student_id":22,"score":88,"late":false,"submitted_at":"2026-09-15"},{"id":235,"assignment_id":65,"student_id":26,"score":67,"late":false,"submitted_at":"2026-09-24"},{"id":236,"assignment_id":65,"student_id":54,"score":65,"late":true,"submitted_at":"2026-09-26"},{"id":237,"assignment_id":65,"student_id":79,"score":82,"late":false,"submitted_at":"2026-09-16"},{"id":238,"assignment_id":65,"student_id":86,"score":95,"late":false,"submitted_at":"2026-09-18"},{"id":239,"assignment_id":66,"student_id":3,"score":7,"late":false,"submitted_at":"2026-09-18"},{"id":240,"assignment_id":66,"student_id":22,"score":10,"late":false,"submitted_at":"2026-09-21"},{"id":241,"assignment_id":66,"student_id":26,"score":9,"late":false,"submitted_at":"2026-09-20"},{"id":242,"assignment_id":66,"student_id":54,"score":10,"late":false,"submitted_at":"2026-09-19"},{"id":243,"assignment_id":66,"student_id":79,"score":8,"late":false,"submitted_at":"2026-09-18"},{"id":244,"assignment_id":66,"student_id":86,"score":7,"late":false,"submitted_at":"2026-09-20"},{"id":245,"assignment_id":67,"student_id":3,"score":36,"late":false,"submitted_at":"2026-09-15"},{"id":246,"assignment_id":67,"student_id":22,"score":46,"late":false,"submitted_at":"2026-09-15"},{"id":247,"assignment_id":67,"student_id":26,"score":49,"late":false,"submitted_at":"2026-09-15"},{"id":248,"assignment_id":67,"student_id":54,"score":48,"late":false,"submitted_at":"2026-09-15"},{"id":249,"assignment_id":67,"student_id":79,"score":37,"late":false,"submitted_at":"2026-09-15"},{"id":250,"assignment_id":67,"student_id":86,"score":33,"late":false,"submitted_at":"2026-09-15"},{"id":251,"assignment_id":68,"student_id":3,"score":67,"late":false,"submitted_at":"2026-10-17"},{"id":252,"assignment_id":68,"student_id":22,"score":64,"late":false,"submitted_at":"2026-10-17"},{"id":253,"assignment_id":68,"student_id":54,"score":61,"late":false,"submitted_at":"2026-09-17"},{"id":254,"assignment_id":68,"student_id":79,"score":65,"late":false,"submitted_at":"2026-11-11"},{"id":255,"assignment_id":68,"student_id":86,"score":73,"late":false,"submitted_at":"2026-09-27"},{"id":256,"assignment_id":69,"student_id":9,"score":16,"late":false,"submitted_at":"2026-10-17"},{"id":257,"assignment_id":69,"student_id":33,"score":12,"late":false,"submitted_at":"2026-11-17"},{"id":258,"assignment_id":69,"student_id":44,"score":14,"late":false,"submitted_at":"2026-10-14"},{"id":259,"assignment_id":69,"student_id":66,"score":16,"late":false,"submitted_at":"2026-11-18"},{"id":260,"assignment_id":69,"student_id":68,"score":17,"late":false,"submitted_at":"2026-10-24"},{"id":261,"assignment_id":69,"student_id":74,"score":14,"late":false,"submitted_at":"2026-10-13"},{"id":262,"assignment_id":69,"student_id":78,"score":14,"late":false,"submitted_at":"2026-09-28"},{"id":263,"assignment_id":69,"student_id":80,"score":17,"late":false,"submitted_at":"2026-09-17"},{"id":264,"assignment_id":70,"student_id":9,"score":10,"late":false,"submitted_at":"2026-10-24"},{"id":265,"assignment_id":70,"student_id":33,"score":7,"late":true,"submitted_at":"2026-10-09"},{"id":266,"assignment_id":70,"student_id":38,"score":7,"late":false,"submitted_at":"2026-09-18"},{"id":267,"assignment_id":70,"student_id":66,"score":9,"late":false,"submitted_at":"2026-11-06"},{"id":268,"assignment_id":70,"student_id":68,"score":7,"late":false,"submitted_at":"2026-11-04"},{"id":269,"assignment_id":70,"student_id":74,"score":7,"late":false,"submitted_at":"2026-11-04"},{"id":270,"assignment_id":70,"student_id":78,"score":6,"late":false,"submitted_at":"2026-11-12"},{"id":271,"assignment_id":71,"student_id":9,"score":100,"late":false,"submitted_at":"2026-09-21"},{"id":272,"assignment_id":71,"student_id":38,"score":76,"late":false,"submitted_at":"2026-09-26"},{"id":273,"assignment_id":71,"student_id":44,"score":83,"late":false,"submitted_at":"2026-09-25"},{"id":274,"assignment_id":71,"student_id":66,"score":85,"late":false,"submitted_at":"2026-09-23"},{"id":275,"assignment_id":71,"student_id":68,"score":73,"late":false,"submitted_at":"2026-09-16"},{"id":276,"assignment_id":71,"student_id":74,"score":86,"late":false,"submitted_at":"2026-09-24"},{"id":277,"assignment_id":71,"student_id":78,"score":86,"late":false,"submitted_at":"2026-09-29"},{"id":278,"assignment_id":72,"student_id":9,"score":49,"late":false,"submitted_at":"2026-09-17"},{"id":279,"assignment_id":72,"student_id":33,"score":35,"late":false,"submitted_at":"2026-09-17"},{"id":280,"assignment_id":72,"student_id":38,"score":50,"late":false,"submitted_at":"2026-09-23"},{"id":281,"assignment_id":72,"student_id":66,"score":35,"late":false,"submitted_at":"2026-09-18"},{"id":282,"assignment_id":72,"student_id":74,"score":48,"late":false,"submitted_at":"2026-09-20"},{"id":283,"assignment_id":72,"student_id":78,"score":49,"late":false,"submitted_at":"2026-09-21"},{"id":284,"assignment_id":73,"student_id":30,"score":15,"late":false,"submitted_at":"2026-09-29"},{"id":285,"assignment_id":73,"student_id":43,"score":17,"late":false,"submitted_at":"2026-10-08"},{"id":286,"assignment_id":74,"student_id":30,"score":75,"late":true,"submitted_at":"2026-09-16"},{"id":287,"assignment_id":75,"student_id":43,"score":39,"late":false,"submitted_at":"2026-09-28"},{"id":288,"assignment_id":76,"student_id":11,"score":87,"late":false,"submitted_at":"2026-09-21"},{"id":289,"assignment_id":76,"student_id":27,"score":79,"late":false,"submitted_at":"2026-09-26"},{"id":290,"assignment_id":76,"student_id":28,"score":90,"late":false,"submitted_at":"2026-10-18"},{"id":291,"assignment_id":76,"student_id":41,"score":79,"late":false,"submitted_at":"2026-11-05"},{"id":292,"assignment_id":76,"student_id":51,"score":76,"late":false,"submitted_at":"2026-10-11"},{"id":293,"assignment_id":76,"student_id":72,"score":92,"late":false,"submitted_at":"2026-10-07"},{"id":294,"assignment_id":77,"student_id":27,"score":17,"late":false,"submitted_at":"2026-10-03"},{"id":295,"assignment_id":77,"student_id":28,"score":14,"late":true,"submitted_at":"2026-10-01"},{"id":296,"assignment_id":77,"student_id":41,"score":14,"late":false,"submitted_at":"2026-09-22"},{"id":297,"assignment_id":77,"student_id":51,"score":15,"late":false,"submitted_at":"2026-10-09"},{"id":298,"assignment_id":78,"student_id":19,"score":14,"late":false,"submitted_at":"2026-09-21"},{"id":299,"assignment_id":78,"student_id":27,"score":19,"late":false,"submitted_at":"2026-10-06"},{"id":300,"assignment_id":78,"student_id":48,"score":18,"late":false,"submitted_at":"2026-10-19"},{"id":301,"assignment_id":78,"student_id":49,"score":15,"late":false,"submitted_at":"2026-09-24"},{"id":302,"assignment_id":78,"student_id":73,"score":16,"late":false,"submitted_at":"2026-10-15"},{"id":303,"assignment_id":79,"student_id":19,"score":88,"late":false,"submitted_at":"2026-10-01"},{"id":304,"assignment_id":79,"student_id":27,"score":81,"late":false,"submitted_at":"2026-09-26"},{"id":305,"assignment_id":79,"student_id":48,"score":84,"late":false,"submitted_at":"2026-09-15"},{"id":306,"assignment_id":79,"student_id":49,"score":74,"late":false,"submitted_at":"2026-10-12"},{"id":307,"assignment_id":79,"student_id":73,"score":81,"late":false,"submitted_at":"2026-09-17"},{"id":308,"assignment_id":80,"student_id":15,"score":86,"late":false,"submitted_at":"2026-09-23"},{"id":309,"assignment_id":80,"student_id":18,"score":61,"late":false,"submitted_at":"2026-10-22"},{"id":310,"assignment_id":80,"student_id":21,"score":84,"late":false,"submitted_at":"2026-10-08"},{"id":311,"assignment_id":80,"student_id":24,"score":94,"late":false,"submitted_at":"2026-10-18"},{"id":312,"assignment_id":80,"student_id":37,"score":77,"late":false,"submitted_at":"2026-09-26"},{"id":313,"assignment_id":80,"student_id":39,"score":87,"late":false,"submitted_at":"2026-10-12"},{"id":314,"assignment_id":80,"student_id":41,"score":89,"late":false,"submitted_at":"2026-11-07"},{"id":315,"assignment_id":80,"student_id":61,"score":60,"late":false,"submitted_at":"2026-10-09"},{"id":316,"assignment_id":80,"student_id":76,"score":99,"late":false,"submitted_at":"2026-10-14"},{"id":317,"assignment_id":80,"student_id":89,"score":89,"late":false,"submitted_at":"2026-10-10"},{"id":318,"assignment_id":81,"student_id":15,"score":10,"late":false,"submitted_at":"2026-10-07"},{"id":319,"assignment_id":81,"student_id":21,"score":7,"late":false,"submitted_at":"2026-09-29"},{"id":320,"assignment_id":81,"student_id":24,"score":8,"late":false,"submitted_at":"2026-10-03"},{"id":321,"assignment_id":81,"student_id":37,"score":9,"late":true,"submitted_at":"2026-09-29"},{"id":322,"assignment_id":81,"student_id":39,"score":8,"late":false,"submitted_at":"2026-10-07"},{"id":323,"assignment_id":81,"student_id":41,"score":7,"late":false,"submitted_at":"2026-10-06"},{"id":324,"assignment_id":81,"student_id":61,"score":8,"late":false,"submitted_at":"2026-09-15"},{"id":325,"assignment_id":81,"student_id":89,"score":7,"late":false,"submitted_at":"2026-09-26"},{"id":326,"assignment_id":82,"student_id":15,"score":8,"late":false,"submitted_at":"2026-10-12"},{"id":327,"assignment_id":82,"student_id":18,"score":6,"late":false,"submitted_at":"2026-10-13"},{"id":328,"assignment_id":82,"student_id":21,"score":10,"late":false,"submitted_at":"2026-09-18"},{"id":329,"assignment_id":82,"student_id":24,"score":9,"late":false,"submitted_at":"2026-10-06"},{"id":330,"assignment_id":82,"student_id":37,"score":8,"late":false,"submitted_at":"2026-09-27"},{"id":331,"assignment_id":82,"student_id":39,"score":8,"late":false,"submitted_at":"2026-09-27"},{"id":332,"assignment_id":82,"student_id":41,"score":7,"late":false,"submitted_at":"2026-09-28"},{"id":333,"assignment_id":82,"student_id":61,"score":6,"late":false,"submitted_at":"2026-09-26"},{"id":334,"assignment_id":82,"student_id":76,"score":7,"late":false,"submitted_at":"2026-10-03"},{"id":335,"assignment_id":82,"student_id":89,"score":8,"late":false,"submitted_at":"2026-10-05"},{"id":336,"assignment_id":84,"student_id":86,"score":7,"late":false,"submitted_at":"2026-09-23"},{"id":337,"assignment_id":85,"student_id":86,"score":42,"late":false,"submitted_at":"2026-10-05"},{"id":338,"assignment_id":86,"student_id":36,"score":31,"late":false,"submitted_at":"2026-09-19"},{"id":339,"assignment_id":86,"student_id":47,"score":30,"late":true,"submitted_at":"2026-09-16"},{"id":340,"assignment_id":87,"student_id":36,"score":8,"late":false,"submitted_at":"2026-10-26"},{"id":341,"assignment_id":88,"student_id":36,"score":35,"late":false,"submitted_at":"2026-09-15"},{"id":342,"assignment_id":88,"student_id":47,"score":43,"late":false,"submitted_at":"2026-09-22"},{"id":343,"assignment_id":88,"student_id":90,"score":47,"late":false,"submitted_at":"2026-09-23"},{"id":344,"assignment_id":89,"student_id":36,"score":73,"late":false,"submitted_at":"2026-09-19"},{"id":345,"assignment_id":89,"student_id":90,"score":68,"late":false,"submitted_at":"2026-09-18"},{"id":346,"assignment_id":90,"student_id":44,"score":88,"late":false,"submitted_at":"2026-11-05"},{"id":347,"assignment_id":90,"student_id":48,"score":93,"late":false,"submitted_at":"2026-10-29"},{"id":348,"assignment_id":90,"student_id":70,"score":81,"late":false,"submitted_at":"2026-11-10"},{"id":349,"assignment_id":91,"student_id":3,"score":18,"late":true,"submitted_at":"2026-10-06"},{"id":350,"assignment_id":91,"student_id":44,"score":15,"late":false,"submitted_at":"2026-10-27"},{"id":351,"assignment_id":91,"student_id":48,"score":17,"late":false,"submitted_at":"2026-09-21"},{"id":352,"assignment_id":91,"student_id":70,"score":14,"late":true,"submitted_at":"2026-10-06"},{"id":353,"assignment_id":92,"student_id":44,"score":72,"late":false,"submitted_at":"2026-09-17"},{"id":354,"assignment_id":92,"student_id":70,"score":80,"late":false,"submitted_at":"2026-09-17"},{"id":355,"assignment_id":93,"student_id":3,"score":63,"late":false,"submitted_at":"2026-10-20"},{"id":356,"assignment_id":93,"student_id":48,"score":81,"late":false,"submitted_at":"2026-09-19"},{"id":357,"assignment_id":93,"student_id":70,"score":85,"late":false,"submitted_at":"2026-09-30"}],"clubs":[{"id":1,"name":"Design Engineering Club","category":"Academic","meeting_day":"Tue","meeting_time":"15:20-16:10"},{"id":2,"name":"Robotics Team","category":"Academic","meeting_day":"Wed","meeting_time":"09:05-09:55"},{"id":3,"name":"Debate Society","category":"Academic","meeting_day":"Fri","meeting_time":"13:10-14:00"},{"id":4,"name":"Outing Club","category":"Recreation","meeting_day":"Fri","meeting_time":"15:20-16:10"},{"id":5,"name":"A Cappella Group","category":"Arts","meeting_day":"Thu","meeting_time":"15:20-16:10"},{"id":6,"name":"Investment Club","category":"Academic","meeting_day":"Thu","meeting_time":"15:20-16:10"},{"id":7,"name":"Effective Altruism","category":"Service","meeting_day":"Wed","meeting_time":"15:20-16:10"},{"id":8,"name":"Climbing Club","category":"Recreation","meeting_day":"Tue","meeting_time":"10:10-11:00"},{"id":9,"name":"Film Society","category":"Arts","meeting_day":"Sun","meeting_time":"08:00-08:50"},{"id":10,"name":"Data Science Club","category":"Academic","meeting_day":"Sun","meeting_time":"15:20-16:10"},{"id":11,"name":"Community Tutoring Corps","category":"Service","meeting_day":"Sun","meeting_time":"08:00-08:50"},{"id":12,"name":"Ceramics Guild","category":"Arts","meeting_day":"Sun","meeting_time":"08:00-08:50"},{"id":13,"name":"Ultimate Frisbee","category":"Recreation","meeting_day":"Fri","meeting_time":"13:10-14:00"},{"id":14,"name":"Model UN","category":"Academic","meeting_day":"Thu","meeting_time":"11:15-12:05"}],"club-memberships":[{"id":1,"student_id":1,"club_id":5,"role":"member","joined_at":"2025-06-22"},{"id":2,"student_id":1,"club_id":1,"role":"member","joined_at":"2026-04-28"},{"id":3,"student_id":2,"club_id":1,"role":"member","joined_at":"2024-11-07"},{"id":4,"student_id":2,"club_id":9,"role":"member","joined_at":"2025-11-24"},{"id":5,"student_id":3,"club_id":9,"role":"member","joined_at":"2024-12-30"},{"id":6,"student_id":3,"club_id":12,"role":"member","joined_at":"2024-11-06"},{"id":7,"student_id":3,"club_id":14,"role":"member","joined_at":"2026-02-19"},{"id":8,"student_id":4,"club_id":14,"role":"member","joined_at":"2026-06-28"},{"id":9,"student_id":4,"club_id":11,"role":"member","joined_at":"2025-03-14"},{"id":10,"student_id":4,"club_id":9,"role":"member","joined_at":"2024-12-14"},{"id":11,"student_id":5,"club_id":5,"role":"member","joined_at":"2024-11-11"},{"id":12,"student_id":5,"club_id":1,"role":"member","joined_at":"2025-09-17"},{"id":13,"student_id":7,"club_id":4,"role":"member","joined_at":"2026-05-19"},{"id":14,"student_id":7,"club_id":12,"role":"member","joined_at":"2025-01-11"},{"id":15,"student_id":8,"club_id":11,"role":"member","joined_at":"2025-12-22"},{"id":16,"student_id":8,"club_id":9,"role":"member","joined_at":"2026-01-03"},{"id":17,"student_id":8,"club_id":5,"role":"member","joined_at":"2026-05-29"},{"id":18,"student_id":10,"club_id":13,"role":"member","joined_at":"2025-09-05"},{"id":19,"student_id":10,"club_id":14,"role":"member","joined_at":"2025-02-25"},{"id":20,"student_id":12,"club_id":2,"role":"member","joined_at":"2025-10-15"},{"id":21,"student_id":12,"club_id":10,"role":"member","joined_at":"2025-01-24"},{"id":22,"student_id":13,"club_id":10,"role":"president","joined_at":"2026-07-06"},{"id":23,"student_id":13,"club_id":7,"role":"member","joined_at":"2026-01-05"},{"id":24,"student_id":14,"club_id":13,"role":"member","joined_at":"2025-05-30"},{"id":25,"student_id":14,"club_id":14,"role":"member","joined_at":"2025-08-17"},{"id":26,"student_id":14,"club_id":8,"role":"member","joined_at":"2026-06-23"},{"id":27,"student_id":15,"club_id":6,"role":"member","joined_at":"2026-06-11"},{"id":28,"student_id":16,"club_id":9,"role":"member","joined_at":"2025-04-07"},{"id":29,"student_id":17,"club_id":9,"role":"member","joined_at":"2024-10-28"},{"id":30,"student_id":17,"club_id":4,"role":"member","joined_at":"2025-01-31"},{"id":31,"student_id":22,"club_id":5,"role":"member","joined_at":"2025-03-08"},{"id":32,"student_id":22,"club_id":9,"role":"member","joined_at":"2025-07-24"},{"id":33,"student_id":24,"club_id":12,"role":"member","joined_at":"2026-04-30"},{"id":34,"student_id":25,"club_id":7,"role":"member","joined_at":"2025-08-01"},{"id":35,"student_id":26,"club_id":2,"role":"member","joined_at":"2026-01-21"},{"id":36,"student_id":26,"club_id":4,"role":"member","joined_at":"2025-03-09"},{"id":37,"student_id":28,"club_id":11,"role":"member","joined_at":"2024-12-27"},{"id":38,"student_id":28,"club_id":8,"role":"member","joined_at":"2025-08-27"},{"id":39,"student_id":29,"club_id":4,"role":"member","joined_at":"2025-10-20"},{"id":40,"student_id":31,"club_id":1,"role":"member","joined_at":"2025-11-25"},{"id":41,"student_id":31,"club_id":6,"role":"member","joined_at":"2026-07-16"},{"id":42,"student_id":32,"club_id":4,"role":"member","joined_at":"2026-03-13"},{"id":43,"student_id":33,"club_id":12,"role":"member","joined_at":"2025-12-13"},{"id":44,"student_id":33,"club_id":1,"role":"member","joined_at":"2026-04-16"},{"id":45,"student_id":33,"club_id":3,"role":"member","joined_at":"2025-05-24"},{"id":46,"student_id":34,"club_id":7,"role":"member","joined_at":"2026-08-13"},{"id":47,"student_id":35,"club_id":3,"role":"member","joined_at":"2025-11-05"},{"id":48,"student_id":35,"club_id":6,"role":"member","joined_at":"2025-12-25"},{"id":49,"student_id":35,"club_id":12,"role":"member","joined_at":"2025-07-12"},{"id":50,"student_id":37,"club_id":11,"role":"officer","joined_at":"2024-12-16"},{"id":51,"student_id":37,"club_id":5,"role":"member","joined_at":"2024-12-02"},{"id":52,"student_id":37,"club_id":9,"role":"member","joined_at":"2026-08-05"},{"id":53,"student_id":38,"club_id":13,"role":"member","joined_at":"2025-08-18"},{"id":54,"student_id":38,"club_id":2,"role":"member","joined_at":"2025-08-14"},{"id":55,"student_id":38,"club_id":7,"role":"member","joined_at":"2026-04-13"},{"id":56,"student_id":40,"club_id":3,"role":"member","joined_at":"2025-09-16"},{"id":57,"student_id":41,"club_id":8,"role":"member","joined_at":"2025-06-08"},{"id":58,"student_id":41,"club_id":5,"role":"member","joined_at":"2025-10-18"},{"id":59,"student_id":41,"club_id":10,"role":"member","joined_at":"2026-07-04"},{"id":60,"student_id":43,"club_id":13,"role":"member","joined_at":"2026-06-12"},{"id":61,"student_id":43,"club_id":2,"role":"member","joined_at":"2025-02-01"},{"id":62,"student_id":44,"club_id":9,"role":"member","joined_at":"2026-06-11"},{"id":63,"student_id":44,"club_id":12,"role":"member","joined_at":"2026-03-15"},{"id":64,"student_id":45,"club_id":13,"role":"member","joined_at":"2026-01-27"},{"id":65,"student_id":45,"club_id":6,"role":"member","joined_at":"2025-05-27"},{"id":66,"student_id":45,"club_id":3,"role":"member","joined_at":"2026-01-20"},{"id":67,"student_id":46,"club_id":7,"role":"member","joined_at":"2026-03-18"},{"id":68,"student_id":46,"club_id":1,"role":"member","joined_at":"2026-06-15"},{"id":69,"student_id":49,"club_id":13,"role":"member","joined_at":"2026-03-07"},{"id":70,"student_id":50,"club_id":9,"role":"member","joined_at":"2025-04-20"},{"id":71,"student_id":50,"club_id":14,"role":"member","joined_at":"2026-05-24"},{"id":72,"student_id":51,"club_id":5,"role":"member","joined_at":"2025-11-08"},{"id":73,"student_id":51,"club_id":8,"role":"member","joined_at":"2025-06-11"},{"id":74,"student_id":51,"club_id":10,"role":"member","joined_at":"2025-05-05"},{"id":75,"student_id":53,"club_id":14,"role":"member","joined_at":"2024-10-30"},{"id":76,"student_id":53,"club_id":3,"role":"member","joined_at":"2026-03-26"},{"id":77,"student_id":54,"club_id":6,"role":"member","joined_at":"2025-01-29"},{"id":78,"student_id":54,"club_id":7,"role":"member","joined_at":"2026-07-30"},{"id":79,"student_id":56,"club_id":7,"role":"member","joined_at":"2025-08-02"},{"id":80,"student_id":58,"club_id":11,"role":"member","joined_at":"2025-04-01"},{"id":81,"student_id":58,"club_id":5,"role":"member","joined_at":"2025-03-03"},{"id":82,"student_id":59,"club_id":9,"role":"member","joined_at":"2025-06-29"},{"id":83,"student_id":60,"club_id":9,"role":"member","joined_at":"2025-04-04"},{"id":84,"student_id":61,"club_id":7,"role":"member","joined_at":"2025-06-29"},{"id":85,"student_id":61,"club_id":9,"role":"member","joined_at":"2026-02-15"},{"id":86,"student_id":61,"club_id":11,"role":"member","joined_at":"2025-04-10"},{"id":87,"student_id":62,"club_id":3,"role":"member","joined_at":"2025-02-04"},{"id":88,"student_id":62,"club_id":9,"role":"member","joined_at":"2026-03-24"},{"id":89,"student_id":62,"club_id":2,"role":"member","joined_at":"2025-05-23"},{"id":90,"student_id":63,"club_id":7,"role":"president","joined_at":"2026-03-23"},{"id":91,"student_id":63,"club_id":14,"role":"member","joined_at":"2025-10-29"},{"id":92,"student_id":63,"club_id":10,"role":"member","joined_at":"2025-08-09"},{"id":93,"student_id":64,"club_id":1,"role":"member","joined_at":"2025-04-23"},{"id":94,"student_id":65,"club_id":7,"role":"member","joined_at":"2025-09-25"},{"id":95,"student_id":65,"club_id":11,"role":"member","joined_at":"2025-09-22"},{"id":96,"student_id":66,"club_id":10,"role":"member","joined_at":"2024-12-11"},{"id":97,"student_id":69,"club_id":6,"role":"member","joined_at":"2025-07-25"},{"id":98,"student_id":69,"club_id":1,"role":"member","joined_at":"2025-07-19"},{"id":99,"student_id":69,"club_id":9,"role":"member","joined_at":"2025-12-20"},{"id":100,"student_id":70,"club_id":11,"role":"member","joined_at":"2025-10-15"},{"id":101,"student_id":70,"club_id":3,"role":"member","joined_at":"2025-03-04"},{"id":102,"student_id":70,"club_id":6,"role":"member","joined_at":"2026-08-09"},{"id":103,"student_id":71,"club_id":6,"role":"member","joined_at":"2026-06-27"},{"id":104,"student_id":72,"club_id":3,"role":"member","joined_at":"2026-08-02"},{"id":105,"student_id":72,"club_id":6,"role":"member","joined_at":"2025-05-24"},{"id":106,"student_id":73,"club_id":5,"role":"member","joined_at":"2025-12-09"},{"id":107,"student_id":75,"club_id":10,"role":"officer","joined_at":"2025-12-27"},{"id":108,"student_id":76,"club_id":10,"role":"member","joined_at":"2025-02-25"},{"id":109,"student_id":76,"club_id":11,"role":"member","joined_at":"2025-11-23"},{"id":110,"student_id":77,"club_id":10,"role":"officer","joined_at":"2026-03-21"},{"id":111,"student_id":78,"club_id":7,"role":"member","joined_at":"2025-10-08"},{"id":112,"student_id":79,"club_id":8,"role":"member","joined_at":"2026-02-19"},{"id":113,"student_id":80,"club_id":1,"role":"member","joined_at":"2025-05-07"},{"id":114,"student_id":80,"club_id":2,"role":"member","joined_at":"2026-08-26"},{"id":115,"student_id":82,"club_id":5,"role":"member","joined_at":"2025-09-15"},{"id":116,"student_id":82,"club_id":13,"role":"member","joined_at":"2026-08-24"},{"id":117,"student_id":82,"club_id":11,"role":"member","joined_at":"2025-01-14"},{"id":118,"student_id":84,"club_id":2,"role":"member","joined_at":"2026-08-26"},{"id":119,"student_id":84,"club_id":14,"role":"member","joined_at":"2025-03-20"},{"id":120,"student_id":85,"club_id":2,"role":"member","joined_at":"2025-10-14"},{"id":121,"student_id":85,"club_id":11,"role":"member","joined_at":"2025-11-09"},{"id":122,"student_id":86,"club_id":8,"role":"member","joined_at":"2026-05-13"},{"id":123,"student_id":86,"club_id":12,"role":"member","joined_at":"2025-05-31"},{"id":124,"student_id":87,"club_id":2,"role":"member","joined_at":"2026-02-16"},{"id":125,"student_id":88,"club_id":5,"role":"member","joined_at":"2025-10-14"},{"id":126,"student_id":89,"club_id":14,"role":"member","joined_at":"2025-12-14"},{"id":127,"student_id":89,"club_id":3,"role":"member","joined_at":"2025-12-20"},{"id":128,"student_id":89,"club_id":10,"role":"member","joined_at":"2026-07-09"},{"id":129,"student_id":90,"club_id":6,"role":"member","joined_at":"2025-03-30"},{"id":130,"student_id":90,"club_id":12,"role":"member","joined_at":"2025-10-22"}],"study-groups":[{"id":1,"section_id":1,"name":"Exam Prep 1","meeting_location":"Baker-Berry Library","meeting_time":"09:05-09:55"},{"id":2,"section_id":10,"name":"Exam Prep 1","meeting_location":"Baker-Berry Library","meeting_time":"13:10-14:00"},{"id":3,"section_id":18,"name":"Review Session 1","meeting_location":"Baker-Berry Library","meeting_time":"15:20-16:10"},{"id":4,"section_id":19,"name":"Problem Set Crew 1","meeting_location":"Fahey Lounge","meeting_time":"10:10-11:00"},{"id":5,"section_id":24,"name":"Study Group 1","meeting_location":"Baker-Berry Library","meeting_time":"13:10-14:00"},{"id":6,"section_id":24,"name":"Review Session 2","meeting_location":"Kemeny Atrium","meeting_time":"09:05-09:55"},{"id":7,"section_id":35,"name":"Review Session 1","meeting_location":"Kemeny Atrium","meeting_time":"10:10-11:00"},{"id":8,"section_id":35,"name":"Exam Prep 2","meeting_location":"Novack Cafe","meeting_time":"10:10-11:00"},{"id":9,"section_id":40,"name":"Review Session 1","meeting_location":"Fahey Lounge","meeting_time":"09:05-09:55"},{"id":10,"section_id":46,"name":"Exam Prep 1","meeting_location":"Fahey Lounge","meeting_time":"14:15-15:05"},{"id":11,"section_id":46,"name":"Review Session 2","meeting_location":"Kemeny Atrium","meeting_time":"10:10-11:00"},{"id":12,"section_id":50,"name":"Review Session 1","meeting_location":"Zoom","meeting_time":"13:10-14:00"},{"id":13,"section_id":50,"name":"Problem Set Crew 2","meeting_location":"Baker-Berry Library","meeting_time":"15:20-16:10"},{"id":14,"section_id":56,"name":"Exam Prep 1","meeting_location":"Baker-Berry Library","meeting_time":"11:15-12:05"},{"id":15,"section_id":59,"name":"Study Group 1","meeting_location":"Zoom","meeting_time":"14:15-15:05"},{"id":16,"section_id":59,"name":"Review Session 2","meeting_location":"Kemeny Atrium","meeting_time":"11:15-12:05"},{"id":17,"section_id":64,"name":"Review Session 1","meeting_location":"Kemeny Atrium","meeting_time":"10:10-11:00"},{"id":18,"section_id":64,"name":"Exam Prep 2","meeting_location":"Novack Cafe","meeting_time":"09:05-09:55"},{"id":19,"section_id":66,"name":"Study Group 1","meeting_location":"Novack Cafe","meeting_time":"09:05-09:55"},{"id":20,"section_id":66,"name":"Study Group 2","meeting_location":"Fahey Lounge","meeting_time":"09:05-09:55"},{"id":21,"section_id":67,"name":"Review Session 1","meeting_location":"Zoom","meeting_time":"10:10-11:00"},{"id":22,"section_id":71,"name":"Exam Prep 1","meeting_location":"Baker-Berry Library","meeting_time":"14:15-15:05"},{"id":23,"section_id":72,"name":"Review Session 1","meeting_location":"Zoom","meeting_time":"13:10-14:00"},{"id":24,"section_id":82,"name":"Problem Set Crew 1","meeting_location":"Baker-Berry Library","meeting_time":"15:20-16:10"},{"id":25,"section_id":82,"name":"Study Group 2","meeting_location":"Zoom","meeting_time":"14:15-15:05"},{"id":26,"section_id":84,"name":"Review Session 1","meeting_location":"Zoom","meeting_time":"15:20-16:10"},{"id":27,"section_id":84,"name":"Problem Set Crew 2","meeting_location":"Zoom","meeting_time":"10:10-11:00"},{"id":28,"section_id":88,"name":"Problem Set Crew 1","meeting_location":"Zoom","meeting_time":"14:15-15:05"},{"id":29,"section_id":108,"name":"Problem Set Crew 1","meeting_location":"Fahey Lounge","meeting_time":"09:05-09:55"}],"study-group-members":[{"id":1,"study_group_id":1,"student_id":31},{"id":2,"study_group_id":1,"student_id":29},{"id":3,"study_group_id":1,"student_id":41},{"id":4,"study_group_id":1,"student_id":12},{"id":5,"study_group_id":1,"student_id":37},{"id":6,"study_group_id":1,"student_id":25},{"id":7,"study_group_id":2,"student_id":73},{"id":8,"study_group_id":2,"student_id":52},{"id":9,"study_group_id":2,"student_id":25},{"id":10,"study_group_id":2,"student_id":84},{"id":11,"study_group_id":2,"student_id":34},{"id":12,"study_group_id":3,"student_id":58},{"id":13,"study_group_id":3,"student_id":69},{"id":14,"study_group_id":3,"student_id":78},{"id":15,"study_group_id":3,"student_id":23},{"id":16,"study_group_id":3,"student_id":79},{"id":17,"study_group_id":4,"student_id":22},{"id":18,"study_group_id":4,"student_id":38},{"id":19,"study_group_id":4,"student_id":2},{"id":20,"study_group_id":4,"student_id":26},{"id":21,"study_group_id":5,"student_id":2},{"id":22,"study_group_id":5,"student_id":7},{"id":23,"study_group_id":5,"student_id":16},{"id":24,"study_group_id":5,"student_id":18},{"id":25,"study_group_id":5,"student_id":57},{"id":26,"study_group_id":6,"student_id":7},{"id":27,"study_group_id":6,"student_id":18},{"id":28,"study_group_id":6,"student_id":16},{"id":29,"study_group_id":6,"student_id":57},{"id":30,"study_group_id":7,"student_id":26},{"id":31,"study_group_id":7,"student_id":76},{"id":32,"study_group_id":7,"student_id":80},{"id":33,"study_group_id":7,"student_id":11},{"id":34,"study_group_id":8,"student_id":26},{"id":35,"study_group_id":8,"student_id":76},{"id":36,"study_group_id":8,"student_id":80},{"id":37,"study_group_id":8,"student_id":11},{"id":38,"study_group_id":9,"student_id":7},{"id":39,"study_group_id":9,"student_id":21},{"id":40,"study_group_id":9,"student_id":10},{"id":41,"study_group_id":10,"student_id":56},{"id":42,"study_group_id":10,"student_id":15},{"id":43,"study_group_id":10,"student_id":54},{"id":44,"study_group_id":10,"student_id":9},{"id":45,"study_group_id":10,"student_id":63},{"id":46,"study_group_id":11,"student_id":9},{"id":47,"study_group_id":11,"student_id":54},{"id":48,"study_group_id":11,"student_id":56},{"id":49,"study_group_id":11,"student_id":15},{"id":50,"study_group_id":11,"student_id":63},{"id":51,"study_group_id":12,"student_id":49},{"id":52,"study_group_id":12,"student_id":40},{"id":53,"study_group_id":12,"student_id":57},{"id":54,"study_group_id":12,"student_id":66},{"id":55,"study_group_id":13,"student_id":57},{"id":56,"study_group_id":13,"student_id":40},{"id":57,"study_group_id":13,"student_id":49},{"id":58,"study_group_id":14,"student_id":58},{"id":59,"study_group_id":14,"student_id":83},{"id":60,"study_group_id":14,"student_id":61},{"id":61,"study_group_id":15,"student_id":11},{"id":62,"study_group_id":15,"student_id":43},{"id":63,"study_group_id":15,"student_id":54},{"id":64,"study_group_id":15,"student_id":59},{"id":65,"study_group_id":16,"student_id":54},{"id":66,"study_group_id":16,"student_id":59},{"id":67,"study_group_id":16,"student_id":11},{"id":68,"study_group_id":16,"student_id":43},{"id":69,"study_group_id":17,"student_id":6},{"id":70,"study_group_id":17,"student_id":8},{"id":71,"study_group_id":17,"student_id":52},{"id":72,"study_group_id":18,"student_id":61},{"id":73,"study_group_id":18,"student_id":52},{"id":74,"study_group_id":18,"student_id":6},{"id":75,"study_group_id":18,"student_id":8},{"id":76,"study_group_id":19,"student_id":68},{"id":77,"study_group_id":19,"student_id":32},{"id":78,"study_group_id":19,"student_id":90},{"id":79,"study_group_id":20,"student_id":32},{"id":80,"study_group_id":20,"student_id":90},{"id":81,"study_group_id":20,"student_id":68},{"id":82,"study_group_id":21,"student_id":57},{"id":83,"study_group_id":21,"student_id":14},{"id":84,"study_group_id":21,"student_id":4},{"id":85,"study_group_id":21,"student_id":49},{"id":86,"study_group_id":22,"student_id":86},{"id":87,"study_group_id":22,"student_id":3},{"id":88,"study_group_id":22,"student_id":54},{"id":89,"study_group_id":22,"student_id":22},{"id":90,"study_group_id":22,"student_id":79},{"id":91,"study_group_id":23,"student_id":38},{"id":92,"study_group_id":23,"student_id":68},{"id":93,"study_group_id":23,"student_id":78},{"id":94,"study_group_id":23,"student_id":74},{"id":95,"study_group_id":23,"student_id":80},{"id":96,"study_group_id":24,"student_id":41},{"id":97,"study_group_id":24,"student_id":51},{"id":98,"study_group_id":24,"student_id":11},{"id":99,"study_group_id":24,"student_id":27},{"id":100,"study_group_id":24,"student_id":28},{"id":101,"study_group_id":24,"student_id":72},{"id":102,"study_group_id":25,"student_id":28},{"id":103,"study_group_id":25,"student_id":51},{"id":104,"study_group_id":25,"student_id":72},{"id":105,"study_group_id":26,"student_id":27},{"id":106,"study_group_id":26,"student_id":73},{"id":107,"study_group_id":26,"student_id":19},{"id":108,"study_group_id":26,"student_id":48},{"id":109,"study_group_id":27,"student_id":49},{"id":110,"study_group_id":27,"student_id":27},{"id":111,"study_group_id":27,"student_id":73},{"id":112,"study_group_id":27,"student_id":48},{"id":113,"study_group_id":28,"student_id":61},{"id":114,"study_group_id":28,"student_id":37},{"id":115,"study_group_id":28,"student_id":39},{"id":116,"study_group_id":29,"student_id":36},{"id":117,"study_group_id":29,"student_id":47},{"id":118,"study_group_id":29,"student_id":90}],"campus-jobs":[{"id":1,"title":"Library Circulation Assistant","department":"Library","hourly_rate":16.5,"hours_per_week":8},{"id":2,"title":"Dining Hall Server","department":"Dining Services","hourly_rate":14,"hours_per_week":8},{"id":3,"title":"IT Help Desk Consultant","department":"IT","hourly_rate":13.5,"hours_per_week":8},{"id":4,"title":"Research Assistant (paid)","department":"Academic","hourly_rate":16.5,"hours_per_week":8},{"id":5,"title":"Admissions Tour Guide","department":"Admissions","hourly_rate":16.5,"hours_per_week":8},{"id":6,"title":"Fitness Center Attendant","department":"Recreation","hourly_rate":14,"hours_per_week":10},{"id":7,"title":"Peer Tutor","department":"Academic Skills Center","hourly_rate":14,"hours_per_week":12},{"id":8,"title":"Mailroom Clerk","department":"Mail Services","hourly_rate":15,"hours_per_week":5},{"id":9,"title":"Box Office Assistant","department":"Hopkins Center","hourly_rate":18,"hours_per_week":8},{"id":10,"title":"Sustainability Office Intern","department":"Sustainability","hourly_rate":16.5,"hours_per_week":12}],"job-assignments":[{"id":1,"student_id":1,"campus_job_id":9,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-21"},{"id":2,"student_id":2,"campus_job_id":6,"supervisor_instructor_id":null,"hours_per_week":10,"term":"26F","start_date":"2026-09-22"},{"id":3,"student_id":5,"campus_job_id":1,"supervisor_instructor_id":8,"hours_per_week":8,"term":"26F","start_date":"2026-09-25"},{"id":4,"student_id":11,"campus_job_id":5,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-16"},{"id":5,"student_id":17,"campus_job_id":1,"supervisor_instructor_id":4,"hours_per_week":8,"term":"26F","start_date":"2026-09-26"},{"id":6,"student_id":21,"campus_job_id":3,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-21"},{"id":7,"student_id":27,"campus_job_id":3,"supervisor_instructor_id":5,"hours_per_week":8,"term":"26F","start_date":"2026-09-17"},{"id":8,"student_id":28,"campus_job_id":5,"supervisor_instructor_id":16,"hours_per_week":8,"term":"26F","start_date":"2026-09-22"},{"id":9,"student_id":29,"campus_job_id":2,"supervisor_instructor_id":18,"hours_per_week":8,"term":"26F","start_date":"2026-09-18"},{"id":10,"student_id":32,"campus_job_id":5,"supervisor_instructor_id":19,"hours_per_week":8,"term":"26F","start_date":"2026-09-15"},{"id":11,"student_id":34,"campus_job_id":1,"supervisor_instructor_id":5,"hours_per_week":8,"term":"26F","start_date":"2026-09-20"},{"id":12,"student_id":36,"campus_job_id":7,"supervisor_instructor_id":21,"hours_per_week":12,"term":"26F","start_date":"2026-09-24"},{"id":13,"student_id":37,"campus_job_id":5,"supervisor_instructor_id":18,"hours_per_week":8,"term":"26F","start_date":"2026-09-19"},{"id":14,"student_id":40,"campus_job_id":9,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-20"},{"id":15,"student_id":45,"campus_job_id":2,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-24"},{"id":16,"student_id":46,"campus_job_id":1,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-25"},{"id":17,"student_id":47,"campus_job_id":3,"supervisor_instructor_id":22,"hours_per_week":8,"term":"26F","start_date":"2026-09-16"},{"id":18,"student_id":48,"campus_job_id":5,"supervisor_instructor_id":6,"hours_per_week":8,"term":"26F","start_date":"2026-09-20"},{"id":19,"student_id":54,"campus_job_id":7,"supervisor_instructor_id":6,"hours_per_week":12,"term":"26F","start_date":"2026-09-26"},{"id":20,"student_id":55,"campus_job_id":4,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-26"},{"id":21,"student_id":59,"campus_job_id":9,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-26"},{"id":22,"student_id":64,"campus_job_id":10,"supervisor_instructor_id":null,"hours_per_week":12,"term":"26F","start_date":"2026-09-17"},{"id":23,"student_id":67,"campus_job_id":2,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-18"},{"id":24,"student_id":71,"campus_job_id":4,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-21"},{"id":25,"student_id":72,"campus_job_id":10,"supervisor_instructor_id":20,"hours_per_week":12,"term":"26F","start_date":"2026-09-26"},{"id":26,"student_id":75,"campus_job_id":7,"supervisor_instructor_id":4,"hours_per_week":12,"term":"26F","start_date":"2026-09-24"},{"id":27,"student_id":77,"campus_job_id":1,"supervisor_instructor_id":22,"hours_per_week":8,"term":"26F","start_date":"2026-09-24"},{"id":28,"student_id":78,"campus_job_id":10,"supervisor_instructor_id":13,"hours_per_week":12,"term":"26F","start_date":"2026-09-20"},{"id":29,"student_id":80,"campus_job_id":1,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-16"},{"id":30,"student_id":82,"campus_job_id":9,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-19"},{"id":31,"student_id":83,"campus_job_id":5,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-20"},{"id":32,"student_id":84,"campus_job_id":2,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-20"},{"id":33,"student_id":90,"campus_job_id":2,"supervisor_instructor_id":null,"hours_per_week":8,"term":"26F","start_date":"2026-09-20"}],"events":[{"id":1,"title":"Alumni Panel: Life After Dartmouth","category":"Speaker","date":"2026-10-16","location":"Top of the Hop","capacity":100},{"id":2,"title":"Winter Carnival Kickoff","category":"Social","date":"2026-09-19","location":"Alumni Hall","capacity":400},{"id":3,"title":"Homecoming Bonfire","category":"Social","date":"2026-09-15","location":"Alumni Hall","capacity":400},{"id":4,"title":"Comedy Night","category":"Social","date":"2026-11-09","location":"Alumni Hall","capacity":50},{"id":5,"title":"Film Screening: Student Shorts","category":"Cultural","date":"2026-09-18","location":"Top of the Hop","capacity":400},{"id":6,"title":"Fall Concert Series","category":"Concert","date":"2026-10-11","location":"Top of the Hop","capacity":50},{"id":7,"title":"Poetry Slam","category":"Cultural","date":"2026-10-02","location":"Alumni Hall","capacity":100},{"id":8,"title":"Guest Speaker: Tech Ethics","category":"Speaker","date":"2026-10-10","location":"Fahey Lounge","capacity":200},{"id":9,"title":"Career Fair","category":"Career","date":"2026-10-23","location":"Class of 1930 Room","capacity":50},{"id":10,"title":"Guest Speaker: Climate Policy","category":"Speaker","date":"2026-10-31","location":"Class of 1930 Room","capacity":50},{"id":11,"title":"International Food Festival","category":"Cultural","date":"2026-09-23","location":"Class of 1930 Room","capacity":50},{"id":12,"title":"A Cappella Jam","category":"Concert","date":"2026-10-27","location":"Faulkner Recital Hall","capacity":100}],"event-rsvps":[{"id":1,"student_id":1,"event_id":12,"status":"declined"},{"id":2,"student_id":1,"event_id":7,"status":"maybe"},{"id":3,"student_id":1,"event_id":5,"status":"maybe"},{"id":4,"student_id":2,"event_id":12,"status":"maybe"},{"id":5,"student_id":2,"event_id":9,"status":"maybe"},{"id":6,"student_id":2,"event_id":11,"status":"attended"},{"id":7,"student_id":5,"event_id":1,"status":"maybe"},{"id":8,"student_id":5,"event_id":11,"status":"attended"},{"id":9,"student_id":6,"event_id":2,"status":"maybe"},{"id":10,"student_id":6,"event_id":7,"status":"attended"},{"id":11,"student_id":8,"event_id":6,"status":"declined"},{"id":12,"student_id":10,"event_id":2,"status":"maybe"},{"id":13,"student_id":10,"event_id":9,"status":"attended"},{"id":14,"student_id":11,"event_id":9,"status":"going"},{"id":15,"student_id":12,"event_id":7,"status":"going"},{"id":16,"student_id":12,"event_id":1,"status":"going"},{"id":17,"student_id":13,"event_id":7,"status":"attended"},{"id":18,"student_id":13,"event_id":2,"status":"declined"},{"id":19,"student_id":15,"event_id":12,"status":"attended"},{"id":20,"student_id":16,"event_id":2,"status":"declined"},{"id":21,"student_id":17,"event_id":6,"status":"maybe"},{"id":22,"student_id":17,"event_id":4,"status":"declined"},{"id":23,"student_id":19,"event_id":2,"status":"attended"},{"id":24,"student_id":23,"event_id":10,"status":"attended"},{"id":25,"student_id":23,"event_id":7,"status":"attended"},{"id":26,"student_id":24,"event_id":8,"status":"going"},{"id":27,"student_id":26,"event_id":8,"status":"going"},{"id":28,"student_id":26,"event_id":9,"status":"maybe"},{"id":29,"student_id":26,"event_id":7,"status":"maybe"},{"id":30,"student_id":27,"event_id":4,"status":"attended"},{"id":31,"student_id":27,"event_id":7,"status":"going"},{"id":32,"student_id":27,"event_id":8,"status":"going"},{"id":33,"student_id":29,"event_id":9,"status":"declined"},{"id":34,"student_id":30,"event_id":10,"status":"maybe"},{"id":35,"student_id":30,"event_id":4,"status":"declined"},{"id":36,"student_id":30,"event_id":2,"status":"maybe"},{"id":37,"student_id":31,"event_id":8,"status":"going"},{"id":38,"student_id":32,"event_id":7,"status":"declined"},{"id":39,"student_id":32,"event_id":10,"status":"going"},{"id":40,"student_id":32,"event_id":12,"status":"going"},{"id":41,"student_id":34,"event_id":2,"status":"going"},{"id":42,"student_id":37,"event_id":11,"status":"going"},{"id":43,"student_id":37,"event_id":10,"status":"attended"},{"id":44,"student_id":37,"event_id":7,"status":"attended"},{"id":45,"student_id":38,"event_id":8,"status":"going"},{"id":46,"student_id":38,"event_id":2,"status":"maybe"},{"id":47,"student_id":38,"event_id":1,"status":"maybe"},{"id":48,"student_id":39,"event_id":12,"status":"going"},{"id":49,"student_id":42,"event_id":6,"status":"going"},{"id":50,"student_id":42,"event_id":2,"status":"attended"},{"id":51,"student_id":43,"event_id":7,"status":"attended"},{"id":52,"student_id":43,"event_id":10,"status":"attended"},{"id":53,"student_id":43,"event_id":9,"status":"declined"},{"id":54,"student_id":44,"event_id":2,"status":"going"},{"id":55,"student_id":44,"event_id":1,"status":"declined"},{"id":56,"student_id":45,"event_id":9,"status":"going"},{"id":57,"student_id":46,"event_id":2,"status":"going"},{"id":58,"student_id":46,"event_id":6,"status":"declined"},{"id":59,"student_id":46,"event_id":12,"status":"going"},{"id":60,"student_id":47,"event_id":4,"status":"attended"},{"id":61,"student_id":49,"event_id":8,"status":"declined"},{"id":62,"student_id":49,"event_id":11,"status":"going"},{"id":63,"student_id":50,"event_id":4,"status":"attended"},{"id":64,"student_id":50,"event_id":5,"status":"going"},{"id":65,"student_id":53,"event_id":6,"status":"attended"},{"id":66,"student_id":56,"event_id":5,"status":"going"},{"id":67,"student_id":56,"event_id":6,"status":"attended"},{"id":68,"student_id":56,"event_id":10,"status":"declined"},{"id":69,"student_id":58,"event_id":4,"status":"declined"},{"id":70,"student_id":59,"event_id":10,"status":"attended"},{"id":71,"student_id":59,"event_id":1,"status":"declined"},{"id":72,"student_id":59,"event_id":5,"status":"going"},{"id":73,"student_id":60,"event_id":3,"status":"attended"},{"id":74,"student_id":60,"event_id":11,"status":"declined"},{"id":75,"student_id":61,"event_id":8,"status":"declined"},{"id":76,"student_id":61,"event_id":7,"status":"declined"},{"id":77,"student_id":61,"event_id":2,"status":"attended"},{"id":78,"student_id":62,"event_id":8,"status":"going"},{"id":79,"student_id":62,"event_id":11,"status":"going"},{"id":80,"student_id":63,"event_id":2,"status":"going"},{"id":81,"student_id":63,"event_id":10,"status":"going"},{"id":82,"student_id":63,"event_id":1,"status":"maybe"},{"id":83,"student_id":65,"event_id":8,"status":"going"},{"id":84,"student_id":65,"event_id":3,"status":"going"},{"id":85,"student_id":66,"event_id":7,"status":"declined"},{"id":86,"student_id":67,"event_id":3,"status":"going"},{"id":87,"student_id":67,"event_id":4,"status":"going"},{"id":88,"student_id":68,"event_id":4,"status":"maybe"},{"id":89,"student_id":68,"event_id":3,"status":"going"},{"id":90,"student_id":69,"event_id":1,"status":"maybe"},{"id":91,"student_id":70,"event_id":9,"status":"going"},{"id":92,"student_id":70,"event_id":7,"status":"declined"},{"id":93,"student_id":71,"event_id":7,"status":"going"},{"id":94,"student_id":72,"event_id":12,"status":"going"},{"id":95,"student_id":72,"event_id":9,"status":"maybe"},{"id":96,"student_id":72,"event_id":10,"status":"maybe"},{"id":97,"student_id":73,"event_id":4,"status":"maybe"},{"id":98,"student_id":73,"event_id":8,"status":"going"},{"id":99,"student_id":73,"event_id":6,"status":"declined"},{"id":100,"student_id":75,"event_id":11,"status":"declined"},{"id":101,"student_id":77,"event_id":1,"status":"attended"},{"id":102,"student_id":77,"event_id":3,"status":"maybe"},{"id":103,"student_id":77,"event_id":6,"status":"going"},{"id":104,"student_id":78,"event_id":5,"status":"going"},{"id":105,"student_id":79,"event_id":5,"status":"maybe"},{"id":106,"student_id":79,"event_id":7,"status":"declined"},{"id":107,"student_id":79,"event_id":11,"status":"going"},{"id":108,"student_id":80,"event_id":4,"status":"attended"},{"id":109,"student_id":81,"event_id":3,"status":"attended"},{"id":110,"student_id":81,"event_id":12,"status":"maybe"},{"id":111,"student_id":83,"event_id":3,"status":"going"},{"id":112,"student_id":83,"event_id":8,"status":"going"},{"id":113,"student_id":83,"event_id":7,"status":"attended"},{"id":114,"student_id":85,"event_id":5,"status":"maybe"},{"id":115,"student_id":85,"event_id":8,"status":"going"},{"id":116,"student_id":85,"event_id":11,"status":"declined"},{"id":117,"student_id":86,"event_id":4,"status":"declined"},{"id":118,"student_id":87,"event_id":9,"status":"declined"},{"id":119,"student_id":87,"event_id":12,"status":"declined"},{"id":120,"student_id":88,"event_id":11,"status":"attended"},{"id":121,"student_id":88,"event_id":2,"status":"going"},{"id":122,"student_id":88,"event_id":8,"status":"going"},{"id":123,"student_id":89,"event_id":3,"status":"maybe"},{"id":124,"student_id":89,"event_id":7,"status":"attended"},{"id":125,"student_id":89,"event_id":8,"status":"going"},{"id":126,"student_id":90,"event_id":2,"status":"maybe"}],"workshops":[{"id":1,"title":"Resume Review Night","category":"Career","facilitator":"Elena Dubois","date":"2026-11-17","location":"Fahey Lounge","capacity":30,"description":"A hands-on session on resume review night, open to all students."},{"id":2,"title":"Conflict Resolution for Group Projects","category":"Leadership","facilitator":"Freya Moreno","date":"2026-11-06","location":"Faulkner Recital Hall","capacity":15,"description":"A hands-on session on conflict resolution for group projects, open to all students."},{"id":3,"title":"Intro to Watercolor","category":"Creative","facilitator":"Aisha Chen","date":"2026-10-15","location":"Top of the Hop","capacity":20,"description":"A hands-on session on intro to watercolor, open to all students."},{"id":4,"title":"Figma for Non-Designers","category":"Technical","facilitator":"Owen Rossi","date":"2026-09-23","location":"Class of 1930 Room","capacity":40,"description":"A hands-on session on figma for non-designers, open to all students."},{"id":5,"title":"Podcasting 101","category":"Creative","facilitator":"Marcus Haddad","date":"2026-11-11","location":"Fahey Lounge","capacity":20,"description":"A hands-on session on podcasting 101, open to all students."},{"id":6,"title":"Negotiating Your First Offer","category":"Career","facilitator":"Zoe Nguyen","date":"2026-10-30","location":"Alumni Hall","capacity":40,"description":"A hands-on session on negotiating your first offer, open to all students."},{"id":7,"title":"Intro to Woodworking","category":"Creative","facilitator":"Theo Petrov","date":"2026-11-09","location":"Class of 1930 Room","capacity":20,"description":"A hands-on session on intro to woodworking, open to all students."},{"id":8,"title":"Mindfulness & Finals Week","category":"Wellness","facilitator":"Wren Bianchi","date":"2026-11-03","location":"Top of the Hop","capacity":40,"description":"A hands-on session on mindfulness & finals week, open to all students."},{"id":9,"title":"Resilience & Time Management","category":"Wellness","facilitator":"Wren Sorensen","date":"2026-09-22","location":"Alumni Hall","capacity":20,"description":"A hands-on session on resilience & time management, open to all students."},{"id":10,"title":"Sleep Hygiene for Students","category":"Wellness","facilitator":"Maya Okonkwo","date":"2026-11-15","location":"Alumni Hall","capacity":40,"description":"A hands-on session on sleep hygiene for students, open to all students."},{"id":11,"title":"Intro to Networking (the human kind)","category":"Career","facilitator":"Anaya Takahashi","date":"2026-09-24","location":"Faulkner Recital Hall","capacity":20,"description":"A hands-on session on intro to networking (the human kind), open to all students."},{"id":12,"title":"Hackathon Prep: Git & Teams","category":"Technical","facilitator":"Yara Kessler","date":"2026-11-10","location":"Class of 1930 Room","capacity":30,"description":"A hands-on session on hackathon prep: git & teams, open to all students."},{"id":13,"title":"LinkedIn Headshots + Branding","category":"Career","facilitator":"Elena Dlamini","date":"2026-10-20","location":"Faulkner Recital Hall","capacity":20,"description":"A hands-on session on linkedin headshots + branding, open to all students."},{"id":14,"title":"Leading Without a Title","category":"Leadership","facilitator":"Freya Romero","date":"2026-09-19","location":"Faulkner Recital Hall","capacity":20,"description":"A hands-on session on leading without a title, open to all students."},{"id":15,"title":"Building a Personal Website","category":"Technical","facilitator":"Ethan Petrov","date":"2026-10-29","location":"Top of the Hop","capacity":40,"description":"A hands-on session on building a personal website, open to all students."},{"id":16,"title":"Public Speaking Bootcamp","category":"Career","facilitator":"Yara Santos","date":"2026-09-22","location":"Faulkner Recital Hall","capacity":20,"description":"A hands-on session on public speaking bootcamp, open to all students."},{"id":17,"title":"Intro to Investing","category":"Career","facilitator":"Miles Sorensen","date":"2026-09-21","location":"Faulkner Recital Hall","capacity":15,"description":"A hands-on session on intro to investing, open to all students."},{"id":18,"title":"Pottery & Stress Relief","category":"Creative","facilitator":"Sofia Kessler","date":"2026-10-10","location":"Top of the Hop","capacity":40,"description":"A hands-on session on pottery & stress relief, open to all students."}],"workshop-registrations":[{"id":1,"student_id":2,"workshop_id":16,"status":"attended"},{"id":2,"student_id":3,"workshop_id":10,"status":"registered"},{"id":3,"student_id":5,"workshop_id":14,"status":"registered"},{"id":4,"student_id":5,"workshop_id":16,"status":"registered"},{"id":5,"student_id":7,"workshop_id":8,"status":"registered"},{"id":6,"student_id":7,"workshop_id":16,"status":"waitlisted"},{"id":7,"student_id":7,"workshop_id":13,"status":"waitlisted"},{"id":8,"student_id":9,"workshop_id":13,"status":"registered"},{"id":9,"student_id":10,"workshop_id":7,"status":"attended"},{"id":10,"student_id":10,"workshop_id":14,"status":"registered"},{"id":11,"student_id":12,"workshop_id":1,"status":"registered"},{"id":12,"student_id":13,"workshop_id":2,"status":"registered"},{"id":13,"student_id":14,"workshop_id":13,"status":"attended"},{"id":14,"student_id":16,"workshop_id":12,"status":"waitlisted"},{"id":15,"student_id":18,"workshop_id":5,"status":"waitlisted"},{"id":16,"student_id":19,"workshop_id":16,"status":"registered"},{"id":17,"student_id":19,"workshop_id":8,"status":"attended"},{"id":18,"student_id":20,"workshop_id":8,"status":"registered"},{"id":19,"student_id":20,"workshop_id":3,"status":"registered"},{"id":20,"student_id":21,"workshop_id":7,"status":"registered"},{"id":21,"student_id":21,"workshop_id":5,"status":"registered"},{"id":22,"student_id":22,"workshop_id":8,"status":"registered"},{"id":23,"student_id":23,"workshop_id":14,"status":"attended"},{"id":24,"student_id":23,"workshop_id":17,"status":"registered"},{"id":25,"student_id":23,"workshop_id":10,"status":"registered"},{"id":26,"student_id":24,"workshop_id":8,"status":"waitlisted"},{"id":27,"student_id":24,"workshop_id":2,"status":"registered"},{"id":28,"student_id":24,"workshop_id":14,"status":"registered"},{"id":29,"student_id":25,"workshop_id":7,"status":"waitlisted"},{"id":30,"student_id":25,"workshop_id":14,"status":"waitlisted"},{"id":31,"student_id":29,"workshop_id":7,"status":"attended"},{"id":32,"student_id":30,"workshop_id":4,"status":"registered"},{"id":33,"student_id":30,"workshop_id":15,"status":"registered"},{"id":34,"student_id":31,"workshop_id":5,"status":"registered"},{"id":35,"student_id":31,"workshop_id":15,"status":"attended"},{"id":36,"student_id":31,"workshop_id":18,"status":"registered"},{"id":37,"student_id":32,"workshop_id":8,"status":"registered"},{"id":38,"student_id":32,"workshop_id":17,"status":"waitlisted"},{"id":39,"student_id":32,"workshop_id":11,"status":"attended"},{"id":40,"student_id":33,"workshop_id":13,"status":"registered"},{"id":41,"student_id":36,"workshop_id":1,"status":"attended"},{"id":42,"student_id":36,"workshop_id":9,"status":"registered"},{"id":43,"student_id":40,"workshop_id":4,"status":"registered"},{"id":44,"student_id":40,"workshop_id":7,"status":"waitlisted"},{"id":45,"student_id":41,"workshop_id":14,"status":"registered"},{"id":46,"student_id":41,"workshop_id":18,"status":"waitlisted"},{"id":47,"student_id":43,"workshop_id":13,"status":"attended"},{"id":48,"student_id":43,"workshop_id":14,"status":"attended"},{"id":49,"student_id":43,"workshop_id":17,"status":"waitlisted"},{"id":50,"student_id":45,"workshop_id":18,"status":"attended"},{"id":51,"student_id":47,"workshop_id":7,"status":"attended"},{"id":52,"student_id":47,"workshop_id":9,"status":"registered"},{"id":53,"student_id":48,"workshop_id":12,"status":"attended"},{"id":54,"student_id":48,"workshop_id":14,"status":"attended"},{"id":55,"student_id":52,"workshop_id":12,"status":"registered"},{"id":56,"student_id":54,"workshop_id":3,"status":"registered"},{"id":57,"student_id":54,"workshop_id":1,"status":"registered"},{"id":58,"student_id":55,"workshop_id":4,"status":"attended"},{"id":59,"student_id":56,"workshop_id":9,"status":"attended"},{"id":60,"student_id":58,"workshop_id":7,"status":"registered"},{"id":61,"student_id":60,"workshop_id":9,"status":"attended"},{"id":62,"student_id":60,"workshop_id":8,"status":"waitlisted"},{"id":63,"student_id":60,"workshop_id":7,"status":"attended"},{"id":64,"student_id":67,"workshop_id":16,"status":"registered"},{"id":65,"student_id":67,"workshop_id":1,"status":"registered"},{"id":66,"student_id":67,"workshop_id":12,"status":"attended"},{"id":67,"student_id":68,"workshop_id":6,"status":"attended"},{"id":68,"student_id":68,"workshop_id":9,"status":"attended"},{"id":69,"student_id":70,"workshop_id":9,"status":"attended"},{"id":70,"student_id":73,"workshop_id":2,"status":"waitlisted"},{"id":71,"student_id":74,"workshop_id":9,"status":"registered"},{"id":72,"student_id":76,"workshop_id":1,"status":"waitlisted"},{"id":73,"student_id":76,"workshop_id":15,"status":"attended"},{"id":74,"student_id":76,"workshop_id":9,"status":"waitlisted"},{"id":75,"student_id":78,"workshop_id":2,"status":"attended"},{"id":76,"student_id":78,"workshop_id":7,"status":"waitlisted"},{"id":77,"student_id":78,"workshop_id":5,"status":"registered"},{"id":78,"student_id":79,"workshop_id":12,"status":"attended"},{"id":79,"student_id":80,"workshop_id":15,"status":"waitlisted"},{"id":80,"student_id":81,"workshop_id":8,"status":"registered"},{"id":81,"student_id":81,"workshop_id":1,"status":"registered"},{"id":82,"student_id":81,"workshop_id":17,"status":"registered"},{"id":83,"student_id":85,"workshop_id":11,"status":"attended"},{"id":84,"student_id":86,"workshop_id":7,"status":"registered"},{"id":85,"student_id":87,"workshop_id":13,"status":"attended"},{"id":86,"student_id":88,"workshop_id":18,"status":"registered"},{"id":87,"student_id":89,"workshop_id":12,"status":"attended"},{"id":88,"student_id":89,"workshop_id":4,"status":"registered"},{"id":89,"student_id":89,"workshop_id":15,"status":"registered"}]}};
+
+return { COURSE_SNAPSHOT };
+})();
+
+// src/data/courseApi.js
+__m["src/data/courseApi.js"] = (function () {
+// Verified against the Design Engineering course API. All imported people and
+// records are synthetic. Never send the Dartmouth Chat credential to this API.
+const { COURSE_SNAPSHOT } = __m["src/data/courseSnapshot.js"];
+const { emptyState, normalizeState } = __m["src/core/model.js"];
+const { isDateString, parseClockInput, zonedToMs, DEFAULT_TZ } = __m["src/core/time.js"];
+const COURSE_BASE_URL = 'https://api-backend-zeta-five.vercel.app';
+const COURSE_ENDPOINTS = ['students', 'terms', 'courses', 'sections', 'enrollments', 'assignments', 'submissions', 'clubs', 'club-memberships', 'study-groups', 'study-group-members', 'campus-jobs', 'job-assignments', 'events', 'event-rsvps', 'workshops', 'workshop-registrations'];
+const COURSE_SNAPSHOT_DATE = COURSE_SNAPSHOT.fetchedAt;
+function bundledCourseData() { return structuredClone(COURSE_SNAPSHOT); }
+
+// No silent fallback: the UI offers the bundled snapshot separately after failure.
+async function fetchCourseData(fetcher = globalThis.fetch) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const records = {};
+    // Limit concurrent requests and reject incomplete datasets atomically.
+    for (let i = 0; i < COURSE_ENDPOINTS.length; i += 6) {
+      await Promise.all(COURSE_ENDPOINTS.slice(i, i + 6).map(async (name) => {
+        const response = await fetcher(`${COURSE_BASE_URL}/${name}`, { signal: controller.signal, credentials: 'omit' });
+        if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
+        const rows = await response.json();
+        if (!Array.isArray(rows)) throw new Error(`${name}: expected an array. The API schema may have changed.`);
+        records[name] = rows;
+      }));
+    }
+    return { baseUrl: COURSE_BASE_URL, fetchedAt: new Date().toISOString(), records };
+  } finally { clearTimeout(timer); controller.abort(); }
+}
+
+const DAYS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+const source = (table, id) => ({ system: 'course-api', table, id: String(id) });
+const same = (a, b) => String(a) === String(b);
+const locId = (name) => `api_loc_${encodeURIComponent(name).replace(/%/g, '_')}`;
+function slot(value) {
+  const parts = typeof value === 'string' ? value.split('-') : [];
+  if (parts.length !== 2) return null;
+  const start = parseClockInput(parts[0]);
+  const end = parseClockInput(parts[1]);
+  return start != null && end != null && end > start ? { start, end } : null;
+}
+function enrollmentCount(data, studentId, termCode) {
+  const ids = new Set(data.records.sections.filter((s) => s.term === termCode).map((s) => String(s.id)));
+  return data.records.enrollments.filter((e) => same(e.student_id, studentId) && e.status === 'enrolled' && ids.has(String(e.section_id))).length;
+}
+
+function buildCourseImport(data, { studentId, termCode = '26F', asOf = '2026-09-27', estimateMin = 90, markSubmitted = false } = {}) {
+  for (const name of COURSE_ENDPOINTS) if (!Array.isArray(data?.records?.[name])) throw new Error(`Missing course resource: ${name}`);
+  if (!isDateString(asOf)) throw new Error('Choose a valid demo date.');
+  if (!Number.isInteger(estimateMin) || estimateMin < 5 || estimateMin > 6000) throw new Error('Default effort must be 5 to 6000 whole minutes.');
+  const r = data.records;
+  const student = r.students.find((x) => same(x.id, studentId));
+  const term = r.terms.find((x) => x.code === termCode);
+  if (!student || !term || !isDateString(term.start_date) || !isDateString(term.end_date)) throw new Error('Select a valid student and academic term.');
+  if (asOf < term.start_date || asOf > term.end_date) throw new Error('Demo date must be inside the selected term.');
+  const state = emptyState('demo');
+  const pending = [];
+  const warnings = [];
+  const addPending = (title, detail, location = null, date = null, table = null, id = null) => pending.push({ title, detail, location, date, table, id: id == null ? null : String(id) });
+  state.meta = { createdAt: Date.now(), demoNow: zonedToMs(asOf, 8 * 60, DEFAULT_TZ), scenario: 'course-api' };
+  const locations = new Map();
+  function location(name) {
+    if (!name || typeof name !== 'string') return null;
+    if (!locations.has(name)) locations.set(name, { id: locId(name), name, kind: 'class', studyOk: false, equipment: [], source: source('locations-derived', name) });
+    return locations.get(name).id;
+  }
+  // Provide one clearly labeled user-editable study-space assumption, not a route measurement.
+  state.locations.push({ id: 'api_study', name: 'My study space (choose a real place)', kind: 'study', studyOk: true, equipment: [], source: { system: 'user', id: 'study-space' } });
+  const enrolled = r.enrollments.filter((e) => same(e.student_id, studentId) && e.status === 'enrolled');
+  const sectionIds = new Set(enrolled.map((e) => String(e.section_id)));
+  const sections = r.sections.filter((s) => sectionIds.has(String(s.id)) && s.term === termCode);
+  const selectedIds = new Set(sections.map((s) => String(s.id)));
+  for (const s of sections) {
+    const c = r.courses.find((x) => same(x.id, s.course_id));
+    const title = `${c?.code || 'Course'}: ${c?.title || `Section ${s.id}`}`;
+    const time = slot(s.time);
+    const days = [...new Set((s.days || []).map((d) => DAYS[d]).filter((d) => d != null))].sort();
+    if (!time || !days.length) { addPending(title, 'Class meeting time or weekday is missing or invalid.', s.room, null, 'sections', s.id); continue; }
+    state.commitments.push({ id: `api_section_${s.id}`, title, type: 'class', startDate: term.start_date, ...time, recurrence: { freq: 'weekly', days, until: term.end_date }, locationId: location(s.room), optional: false, exceptions: [], notes: `Synthetic course API. ${term.label}, section ${s.section_number}. Room-level locations are retained; enter walking estimates in Setup > Places and travel.`, source: source('sections', s.id) });
+  }
+  const waitlisted = r.enrollments.filter((e) => same(e.student_id, studentId) && e.status === 'waitlisted' && r.sections.some((s) => same(s.id, e.section_id) && s.term === termCode));
+  if (waitlisted.length) warnings.push(`${waitlisted.length} waitlisted section(s) excluded from fixed classes.`);
+  for (const a of r.assignments.filter((a) => selectedIds.has(String(a.section_id)))) {
+    const s = sections.find((s) => same(s.id, a.section_id));
+    const c = r.courses.find((c) => same(c.id, s.course_id));
+    if (!isDateString(a.due_date)) { addPending(a.title, 'Deadline is missing or invalid.', null, null, 'assignments', a.id); continue; }
+    const submission = r.submissions.find((x) => same(x.student_id, studentId) && same(x.assignment_id, a.id) && isDateString(x.submitted_at) && x.submitted_at <= asOf);
+    const done = !!(markSubmitted && submission);
+    const notes = [`Synthetic course API. ${a.points_possible} possible points; points do not set priority.`, `Effort: user-selected import default of ${estimateMin} minutes, not provided by the API. Edit for this assignment.`, 'Deadline has no time; your configurable date-only cutoff applies.', submission ? `Submission recorded ${submission.submitted_at}, score ${submission.score}. ${done ? 'Marked done by your import choice; no study time or mastery inferred.' : 'Left open for your review.'}` : 'No submission recorded by the selected demo date.'].join('\n');
+    state.tasks.push({ id: `api_assignment_${a.id}`, title: a.title, category: c?.code || 'Course', kind: a.type === 'exam' ? 'exam' : a.type === 'project' ? 'project' : 'assignment', priority: 'medium', deadline: { date: a.due_date, time: null }, estimateMin, remainingMin: done ? 0 : estimateMin, confidence: 'low', focus: 'normal', location: { mode: 'any', ids: [] }, equipment: [], status: done ? 'done' : 'todo', notes, doneWhen: '', splittable: true, minSessionMin: null, steps: [], dependsOn: [], lateTarget: null, revisionTopicId: null, calibratedFrom: null, createdAt: state.meta.demoNow, completedAt: done ? zonedToMs(submission.submitted_at, 0, DEFAULT_TZ) : null, source: source('assignments', a.id) });
+  }
+  const memberships = r['club-memberships'].filter((m) => same(m.student_id, studentId));
+  for (const m of memberships) {
+    const c = r.clubs.find((c) => same(c.id, m.club_id));
+    if (!c) continue;
+    const time = slot(c.meeting_time);
+    const day = DAYS[c.meeting_day];
+    // Historical memberships after the chosen as-of date are not presumed active.
+    if (isDateString(m.joined_at) && m.joined_at > asOf) continue;
+    if (!time || day == null) { addPending(c.name, 'Missing meeting day or time.', null, null, 'clubs', c.id); continue; }
+    state.commitments.push({ id: `api_club_${c.id}`, title: c.name, type: 'club', startDate: term.start_date, ...time, recurrence: { freq: 'weekly', days: [day], until: term.end_date }, locationId: null, optional: true, exceptions: [], notes: 'Synthetic club membership. Location unknown; travel uses your fallback estimate. Membership term boundaries are not supplied; this import uses the selected term.', source: source('clubs', c.id) });
+  }
+  for (const j of r['job-assignments'].filter((x) => same(x.student_id, studentId) && x.term === termCode)) {
+    const job = r['campus-jobs'].find((x) => same(x.id, j.campus_job_id));
+    addPending(job?.title || 'Campus job', `${j.hours_per_week} hours/week. Exact shift days, times, and location are not supplied. Add real shifts before relying on free-time estimates.`, null, null, 'job-assignments', j.id);
+  }
+  for (const m of r['study-group-members'].filter((x) => same(x.student_id, studentId))) {
+    const g = r['study-groups'].find((g) => same(g.id, m.study_group_id) && selectedIds.has(String(g.section_id)));
+    if (g) addPending(g.name, `Meeting slot ${g.meeting_time}; weekday is not supplied.`, g.meeting_location, null, 'study-groups', g.id);
+  }
+  for (const m of r['event-rsvps'].filter((x) => same(x.student_id, studentId) && ['going', 'maybe'].includes(x.status))) {
+    const e = r.events.find((e) => same(e.id, m.event_id));
+    if (e && e.date >= term.start_date && e.date <= term.end_date) addPending(e.title, `RSVP: ${m.status}. Start time and duration are missing.`, e.location, e.date, 'events', e.id);
+  }
+  for (const m of r['workshop-registrations'].filter((x) => same(x.student_id, studentId) && x.status === 'registered')) {
+    const w = r.workshops.find((w) => same(w.id, m.workshop_id));
+    if (w && w.date >= term.start_date && w.date <= term.end_date) addPending(w.title, 'Registered workshop; start time and duration are missing.', w.location, w.date, 'workshops', w.id);
+  }
+  state.locations.push(...locations.values());
+  warnings.push('All records describe fictional students. This is not your Dartmouth schedule.', 'Walking routes and durations are not provided. The planner uses labeled fallback estimates until you enter routes.', 'Assignment effort is a user-selected estimate. Deadline times use your date-only cutoff.', 'Unscheduled commitments below are NOT included in capacity calculations until you add their missing times.');
+  if (!sections.length) warnings.push('No enrolled classes in this term for this student. Choose another student or term.');
+  state.meta.course = { studentId: String(student.id), studentName: `${student.first_name} ${student.last_name}`, termCode, termLabel: term.label, fetchedAt: data.fetchedAt, asOf, estimateMin, pending, warnings };
+  const result = normalizeState(state, 'demo');
+  if (!result.ok) throw new Error(result.errors.join(' '));
+  return { state: result.state, student, term, warnings: [...warnings, ...result.warnings], pending };
+}
+
+return { COURSE_BASE_URL, COURSE_ENDPOINTS, COURSE_SNAPSHOT_DATE, bundledCourseData, fetchCourseData, enrollmentCount, buildCourseImport };
+})();
+
+// src/data/adapter.js
+__m["src/data/adapter.js"] = (function () {
+// Data-access layer. The rest of the app only sees normalized entities, so swapping
+// the mock adapter for a real API adapter means implementing the same methods and
+// the same normalize* mappings. Source ids and provenance are preserved on every record.
+
+const { MOCK_RECORDS } = __m["src/data/mockRecords.js"];
+const { fetchCourseData, buildCourseImport } = __m["src/data/courseApi.js"];
+const { parseClockInput, zonedToMs, DEFAULT_TZ } = __m["src/core/time.js"];
+const DAY_CODES = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+
+// Interface every adapter implements. All methods resolve to arrays of source records.
+const ADAPTER_METHODS = ['listLocations', 'listRoutes', 'listSections', 'listJobs', 'listClubs', 'listEvents', 'listAssignments', 'listCompletedWork', 'listRevisionTopics'];
+
+function createMockAdapter(records = MOCK_RECORDS) {
+  const copy = (x) => structuredClone(x || []);
+  return {
+    kind: 'mock',
+    description: 'Synthetic records bundled with the app. Makes no network requests.',
+    term: records.term,
+    listLocations: () => copy(records.locations),
+    listRoutes: () => copy(records.routes),
+    listSections: () => copy(records.sections),
+    listJobs: () => copy(records.jobs),
+    listClubs: () => copy(records.clubs),
+    listEvents: () => copy(records.events),
+    listAssignments: () => copy(records.assignments),
+    listCompletedWork: () => copy(records.completed),
+    listRevisionTopics: () => copy(records.revision_topics),
+  };
+}
+
+// The course API uses different shapes from mock records. Normalize through the
+// verified mapper rather than feeding it into the invented mock schema.
+function createApiAdapter() {
+  return { kind: 'course-api', fetch: fetchCourseData, normalize: buildCourseImport };
+}
+
+const src = (table, id) => ({ system: 'mock', table, id });
+const clock = (s) => parseClockInput(s);
+
+function weekly(id, title, type, meet, locationId, term, extra = {}) {
+  return {
+    id, title, type, startDate: term.start, start: clock(meet.start), end: clock(meet.end),
+    recurrence: { freq: 'weekly', days: meet.days.map((d) => DAY_CODES[d]).sort(), until: term.end },
+    locationId: locationId || null, optional: false, notes: '', exceptions: [], ...extra,
+  };
+}
+
+function normalizeLocationRecord(r) {
+  return { id: r.id, name: r.name, kind: r.kind, studyOk: !!r.study_ok, equipment: r.equipment || [], source: src('locations', r.id) };
+}
+
+function normalizeRoute(r) {
+  return { a: r.from < r.to ? r.from : r.to, b: r.from < r.to ? r.to : r.from, minutes: r.minutes };
+}
+
+function normalizeSection(r, term) {
+  return r.meets.map((m, i) => weekly(`c_${r.id}_${i}`, r.title, 'class', m, r.location_id, term, {
+    notes: `${r.course}`,
+    exceptions: (r.canceled_dates || []).map((date) => ({ date, action: 'skip' })),
+    source: src('sections', r.id),
+  }));
+}
+
+function normalizeJob(r, term) {
+  return r.shifts.map((m, i) => weekly(`c_${r.id}_${i}`, r.title, 'work', m, r.location_id, term, { source: src('jobs', r.id) }));
+}
+
+function normalizeClub(r, term) {
+  return r.meets.map((m, i) => weekly(`c_${r.id}_${i}`, r.title, 'club', m, r.location_id, term, {
+    optional: !!r.optional,
+    exceptions: (r.changes || []).map((c) => ({ date: c.date, action: 'modify', start: clock(c.start), end: clock(c.end) })),
+    source: src('clubs', r.id),
+  }));
+}
+
+function normalizeEvent(r) {
+  return {
+    id: `c_${r.id}`, title: r.title, type: r.kind === 'appointment' ? 'appointment' : 'personal', startDate: r.date,
+    start: clock(r.start), end: clock(r.end), recurrence: { freq: 'none' }, locationId: r.location_id || null,
+    optional: false, notes: r.kind === 'workshop' ? 'Workshop or event' : '', exceptions: [], source: src('events', r.id),
+  };
+}
+
+function parseDue(due) {
+  if (due.length === 10) return { date: due, time: null };
+  return { date: due.slice(0, 10), time: clock(due.slice(11, 16)) };
+}
+
+function normalizeAssignment(r) {
+  const steps = (r.steps || []).map(([title, min, done], i) => ({ id: `s${i + 1}`, title, estimateMin: min, remainingMin: done ? 0 : min, done: !!done }));
+  const est = steps.length ? steps.reduce((s, x) => s + x.estimateMin, 0) : r.estimate_min;
+  return {
+    id: `t_${r.id}`, title: r.title, category: r.course, kind: r.type, priority: r.priority || 'medium',
+    deadline: parseDue(r.due), estimateMin: est, remainingMin: steps.length ? 0 : r.estimate_min,
+    confidence: r.confidence || 'medium', focus: r.focus || 'normal',
+    location: r.required_locations ? { mode: 'required', ids: r.required_locations } : r.preferred_locations ? { mode: 'preferred', ids: r.preferred_locations } : { mode: 'any', ids: [] },
+    equipment: r.equipment || [], status: 'todo', notes: '', doneWhen: r.done_when || '',
+    splittable: r.splittable !== false, minSessionMin: r.min_session_min ?? null, steps,
+    dependsOn: (r.depends_on || []).map((id) => `t_${id}`), lateTarget: null, revisionTopicId: null,
+    calibratedFrom: null, createdAt: null, completedAt: null, source: src('assignments', r.id),
+  };
+}
+
+function normalizeCompleted(r, tz = DEFAULT_TZ) {
+  const task = normalizeAssignment(r);
+  task.status = 'done';
+  task.remainingMin = 0;
+  const lastDate = r.sessions[r.sessions.length - 1][0];
+  task.completedAt = zonedToMs(lastDate, 21 * 60, tz);
+  let left = r.estimate_min;
+  const log = r.sessions.map(([date, minutes, outcome], i) => {
+    const before = left;
+    const last = i === r.sessions.length - 1;
+    left = last ? 0 : Math.max(0, left - minutes);
+    return {
+      id: `log_${r.id}_${i}`, at: zonedToMs(date, 20 * 60, tz), date, blockId: null, taskId: task.id, stepId: null,
+      outcome: outcome || 'completed', actualMin: minutes, unitRemainingBefore: before, unitRemainingAfter: left,
+      taskRemainingBefore: before, taskRemainingAfter: left, focus: null, difficulty: null, note: '', finished: last ? 'task' : null,
+    };
+  });
+  return { task, log };
+}
+
+function normalizeTopic(r) {
+  return {
+    id: r.id, title: r.title, category: r.course, reviewMin: r.review_min, confidence: r.confidence, intervalDays: r.interval_days,
+    lastReviewed: r.last_reviewed, nextDue: r.next_due, history: [{ date: r.last_reviewed, confidence: r.confidence, intervalDays: r.interval_days }],
+  };
+}
+
+function loadFromAdapter(adapter) {
+  const term = adapter.term;
+  const completed = adapter.listCompletedWork().map((r) => normalizeCompleted(r));
+  return {
+    locations: adapter.listLocations().map(normalizeLocationRecord),
+    travel: adapter.listRoutes().map(normalizeRoute),
+    commitments: [
+      ...adapter.listSections().flatMap((r) => normalizeSection(r, term)),
+      ...adapter.listJobs().flatMap((r) => normalizeJob(r, term)),
+      ...adapter.listClubs().flatMap((r) => normalizeClub(r, term)),
+      ...adapter.listEvents().map(normalizeEvent),
+    ],
+    tasks: [...completed.map((c) => c.task), ...adapter.listAssignments().map(normalizeAssignment)],
+    log: completed.flatMap((c) => c.log),
+    topics: adapter.listRevisionTopics().map(normalizeTopic),
+  };
+}
+
+return { ADAPTER_METHODS, createMockAdapter, createApiAdapter, normalizeLocationRecord, normalizeRoute, normalizeSection, normalizeJob, normalizeClub, normalizeEvent, normalizeAssignment, normalizeCompleted, normalizeTopic, loadFromAdapter };
+})();
+
+// src/data/demoSeed.js
+__m["src/data/demoSeed.js"] = (function () {
+// Builds demo-mode state. Course, job, club, and event records come through the mock
+// adapter; meals and personal routines are entered here the way a student would.
+// The demo clock is fixed and labeled; it never reads the real time.
+
+const { emptyState } = __m["src/core/model.js"];
+const { zonedToMs, DEFAULT_TZ } = __m["src/core/time.js"];
+const { createMockAdapter, loadFromAdapter } = __m["src/data/adapter.js"];
+const { makeProposal, approveProposal } = __m["src/core/proposal.js"];
+const { recordProgress } = __m["src/core/progress.js"];
+const { syncReviewTasks, logReview } = __m["src/core/revision.js"];
+const DEMO_NOW = zonedToMs('2026-10-27', 13 * 60, DEFAULT_TZ);
+const SEED_PLAN_AT = zonedToMs('2026-10-25', 16 * 60, DEFAULT_TZ);
+
+const DEMO_SCENARIOS = {
+  midweek: { label: 'Midweek, plan drifting', description: 'A plan approved on Sunday, some sessions done, one missed, one not yet recorded.' },
+  crunch: { label: 'Crunch week', description: 'New work arrived and the daily limit is lower. Not everything fits.' },
+  fresh: { label: 'Fresh week, no plan', description: 'Tasks and commitments entered, nothing planned yet.' },
+};
+
+function personalCommitments() {
+  const term = { start: '2026-09-14', end: '2026-11-24' };
+  const weekly = (id, title, type, days, start, end, locationId, extra = {}) => ({
+    id, title, type, startDate: term.start, start, end, recurrence: { freq: 'weekly', days, until: term.end },
+    locationId, optional: false, notes: '', exceptions: [], source: { system: 'demo', id }, ...extra,
+  });
+  return [
+    weekly('c_lunch_mwf', 'Lunch', 'meal', [1, 3, 5], 12 * 60 + 50, 13 * 60 + 30, 'loc_foco'),
+    weekly('c_lunch_tth', 'Lunch', 'meal', [2, 4], 12 * 60 + 15, 12 * 60 + 55, 'loc_foco'),
+    weekly('c_dinner', 'Dinner', 'meal', [0, 1, 2, 3, 4, 5, 6], 18 * 60 + 20, 18 * 60 + 55, 'loc_foco'),
+    weekly('c_brunch', 'Brunch', 'meal', [6], 11 * 60, 11 * 60 + 45, 'loc_foco'),
+    weekly('c_call_home', 'Call home', 'personal', [0], 12 * 60, 12 * 60 + 45, 'loc_online'),
+    weekly('c_wind_down', 'Wind down, no screens', 'protected', [0, 1, 2, 3, 4], 22 * 60 + 45, 23 * 60 + 30, null),
+  ];
+}
+
+function baseState(scenario) {
+  const state = emptyState('demo');
+  const data = loadFromAdapter(createMockAdapter());
+  state.meta = { createdAt: SEED_PLAN_AT, demoNow: DEMO_NOW, scenario };
+  state.locations = data.locations;
+  state.travel = data.travel;
+  state.commitments = [...data.commitments, ...personalCommitments()];
+  state.tasks = [
+    ...data.tasks,
+    {
+      id: 't_laundry', title: 'Laundry', category: 'Personal', kind: 'task', priority: 'low', deadline: { date: '2026-11-01', time: null },
+      estimateMin: 45, remainingMin: 45, confidence: 'high', focus: 'light', location: { mode: 'required', ids: ['loc_dorm'] }, equipment: [],
+      status: 'todo', notes: '', doneWhen: 'Washed, dried, put away.', splittable: false, minSessionMin: null, steps: [], dependsOn: [],
+      lateTarget: null, revisionTopicId: null, calibratedFrom: null, createdAt: null, completedAt: null, source: { system: 'demo', id: 'laundry' },
+    },
+    {
+      id: 't_essay', title: 'Scholarship essay draft', category: 'Personal', kind: 'assignment', priority: 'medium', deadline: { date: '2026-11-07', time: null },
+      estimateMin: 180, remainingMin: 180, confidence: 'low', focus: 'deep', location: { mode: 'any', ids: [] }, equipment: [],
+      status: 'todo', notes: 'Synthetic example of personal work.', doneWhen: 'A complete first draft, even if rough.', splittable: true, minSessionMin: 45, steps: [], dependsOn: [],
+      lateTarget: null, revisionTopicId: null, calibratedFrom: null, createdAt: null, completedAt: null, source: { system: 'demo', id: 'essay' },
+    },
+  ];
+  state.log = data.log;
+  state.revision = { topics: data.topics };
+  state.settings.homeLocationId = 'loc_dorm';
+  return state;
+}
+
+function overdueTask() {
+  return {
+    id: 't_cosc_notes', title: 'COSC 10 lecture notes review, week 6', category: 'COSC 10', kind: 'reading', priority: 'low',
+    deadline: { date: '2026-10-26', time: 23 * 60 + 59 }, estimateMin: 40, remainingMin: 40, confidence: 'high', focus: 'light',
+    location: { mode: 'any', ids: [] }, equipment: [], status: 'todo', notes: 'Added late to show how overdue work is reported.', doneWhen: '',
+    splittable: true, minSessionMin: 20, steps: [], dependsOn: [], lateTarget: null, revisionTopicId: null, calibratedFrom: null,
+    createdAt: null, completedAt: null, source: { system: 'demo', id: 'notes' },
+  };
+}
+
+function recordSeedOutcomes(state) {
+  const past = state.plan.blocks.filter((b) => b.end <= DEMO_NOW).sort((a, b) => a.start - b.start);
+  const cycle = ['completed', 'partial', 'completed', 'missed'];
+  let s = state;
+  past.forEach((b, i) => {
+    if (i === past.length - 1) return; // leave the latest session unrecorded
+    const task = s.tasks.find((t) => t.id === b.taskId);
+    const outcome = task.kind === 'review' && cycle[i % cycle.length] === 'partial' ? 'completed' : cycle[i % cycle.length];
+    const step = b.stepId ? task.steps.find((x) => x.id === b.stepId) : null;
+    const remaining = step ? step.remainingMin : task.remainingMin;
+    const dur = Math.round((b.end - b.start) / 60000);
+    const credited = outcome === 'completed' ? dur : outcome === 'partial' ? Math.round(dur * 0.5) : 0;
+    const res = recordProgress(s, {
+      id: `log_seed_${i}`, blockId: b.id, taskId: b.taskId, stepId: b.stepId, outcome,
+      actualMin: outcome === 'missed' ? 0 : dur, remainingAfter: Math.max(0, remaining - credited),
+      finish: task.kind === 'review' && outcome === 'completed' ? 'task' : step && remaining - credited <= 0 ? 'step' : null,
+    }, b.end + 10 * 60000);
+    if (res.ok) s = res.state;
+    if (res.ok && task.kind === 'review' && outcome === 'completed') s = logReview(s, task.revisionTopicId, 3, '2026-10-25', b.end + 10 * 60000);
+  });
+  return s;
+}
+
+function buildDemoState(scenario = 'midweek') {
+  const key = DEMO_SCENARIOS[scenario] ? scenario : 'midweek';
+  let state = baseState(key);
+  if (key === 'crunch') state.preferences.maxDailyStudyMin = 180;
+  state = syncReviewTasks(state, '2026-10-25', state.settings.planningHorizonDays).state;
+  if (key !== 'fresh') {
+    const alt = makeProposal(state, SEED_PLAN_AT, { strategy: 'balanced' });
+    const res = approveProposal(state, alt, SEED_PLAN_AT);
+    state = recordSeedOutcomes(res.state);
+  }
+  state.tasks.push(overdueTask());
+  if (key === 'crunch') {
+    const extra = (id, title, category, date, time, est, focus) => ({
+      id, title, category, kind: 'assignment', priority: 'high', deadline: { date, time }, estimateMin: est, remainingMin: est, confidence: 'medium',
+      focus, location: { mode: 'any', ids: [] }, equipment: [], status: 'todo', notes: 'Crunch-week addition.', doneWhen: '', splittable: true,
+      minSessionMin: 45, steps: [], dependsOn: [], lateTarget: null, revisionTopicId: null, calibratedFrom: null, createdAt: null, completedAt: null,
+      source: { system: 'demo', id },
+    });
+    state.tasks.push(
+      extra('t_cosc_lab', 'COSC 10 lab report', 'COSC 10', '2026-10-29', 23 * 60 + 59, 180, 'deep'),
+      extra('t_math_midterm', 'MATH 13 midterm prep', 'MATH 13', '2026-11-02', 9 * 60, 420, 'deep'),
+      extra('t_engs_memo', 'ENGS 12 reflection memo', 'ENGS 12', '2026-10-28', 23 * 60 + 59, 60, 'normal'),
+    );
+  }
+  state.meta.demoNow = DEMO_NOW;
+  return state;
+}
+
+return { DEMO_NOW, DEMO_SCENARIOS, buildDemoState };
+})();
+
+// src/ui/app.js
+__m["src/ui/app.js"] = (function () {
+// Interaction state and every action that changes data. Views call these functions;
+// they never mutate state directly. Each change is persisted and can be undone.
+
+const { msToDate, startOfWeek, zonedToMs, addDays, DAY } = __m["src/core/time.js"];
+const { makeAlternatives, selectedAlternative, approveProposal, cancelProposal, proposalStaleness, setBlockLock, removeBlock } = __m["src/core/proposal.js"];
+const { recordProgress, setTaskDone } = __m["src/core/progress.js"];
+const { applySuggestion, dismissSuggestion, clearCalibration } = __m["src/core/calibration.js"];
+const { addTopic, logReview, removeTopic, syncReviewTasks } = __m["src/core/revision.js"];
+const { withException } = __m["src/core/recurrence.js"];
+const { analyze } = __m["src/core/analysis.js"];
+const { recommendNow } = __m["src/core/recommend.js"];
+const { stressTest } = __m["src/core/fragility.js"];
+const { fingerprint, emptyState } = __m["src/core/model.js"];
+const { buildDemoState } = __m["src/data/demoSeed.js"];
+const { newId } = __m["src/core/ids.js"];
+const { toast } = __m["src/ui/dialog.js"];
+const { plural } = __m["src/ui/dom.js"];
+const app = {
+  repo: null,
+  mode: 'demo',
+  state: null,
+  ui: { weekStart: null, selectedDate: null, sideTab: 'issues', locationId: null, session: null, taskFilter: 'open', openReason: null },
+  undoStack: [],
+  saveError: null,
+  loadWarnings: [],
+  stressCache: null,
+  whatIf: null,
+  saving: Promise.resolve(),
+  render: () => {},
+};
+
+function tz() { return app.state.settings.timezone; }
+function now() { return app.mode === 'demo' ? app.state.meta.demoNow : Date.now(); }
+function today() { return msToDate(now(), tz()); }
+
+function persist() {
+  const mode = app.mode;
+  const snapshot = app.state;
+  app.saving = app.saving.then(async () => {
+    const r = await app.repo.saveMode(mode, snapshot);
+    if (mode !== app.mode) return;
+    const prev = app.saveError;
+    app.saveError = r.ok ? null : r.error;
+    if (prev !== app.saveError) app.render();
+  });
+  return app.saving;
+}
+
+function commit(next, { label = 'Change', undoable = true, message = null, undoToast = false, tone = 'neutral' } = {}) {
+  if (undoable) {
+    app.undoStack.push({ label, state: app.state });
+    if (app.undoStack.length > 30) app.undoStack.shift();
+  }
+  app.state = next;
+  persist();
+  app.render();
+  if (message) toast(message, undoable && undoToast ? { actionLabel: 'Undo', onAction: undo, tone } : { tone });
+}
+
+function update(fn, opts) {
+  const draft = structuredClone(app.state);
+  const r = fn(draft);
+  commit(r || draft, opts);
+}
+
+function undo() {
+  const e = app.undoStack.pop();
+  if (!e) return;
+  app.state = e.state;
+  app.stressCache = null;
+  persist();
+  app.render();
+  toast(`Undid: ${e.label}.`);
+}
+
+function setUi(patch) {
+  Object.assign(app.ui, patch);
+  app.render();
+}
+
+function resetUi() {
+  const t = today();
+  Object.assign(app.ui, { weekStart: startOfWeek(t), selectedDate: t, sideTab: app.state.proposal ? 'review' : 'issues', locationId: null, session: null, openReason: null });
+  app.stressCache = null;
+  app.whatIf = null;
+}
+
+async function initApp(repo) {
+  app.repo = repo;
+  app.mode = await repo.getActiveMode();
+  const r = await repo.loadMode(app.mode);
+  app.state = r.state;
+  app.loadWarnings = r.warnings;
+  if (r.status === 'new' || r.status === 'recovered') await persist();
+  resetUi();
+}
+
+async function switchMode(mode) {
+  if (mode === app.mode) return;
+  await app.saving;
+  const r = await app.repo.loadMode(mode);
+  app.mode = mode;
+  app.state = r.state;
+  app.loadWarnings = r.warnings;
+  app.undoStack = [];
+  if (r.status === 'new' || r.status === 'recovered') persist();
+  await app.repo.setActiveMode(mode);
+  resetUi();
+  app.render();
+  toast(mode === 'demo' ? 'Demo mode. Your personal data was not touched.' : 'Personal mode. Demo data was not touched.');
+}
+
+// ---------- Derived data for one render ----------
+
+function derived() {
+  const s = app.state;
+  const n = now();
+  const alt = selectedAlternative(s.proposal);
+  return {
+    now: n,
+    today: msToDate(n, s.settings.timezone),
+    analysis: analyze(s, n),
+    alt,
+    staleness: alt ? proposalStaleness(s, alt, n) : null,
+    rec: recommendNow(s, n, { locationId: app.ui.locationId }),
+  };
+}
+
+function stress() {
+  const fp = JSON.stringify(fingerprint(app.state));
+  const key = `${fp}|${now()}`;
+  if (!app.stressCache || app.stressCache.key !== key) app.stressCache = { key, result: stressTest(app.state, now()) };
+  return app.stressCache.result;
+}
+
+// ---------- Demo clock ----------
+
+function setDemoNow(ms) {
+  if (app.mode !== 'demo') return;
+  update((s) => { s.meta.demoNow = ms; }, { label: 'Demo time change' });
+  const t = today();
+  if (t < app.ui.weekStart || t > addDays(app.ui.weekStart, 6)) app.ui.weekStart = startOfWeek(t);
+  app.ui.selectedDate = t;
+  app.render();
+}
+
+function nextMorning() {
+  const t = today();
+  setDemoNow(zonedToMs(addDays(t, 1), 8 * 60, tz()));
+}
+
+function resetDemo(scenario) {
+  if (app.mode !== 'demo') return;
+  commit(buildDemoState(scenario), { label: 'Demo reset', message: 'Demo reset. Personal data was not touched.', undoToast: true });
+  resetUi();
+  app.render();
+}
+
+// ---------- Planning ----------
+
+function generate(origin = 'plan', base = {}) {
+  let s = app.state;
+  const sync = syncReviewTasks(s, today(), s.settings.planningHorizonDays);
+  s = sync.state;
+  const proposal = makeAlternatives(s, now(), base, { origin });
+  const next = structuredClone(s);
+  next.proposal = proposal;
+  app.ui.sideTab = 'review';
+  commit(next, { label: 'Generate proposal' });
+  if (sync.created.length) toast(`Added ${plural(sync.created.length, 'review task')} from your revision topics.`);
+}
+
+function regenerate(extra = {}) {
+  const p = app.state.proposal;
+  generate(p?.origin || 'plan', { ...(p?.base || {}), ...extra });
+}
+
+function selectAlternative(id) {
+  update((s) => { s.proposal.selectedId = id; }, { undoable: false });
+}
+
+function approveSelected() {
+  const alt = selectedAlternative(app.state.proposal);
+  if (!alt) return false;
+  const r = approveProposal(app.state, alt, now());
+  if (!r.ok) {
+    toast(`Not approved: ${r.reasons.join('. ')}. Regenerate to get an up-to-date proposal.`, { tone: 'warn', timeout: 10000 });
+    app.render();
+    return false;
+  }
+  app.ui.sideTab = 'issues';
+  app.stressCache = null;
+  const changed = alt.diff.added.length + alt.diff.moved.length + alt.diff.removed.length;
+  commit(r.state, { label: 'Approve plan', message: `Plan approved with ${plural(changed, 'change')}.`, undoToast: true });
+  return true;
+}
+
+function cancelProposalAction() {
+  app.ui.sideTab = 'issues';
+  commit(cancelProposal(app.state), { label: 'Cancel proposal', message: 'Proposal cancelled. Your approved plan is unchanged.' });
+}
+
+function lockBlock(id, locked) {
+  commit(setBlockLock(app.state, id, locked), { label: locked ? 'Lock session' : 'Unlock session', message: locked ? 'Session locked. Replanning will not move it.' : 'Session unlocked.' });
+}
+
+function removeBlockAction(id) {
+  commit(removeBlock(app.state, id), { label: 'Remove session', message: 'Session removed from the plan.', undoToast: true });
+}
+
+// ---------- Tasks ----------
+
+function saveTask(task) {
+  update((s) => {
+    const i = s.tasks.findIndex((t) => t.id === task.id);
+    if (i >= 0) s.tasks[i] = task; else s.tasks.push({ ...task, createdAt: now() });
+  }, { label: 'Save task', message: `Saved "${task.title}".` });
+}
+
+function deleteTask(id) {
+  const t = app.state.tasks.find((x) => x.id === id);
+  update((s) => {
+    s.tasks = s.tasks.filter((x) => x.id !== id);
+    for (const x of s.tasks) x.dependsOn = x.dependsOn.filter((d) => d !== id);
+    s.plan.blocks = s.plan.blocks.filter((b) => b.taskId !== id);
+    s.log = s.log.filter((l) => l.taskId !== id);
+    s.plan.version += 1;
+  }, { label: 'Delete task', message: `Deleted "${t?.title}" and its sessions.`, undoToast: true });
+}
+
+function setDone(id, done) {
+  commit(setTaskDone(app.state, id, done, now()), { label: done ? 'Mark done' : 'Reopen task', message: done ? 'Marked done.' : 'Reopened.', undoToast: true });
+}
+
+function recordProgressAction(input) {
+  const r = recordProgress(app.state, input, now());
+  if (!r.ok) return r;
+  app.stressCache = null;
+  commit(r.state, { label: 'Record progress', message: 'Progress recorded. Remaining effort updated.', undoToast: true });
+  return r;
+}
+
+// ---------- Commitments ----------
+
+function saveCommitment(c) {
+  update((s) => {
+    const i = s.commitments.findIndex((x) => x.id === c.id);
+    if (i >= 0) s.commitments[i] = c; else s.commitments.push(c);
+  }, { label: 'Save commitment', message: `Saved "${c.title}".` });
+}
+
+function deleteCommitment(id) {
+  const c = app.state.commitments.find((x) => x.id === id);
+  update((s) => { s.commitments = s.commitments.filter((x) => x.id !== id); }, { label: 'Delete commitment', message: `Deleted "${c?.title}".`, undoToast: true });
+}
+
+function setOccurrence(commitmentId, date, exception, message) {
+  update((s) => {
+    const i = s.commitments.findIndex((x) => x.id === commitmentId);
+    if (i >= 0) s.commitments[i] = withException(s.commitments[i], date, exception);
+  }, { label: 'Change one occurrence', message, undoToast: true });
+}
+
+// ---------- Places, preferences, settings ----------
+
+function savePlaces({ locations, travel, settings }) {
+  update((s) => {
+    const ids = new Set(locations.map((l) => l.id));
+    s.locations = locations;
+    s.travel = travel.filter((t) => ids.has(t.a) && ids.has(t.b));
+    Object.assign(s.settings, settings);
+    if (s.settings.homeLocationId && !ids.has(s.settings.homeLocationId)) s.settings.homeLocationId = null;
+    for (const c of s.commitments) {
+      if (c.locationId && !ids.has(c.locationId)) c.locationId = null;
+      for (const e of c.exceptions) if (e.locationId && !ids.has(e.locationId)) e.locationId = null;
+    }
+    for (const t of s.tasks) {
+      t.location.ids = t.location.ids.filter((id) => ids.has(id));
+      if (!t.location.ids.length) t.location.mode = 'any';
+    }
+  }, { label: 'Save places', message: 'Places and travel times saved.' });
+}
+
+function savePreferences(prefs, settingsPatch) {
+  update((s) => { s.preferences = prefs; Object.assign(s.settings, settingsPatch); }, { label: 'Save preferences', message: 'Preferences saved. Generate a new proposal to apply them.' });
+}
+
+function checkIn(level) {
+  const t = today();
+  update((s) => { if (s.checkins[t] === level) delete s.checkins[t]; else s.checkins[t] = level; }, { label: 'Energy check-in', undoable: false });
+}
+
+// ---------- Learning ----------
+
+function applyCalibration(sug) {
+  commit(applySuggestion(app.state, sug, now()), { label: 'Apply estimate suggestion', message: `Updated "${sug.title}" to ${sug.to} min remaining.`, undoToast: true });
+}
+function dismissCalibration(sug) { commit(dismissSuggestion(app.state, sug), { label: 'Dismiss suggestion' }); }
+function clearCalibrationAction() { commit(clearCalibration(app.state, now()), { label: 'Clear learned history', message: 'Learned history cleared. Earlier work is no longer used for suggestions.', undoToast: true }); }
+function toggleCalibration(on) { update((s) => { s.settings.calibrationEnabled = on; }, { label: on ? 'Enable suggestions' : 'Disable suggestions' }); }
+
+function addTopicAction(fields) {
+  commit(addTopic(app.state, { ...fields, id: newId('top') }, today()), { label: 'Add revision topic', message: `Added "${fields.title}". Its first review is scheduled from your confidence.` });
+}
+function logReviewAction(topicId, confidence) {
+  const t = app.state.revision.topics.find((x) => x.id === topicId);
+  let s = logReview(app.state, topicId, confidence, today(), now());
+  s = syncReviewTasks(s, today(), s.settings.planningHorizonDays).state;
+  const next = s.revision.topics.find((x) => x.id === topicId);
+  commit(s, { label: 'Log review', message: `Logged review of "${t?.title}". Next review ${next ? `in ${next.intervalDays} day${next.intervalDays === 1 ? '' : 's'}` : 'scheduled'}.`, undoToast: true });
+}
+function removeTopicAction(id) { commit(removeTopic(app.state, id), { label: 'Remove topic', message: 'Topic removed with its open review task.', undoToast: true }); }
+
+// ---------- Data ----------
+
+async function importIntoPersonal(state) {
+  await app.saving;
+  const current = app.mode === 'personal' ? app.state : (await app.repo.loadMode('personal')).state;
+  const b = await app.repo.backup('personal', current, Date.now());
+  if (!b.ok) { toast(`Import stopped: could not back up current personal data. ${b.error}`, { tone: 'warn', timeout: 10000 }); return false; }
+  const saved = await app.repo.saveMode('personal', state);
+  if (!saved.ok) { toast(`Import failed: ${saved.error}`, { tone: 'warn', timeout: 10000 }); return false; }
+  if (app.mode === 'personal') {
+    app.state = state;
+    app.undoStack = [];
+    resetUi();
+    app.render();
+  } else {
+    await switchMode('personal');
+  }
+  toast('Imported. Your previous personal data was backed up and can be restored from Data.');
+  return true;
+}
+
+async function restorePersonalBackup() {
+  const b = await app.repo.getBackup('personal');
+  if (!b) { toast('No backup found.', { tone: 'warn' }); return; }
+  await importIntoPersonal(b.state);
+}
+
+async function deletePersonalData() {
+  await app.saving;
+  const r1 = await app.repo.removeMode('personal');
+  const r2 = await app.repo.removeBackup('personal');
+  if (!r1.ok || !r2.ok) { toast(`Could not delete everything: ${(r1.error || r2.error)}`, { tone: 'warn', timeout: 10000 }); return; }
+  if (app.mode === 'personal') {
+    app.state = emptyState('personal');
+    app.undoStack = [];
+    persist();
+    resetUi();
+    app.render();
+  }
+  toast('All personal data deleted from this browser.');
+}
+
+function weekShift(days) {
+  app.ui.weekStart = addDays(app.ui.weekStart, days);
+  app.ui.selectedDate = addDays(app.ui.selectedDate || app.ui.weekStart, days);
+  app.render();
+}
+
+function goToday() {
+  const t = today();
+  app.ui.weekStart = startOfWeek(t);
+  app.ui.selectedDate = t;
+  app.render();
+}
+
+function newCommitmentId() { return newId('c'); }
+function newTaskId() { return newId('t'); }
+const DAY_MS = DAY;
+
+// Course imports deliberately replace DEMO only, never personal records. This
+// is an atomic replacement, so retries cannot duplicate source records.
+async function applyCourseImport(state) {
+  if (state.mode !== 'demo' || !state.meta.course) throw new Error('Expected a verified course demo.');
+  await app.saving;
+  if (app.mode !== 'demo') await switchMode('demo');
+  commit(state, { label: 'Course import', message: 'Course demo loaded. Personal data was not touched. Undo restores the previous demo.', undoToast: true });
+  resetUi();
+  app.render();
+}
+
+return { app, tz, now, today, commit, update, undo, setUi, initApp, switchMode, derived, stress, setDemoNow, nextMorning, resetDemo, generate, regenerate, selectAlternative, approveSelected, cancelProposalAction, lockBlock, removeBlockAction, saveTask, deleteTask, setDone, recordProgressAction, saveCommitment, deleteCommitment, setOccurrence, savePlaces, savePreferences, checkIn, applyCalibration, dismissCalibration, clearCalibrationAction, toggleCalibration, addTopicAction, logReviewAction, removeTopicAction, importIntoPersonal, restorePersonalBackup, deletePersonalData, weekShift, goToday, newCommitmentId, newTaskId, DAY_MS, applyCourseImport };
+})();
+
+// src/ui/common.js
+__m["src/ui/common.js"] = (function () {
+// Labels shared by several views. Keeps vocabulary consistent across the interface.
+
+const { fmtDate, fmtClock, fmtRelative, fmtDuration, fmtTimeRange, msToDate, fmtDayRelative } = __m["src/core/time.js"];
+const { deadlineMs, COMMITMENT_TYPES } = __m["src/core/model.js"];
+const { h } = __m["src/ui/dom.js"];
+function deadlineInfo(task, settings, nowMs) {
+  const dl = deadlineMs(task, settings);
+  const assumed = task.deadline.time == null;
+  const time = assumed ? fmtClock(settings.dateOnlyCutoff) : fmtClock(task.deadline.time);
+  const overdue = dl <= nowMs;
+  return {
+    ms: dl, overdue, assumed,
+    text: `${fmtDate(task.deadline.date)}, ${time}${assumed ? ' (assumed)' : ''}`,
+    rel: overdue ? `overdue, due ${fmtRelative(dl, nowMs)}` : `due ${fmtRelative(dl, nowMs)}`,
+  };
+}
+
+function blockTitle(state, b) {
+  const t = state.tasks.find((x) => x.id === b.taskId);
+  if (!t) return 'Removed task';
+  const step = b.stepId ? t.steps.find((s) => s.id === b.stepId) : null;
+  return step ? `${t.title}: ${step.title}` : t.title;
+}
+
+const BLOCK_STATUS = {
+  planned: 'Planned', completed: 'Done', partial: 'Partly done', interrupted: 'Interrupted', missed: 'Missed',
+};
+
+function blockStatus(b, nowMs) {
+  if (b.status === 'planned' && b.end <= nowMs) return { key: 'unrecorded', label: 'Not recorded' };
+  if (b.status === 'planned' && b.start <= nowMs) return { key: 'now', label: 'In progress' };
+  return { key: b.status, label: BLOCK_STATUS[b.status] || b.status };
+}
+
+function whenLabel(startMs, endMs, tz, todayDate) {
+  return `${fmtDayRelative(msToDate(startMs, tz), todayDate)}, ${fmtTimeRange(startMs, endMs, tz)}`;
+}
+
+function typeLabel(type) { return COMMITMENT_TYPES[type] || 'Commitment'; }
+
+function minutesRow(label, minutes, note = null) {
+  return h('div', { class: 'mrow' }, h('dt', null, label), h('dd', null, fmtDuration(minutes), note ? h('span', { class: 'muted' }, ` ${note}`) : null));
+}
+
+const SEVERITY_LABEL = { conflict: 'Conflict', warning: 'Needs attention', info: 'Assumption' };
+
+return { deadlineInfo, blockTitle, BLOCK_STATUS, blockStatus, whenLabel, typeLabel, minutesRow, SEVERITY_LABEL };
+})();
+
+// src/ui/forms.js
+__m["src/ui/forms.js"] = (function () {
+// Form-based editing for every entity. Drag-and-drop is not required anywhere.
+
+const { h, icon, uid, reasonList, plural } = __m["src/ui/dom.js"];
+const { openDialog, confirmDialog, toast } = __m["src/ui/dialog.js"];
+const { app, now, today, tz, saveTask, deleteTask, setDone, saveCommitment, deleteCommitment, setOccurrence, savePlaces, savePreferences, recordProgressAction, addTopicAction, logReviewAction, newTaskId, newCommitmentId, lockBlock, removeBlockAction, update } = __m["src/ui/app.js"];
+const { TASK_KINDS, PRIORITIES, FOCUS, CONFIDENCE, EQUIPMENT, LOCATION_KINDS, COMMITMENT_TYPES, validateTask, validateCommitment, validatePreferences, validateLocation, taskRemaining, taskUnits } = __m["src/core/model.js"];
+const { OUTCOMES, taskAccounting } = __m["src/core/progress.js"];
+const { selectedAlternative } = __m["src/core/proposal.js"];
+const { CONFIDENCE_LABELS } = __m["src/core/revision.js"];
+const { fmtDate, fmtDuration, fmtTime, fmtTimeRange, fmtClock, fmtClockRange, toClockInput, parseClockInput, addDays, WEEKDAY_SHORT, WEEKDAY_LONG, MINUTE, msToDate } = __m["src/core/time.js"];
+const { locationName } = __m["src/core/travel.js"];
+const { newId } = __m["src/core/ids.js"];
+const { deadlineInfo, blockTitle, blockStatus, typeLabel, minutesRow } = __m["src/ui/common.js"];
+// ---------- Field helpers ----------
+
+function field(label, control, { hint = null, name = null, wide = false } = {}) {
+  const id = control.id || uid('f');
+  control.id = id;
+  const errId = `${id}-err`;
+  const hintId = hint ? `${id}-hint` : null;
+  control.setAttribute('aria-describedby', [hintId, errId].filter(Boolean).join(' '));
+  return h('div', { class: ['field', wide && 'field-wide'], dataset: { field: name || control.name || '' } },
+    h('label', { for: id, class: 'field-label' }, label), control,
+    hint ? h('p', { id: hintId, class: 'field-hint' }, hint) : null,
+    h('p', { id: errId, class: 'field-error', hidden: true }));
+}
+
+function group(legend, children, { hint = null, name = null } = {}) {
+  return h('fieldset', { class: 'fieldset', dataset: { field: name || '' } }, h('legend', null, legend), hint ? h('p', { class: 'field-hint' }, hint) : null,
+    h('div', { class: 'fieldset-body' }, children), h('p', { class: 'field-error', hidden: true }));
+}
+
+const input = (name, value, attrs = {}) => h('input', { name, value: value ?? '', ...attrs });
+const num = (name, value, min, max, attrs = {}) => h('input', { name, type: 'number', inputmode: 'numeric', min, max, step: 1, value: value ?? '', ...attrs });
+const time = (name, minutes, attrs = {}) => h('input', { name, type: 'time', step: 300, value: minutes == null ? '' : toClockInput(minutes), ...attrs });
+const date = (name, value, attrs = {}) => h('input', { name, type: 'date', value: value || '', ...attrs });
+function select(name, options, value, attrs = {}) {
+  const entries = Array.isArray(options) ? options : Object.entries(options);
+  const el = h('select', { name, ...attrs }, entries.map(([v, l]) => h('option', { value: v }, l)));
+  el.value = value == null ? '' : String(value);
+  return el;
+}
+const check = (name, checked, label, attrs = {}) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name, checked: !!checked, ...attrs }), h('span', null, label));
+
+function intVal(form, name) {
+  const el = form.elements[name];
+  if (!el || el.value === '') return null;
+  const n = Number(el.value);
+  return Number.isFinite(n) ? Math.round(n) : NaN;
+}
+
+// Shows field errors next to their controls plus a summary at the top of the form.
+function showErrors(form, errors, map = {}) {
+  for (const p of form.querySelectorAll('.field-error')) { p.hidden = true; p.textContent = ''; }
+  for (const c of form.querySelectorAll('[aria-invalid]')) c.removeAttribute('aria-invalid');
+  const summary = form.querySelector('.form-errors');
+  const entries = Object.entries(errors);
+  if (!entries.length) { if (summary) summary.hidden = true; return true; }
+  let first = null;
+  for (const [key, msg] of entries) {
+    const target = form.querySelector(`[data-field="${map[key] || key}"]`);
+    if (target) {
+      const p = target.querySelector('.field-error');
+      p.hidden = false;
+      p.textContent = msg;
+      const ctl = target.querySelector('input, select, textarea');
+      if (ctl) { ctl.setAttribute('aria-invalid', 'true'); if (!first) first = ctl; }
+    }
+  }
+  if (summary) {
+    summary.hidden = false;
+    summary.replaceChildren(h('p', null, `Fix ${plural(entries.length, 'problem')} to save:`), h('ul', null, entries.map(([, m]) => h('li', null, m))));
+  }
+  (first || summary)?.focus?.();
+  return false;
+}
+
+const errorSummary = () => h('div', { class: 'form-errors', role: 'alert', tabindex: '-1', hidden: true });
+
+// ---------- Tasks ----------
+
+const TEMPLATES = {
+  problemset: { label: 'Problem set', steps: [['Read the problems and notes', 0.15], ['Work the problems', 0.6], ['Check and write up', 0.25]] },
+  essay: { label: 'Essay or paper', steps: [['Outline', 0.15], ['Draft', 0.5], ['Revise', 0.25], ['Proofread', 0.1]] },
+  exam: { label: 'Exam prep', steps: [['Review notes', 0.3], ['Practice problems', 0.5], ['Self-test', 0.2]] },
+  project: { label: 'Project', steps: [['Plan', 0.15], ['Build', 0.55], ['Test', 0.2], ['Document', 0.1]] },
+  reading: { label: 'Reading', steps: [['Read', 0.8], ['Notes', 0.2]] },
+};
+
+function blankTask() {
+  return {
+    id: newTaskId(), title: '', category: '', kind: 'assignment', priority: 'medium', deadline: { date: addDays(today(), 2), time: null },
+    estimateMin: 60, remainingMin: 60, confidence: 'medium', focus: 'normal', location: { mode: 'any', ids: [] }, equipment: [],
+    status: 'todo', notes: '', doneWhen: '', splittable: true, minSessionMin: null, steps: [], dependsOn: [], lateTarget: null,
+    revisionTopicId: null, calibratedFrom: null, createdAt: null, completedAt: null, source: { system: 'user', id: null },
+  };
+}
+
+function openTaskForm(existing = null) {
+  const state = app.state;
+  const isNew = !existing;
+  const t = structuredClone(existing || blankTask());
+  let steps = t.steps.map((s) => ({ ...s }));
+  const formId = uid('task-form');
+  const categories = [...new Set(state.tasks.map((x) => x.category).filter(Boolean))].sort();
+  const listId = uid('cats');
+  let remainingTouched = !isNew;
+
+  const stepsBox = h('div', { class: 'steps' });
+  const effortBox = h('div', { class: 'grid-2' });
+  const est = num('estimateMin', t.estimateMin, 0, 6000, { oninput: () => { if (!remainingTouched) form.elements.remainingMin.value = form.elements.estimateMin.value; } });
+  const rem = num('remainingMin', t.remainingMin, 0, 6000, { oninput: () => { remainingTouched = true; } });
+
+  function readSteps() {
+    steps = steps.map((s, i) => ({
+      ...s,
+      title: form.elements[`step-title-${i}`]?.value.trim() ?? s.title,
+      estimateMin: intVal(form, `step-est-${i}`) ?? 0,
+      remainingMin: intVal(form, `step-rem-${i}`) ?? 0,
+      done: !!form.elements[`step-done-${i}`]?.checked,
+    }));
+  }
+  function renderSteps() {
+    const rows = steps.map((s, i) => h('div', { class: 'step-row', dataset: { field: `step${i}` } },
+      h('span', { class: 'step-n', 'aria-hidden': 'true' }, String(i + 1)),
+      h('label', { class: 'sr-only', for: `${formId}-st-${i}` }, `Step ${i + 1} title`),
+      h('input', { id: `${formId}-st-${i}`, name: `step-title-${i}`, value: s.title, placeholder: 'Step title' }),
+      h('label', { class: 'step-num' }, h('span', null, 'Estimate'), num(`step-est-${i}`, s.estimateMin, 0, 6000)),
+      h('label', { class: 'step-num' }, h('span', null, 'Left'), num(`step-rem-${i}`, s.remainingMin, 0, 6000)),
+      check(`step-done-${i}`, s.done, 'Done'),
+      h('div', { class: 'step-actions' },
+        h('button', { type: 'button', class: 'btn-icon', 'aria-label': `Move step ${i + 1} up`, disabled: i === 0, onclick: () => { readSteps(); [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]; renderSteps(); } }, icon('left', { size: 14 })),
+        h('button', { type: 'button', class: 'btn-icon', 'aria-label': `Move step ${i + 1} down`, disabled: i === steps.length - 1, onclick: () => { readSteps(); [steps[i + 1], steps[i]] = [steps[i], steps[i + 1]]; renderSteps(); } }, icon('right', { size: 14 })),
+        h('button', { type: 'button', class: 'btn-icon', 'aria-label': `Remove step ${i + 1}`, onclick: () => { readSteps(); steps.splice(i, 1); renderSteps(); } }, icon('x', { size: 14 }))),
+      h('p', { class: 'field-error', hidden: true })));
+    const templateSel = select('template', [['', 'Suggest steps from a template'], ...Object.entries(TEMPLATES).map(([k, v]) => [k, v.label])], '');
+    stepsBox.replaceChildren(
+      ...rows,
+      h('div', { class: 'row gap' },
+        h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => { readSteps(); steps.push({ id: newId('s'), title: '', estimateMin: 30, remainingMin: 30, done: false }); renderSteps(); stepsBox.querySelector(`[name=step-title-${steps.length - 1}]`)?.focus(); } }, icon('plus', { size: 14 }), 'Add step'),
+        h('label', { class: 'sr-only', for: `${formId}-tpl` }, 'Template'),
+        Object.assign(templateSel, { id: `${formId}-tpl` }),
+        h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => {
+          const key = templateSel.value;
+          if (!key) return;
+          readSteps();
+          const total = steps.length ? steps.reduce((s, x) => s + x.estimateMin, 0) : (intVal(form, 'estimateMin') || 60);
+          steps = TEMPLATES[key].steps.map(([title, share]) => { const m = Math.max(5, Math.round((total * share) / 5) * 5); return { id: newId('s'), title, estimateMin: m, remainingMin: m, done: false }; });
+          renderSteps();
+        } }, 'Apply')),
+      h('p', { class: 'field-hint' }, 'Templates are generic and know nothing about your assignment. Edit the steps to fit. Steps are worked in order.'));
+    effortBox.hidden = steps.length > 0;
+    const sum = steps.reduce((s, x) => s + (x.done ? 0 : x.remainingMin), 0);
+    stepsNote.textContent = steps.length ? `Effort is the sum of the steps: ${fmtDuration(sum)} left. The task-level estimate is not added on top.` : '';
+  }
+  const stepsNote = h('p', { class: 'field-hint' });
+
+  const noTime = check('noTime', t.deadline.time == null, 'No specific time', { onchange: (e) => { form.elements.deadlineTime.disabled = e.target.checked; } });
+  const dlTime = time('deadlineTime', t.deadline.time ?? 23 * 60 + 59, { disabled: t.deadline.time == null });
+  const locIds = new Set(t.location.ids);
+  const locChecks = h('div', { class: 'checks' }, state.locations.map((l) => check(`loc-${l.id}`, locIds.has(l.id), l.name)));
+  const eqChecks = h('div', { class: 'checks' }, Object.entries(EQUIPMENT).map(([k, v]) => check(`eq-${k}`, t.equipment.includes(k), v)));
+  const others = state.tasks.filter((x) => x.id !== t.id && (x.status !== 'done' || t.dependsOn.includes(x.id)));
+  const depChecks = others.length ? h('div', { class: 'checks checks-col' }, others.map((x) => check(`dep-${x.id}`, t.dependsOn.includes(x.id), x.title))) : h('p', { class: 'muted' }, 'No other tasks yet.');
+
+  const acct = !isNew ? (() => {
+    const a = taskAccounting(state, existing, now(), selectedAlternative(state.proposal), deadlineInfo(existing, state.settings, now()).ms);
+    return h('dl', { class: 'minutes' },
+      minutesRow('Original estimate', a.estimate),
+      minutesRow('Remaining', a.remaining),
+      minutesRow('Progress credited', a.completedEffort, 'from recorded sessions'),
+      minutesRow('Actual time recorded', a.actualMin, `over ${plural(a.sessionsRecorded, 'record')}`),
+      minutesRow('Approved future sessions', a.approvedFutureMin),
+      state.proposal ? minutesRow('New in the open proposal', a.proposedFutureMin) : null);
+  })() : null;
+
+  const form = h('form', { id: formId, class: 'form', novalidate: true, onsubmit: (e) => { e.preventDefault(); submit(); } },
+    errorSummary(),
+    acct ? h('section', { class: 'form-section' }, h('h3', null, 'Minutes'), acct) : null,
+    h('div', { class: 'grid-2' },
+      field('Title', input('title', t.title, { required: true, maxlength: 120, autocomplete: 'off' }), { wide: true }),
+      field('Course or category', input('category', t.category, { list: listId, maxlength: 60, placeholder: 'COSC 10, Personal' })),
+      h('datalist', { id: listId }, categories.map((c) => h('option', { value: c }))),
+      field('Type', select('kind', TASK_KINDS, t.kind)),
+      field('Priority', select('priority', PRIORITIES, t.priority)),
+      field('Deadline date', date('deadline', t.deadline.date, { required: true })),
+      h('div', { class: 'field', dataset: { field: 'deadlineTime' } }, h('label', { class: 'field-label', for: (dlTime.id = uid('f')) }, 'Deadline time'), dlTime, noTime,
+        h('p', { class: 'field-hint' }, `Without a time, the deadline is assumed to be ${fmtClock(state.settings.dateOnlyCutoff)}. Change the assumption in Preferences.`), h('p', { class: 'field-error', hidden: true }))),
+    h('section', { class: 'form-section' }, h('h3', null, 'Effort'),
+      effortBox,
+      h('div', { class: 'grid-2' },
+        field('How sure is the estimate?', select('confidence', CONFIDENCE, t.confidence), { hint: 'Used by the robustness check: rough guesses are tested for running 50% long.' }),
+        field('Focus needed', select('focus', FOCUS, t.focus)),
+        h('div', { class: 'field' }, check('splittable', t.splittable, 'Can be split into several sessions')),
+        field('Minimum useful session (min)', num('minSessionMin', t.minSessionMin, 5, 240, { placeholder: `Default ${state.preferences.minSessionMin}` })))),
+    h('section', { class: 'form-section' }, h('h3', null, 'Steps'), stepsNote, stepsBox),
+    h('section', { class: 'form-section' }, h('h3', null, 'Where and with what'),
+      h('div', { class: 'grid-2' },
+        field('Location', select('locMode', [['any', 'Anywhere I can study'], ['preferred', 'Prefer these places'], ['required', 'Must be at one of these']], t.location.mode), { name: 'location' }),
+        state.locations.length ? group('Places', locChecks) : h('p', { class: 'muted' }, 'Add places under Places and travel to set locations.'),
+        group('Equipment needed', eqChecks, { hint: 'Only places with all of these are used.' }))),
+    h('section', { class: 'form-section' }, h('h3', null, 'Order and finish'),
+      group('Must finish first', depChecks, { name: 'dependsOn' }),
+      h('div', { class: 'grid-2' },
+        field('Definition of done', input('doneWhen', t.doneWhen, { maxlength: 300, placeholder: 'What "finished" looks like' }), { wide: true }),
+        field('Finish late by', date('lateTarget', t.lateTarget), { hint: 'Only for overdue work. Lets the planner schedule it without changing the real deadline.' }),
+        field('Notes', h('textarea', { name: 'notes', rows: 2, maxlength: 2000 }, t.notes), { wide: true }))));
+  effortBox.append(
+    field('Total estimate (min)', est, { name: 'estimateMin' }),
+    field('Remaining (min)', rem, { name: 'remainingMin', hint: 'Only recorded progress or your own edit changes this.' }));
+  renderSteps();
+
+  function submit() {
+    readSteps();
+    const f = form.elements;
+    const task = {
+      ...t,
+      title: f.title.value.trim(),
+      category: f.category.value.trim() || 'General',
+      kind: f.kind.value,
+      priority: f.priority.value,
+      deadline: { date: f.deadline.value, time: f.noTime.checked ? null : parseClockInput(f.deadlineTime.value) },
+      confidence: f.confidence.value,
+      focus: f.focus.value,
+      splittable: f.splittable.checked,
+      minSessionMin: intVal(form, 'minSessionMin'),
+      location: { mode: f.locMode.value, ids: state.locations.filter((l) => f[`loc-${l.id}`]?.checked).map((l) => l.id) },
+      equipment: Object.keys(EQUIPMENT).filter((k) => f[`eq-${k}`].checked),
+      dependsOn: others.filter((x) => f[`dep-${x.id}`]?.checked).map((x) => x.id),
+      doneWhen: f.doneWhen.value.trim(),
+      lateTarget: f.lateTarget.value || null,
+      notes: f.notes.value,
+      steps,
+    };
+    if (steps.length) { task.estimateMin = steps.reduce((s, x) => s + x.estimateMin, 0); task.remainingMin = 0; }
+    else { task.estimateMin = intVal(form, 'estimateMin'); task.remainingMin = intVal(form, 'remainingMin'); }
+    if (f.deadlineTime.value === '' && !f.noTime.checked) task.deadline.time = NaN;
+    const errs = validateTask(task, state.tasks);
+    if (!showErrors(form, errs, { deadline: 'deadline', lateTarget: 'lateTarget' })) return;
+    if (task.status === 'done' && taskRemaining({ ...task, status: 'todo' }) > 0 && existing?.status === 'done') task.status = 'in_progress';
+    saveTask(task);
+    api.close(true);
+  }
+
+  const api = openDialog({
+    title: isNew ? 'New task' : 'Edit task', size: 'lg', content: form,
+    actions: [
+      !isNew ? { label: 'Delete', danger: true, onClick: async () => { if (await confirmDialog({ title: 'Delete this task?', message: `"${existing.title}" and its sessions and progress records will be removed. You can undo right after.`, confirmLabel: 'Delete task', danger: true })) { deleteTask(existing.id); api.close(true); } } } : null,
+      !isNew ? { label: existing.status === 'done' ? 'Reopen' : 'Mark done', quiet: true, onClick: () => { setDone(existing.id, existing.status !== 'done'); api.close(true); } } : null,
+      !isNew && existing.status !== 'done' ? { label: 'Log time', quiet: true, onClick: () => { api.close(true); openProgressForm({ taskId: existing.id }); } } : null,
+      { label: 'Cancel', quiet: true, onClick: () => api.close(false) },
+      { label: isNew ? 'Add task' : 'Save task', primary: true, submit: true, form: formId },
+    ],
+  });
+  return api;
+}
+
+// ---------- Commitments ----------
+
+function openCommitmentForm(existing = null, presetDate = null) {
+  const state = app.state;
+  const isNew = !existing;
+  const c = structuredClone(existing || { id: newCommitmentId(), title: '', type: 'class', startDate: presetDate || today(), start: 9 * 60, end: 10 * 60, recurrence: { freq: 'none' }, locationId: null, optional: false, notes: '', exceptions: [], source: { system: 'user', id: null } });
+  const weekly = c.recurrence.freq === 'weekly';
+  const days = new Set(weekly ? c.recurrence.days : []);
+  const formId = uid('c-form');
+  const repeatBox = h('div', { class: 'repeat', hidden: !weekly },
+    group('Repeats on', h('div', { class: 'checks' }, [1, 2, 3, 4, 5, 6, 0].map((d) => check(`day-${d}`, days.has(d), WEEKDAY_SHORT[d]))), { name: 'days' }),
+    field('Until', date('until', weekly ? c.recurrence.until : addDays(c.startDate, 70))));
+  const endHint = h('p', { class: 'field-hint', 'aria-live': 'polite' });
+  const updateHint = () => {
+    const s = parseClockInput(form.elements.start.value);
+    const e = parseClockInput(form.elements.end.value);
+    endHint.textContent = s != null && e != null && e < s ? 'Ends the next day.' : s != null && e != null && e === s ? 'Start and end are the same time.' : '';
+  };
+  const form = h('form', { id: formId, class: 'form', novalidate: true, onsubmit: (e) => { e.preventDefault(); submit(); } },
+    errorSummary(),
+    h('div', { class: 'grid-2' },
+      field('Title', input('title', c.title, { maxlength: 120, autocomplete: 'off' }), { wide: true }),
+      field('Type', select('type', COMMITMENT_TYPES, c.type), { hint: 'Protected time blocks study without needing a location.' }),
+      field('Location', select('locationId', [['', 'No location'], ...state.locations.map((l) => [l.id, l.name])], c.locationId || '')),
+      field(weekly ? 'First date' : 'Date', date('startDate', c.startDate), { name: 'startDate' }),
+      h('div', { class: 'field' }, check('weekly', weekly, 'Repeats weekly', { onchange: (e) => { repeatBox.hidden = !e.target.checked; } }))),
+    repeatBox,
+    h('div', { class: 'grid-2' },
+      field('Starts', time('start', c.start, { oninput: () => updateHint() })),
+      h('div', { class: 'field', dataset: { field: 'end' } }, h('label', { class: 'field-label', for: `${formId}-end` }, 'Ends'), time('end', c.end === 1440 ? 0 : c.end, { id: `${formId}-end`, oninput: () => updateHint() }), endHint, h('p', { class: 'field-error', hidden: true })),
+      h('div', { class: 'field' }, check('optional', c.optional, 'Optional: can be skipped in a what-if')),
+      field('Notes', input('notes', c.notes, { maxlength: 1000 }))));
+
+  function submit() {
+    const f = form.elements;
+    const start = parseClockInput(f.start.value);
+    let end = parseClockInput(f.end.value);
+    if (end === 0 && start != null && start > 0) end = 1440;
+    const next = {
+      ...c, title: f.title.value.trim(), type: f.type.value, locationId: f.locationId.value || null, startDate: f.startDate.value,
+      start: start ?? NaN, end: end ?? NaN, optional: f.optional.checked, notes: f.notes.value.trim(),
+      recurrence: f.weekly.checked ? { freq: 'weekly', days: [0, 1, 2, 3, 4, 5, 6].filter((d) => f[`day-${d}`].checked), until: f.until.value } : { freq: 'none' },
+    };
+    if (end === 1440 && start === 0) next.end = 1440;
+    const errs = validateCommitment(next);
+    if (!showErrors(form, errs, { days: 'days' })) return;
+    saveCommitment(next);
+    api.close(true);
+  }
+  const api = openDialog({
+    title: isNew ? 'New event' : 'Edit event', subtitle: existing?.recurrence.freq === 'weekly' ? 'Changes apply to the whole series. To change one date, open that occurrence on the calendar.' : null,
+    size: 'md', content: form,
+    actions: [
+      !isNew ? { label: 'Delete', danger: true, onClick: async () => { if (await confirmDialog({ title: 'Delete this commitment?', message: existing.recurrence.freq === 'weekly' ? `Every occurrence of "${existing.title}" will be removed.` : `"${existing.title}" will be removed.`, confirmLabel: 'Delete', danger: true })) { deleteCommitment(existing.id); api.close(true); } } } : null,
+      { label: 'Cancel', quiet: true, onClick: () => api.close(false) },
+      { label: isNew ? 'Add event' : 'Save commitment', primary: true, submit: true, form: formId },
+    ],
+  });
+  updateHint();
+  return api;
+}
+
+function openOccurrence(occ) {
+  const state = app.state;
+  const c = state.commitments.find((x) => x.id === occ.commitmentId);
+  if (!c) return null;
+  const issues = app.derivedIssues ? app.derivedIssues.filter((i) => i.refs?.occurrences?.includes(occ.id)) : [];
+  const rec = c.recurrence.freq === 'weekly' ? `Weekly on ${c.recurrence.days.map((d) => WEEKDAY_LONG[d]).join(', ')} until ${fmtDate(c.recurrence.until)}` : 'One time';
+  const src = c.source?.system === 'mock' ? `From mock ${c.source.table} record ${c.source.id}` : c.source?.system === 'demo' ? 'Demo personal record' : 'Entered by you';
+  const body = h('div', { class: 'stack' },
+    h('dl', { class: 'facts' },
+      h('dt', null, 'When'), h('dd', null, `${fmtDate(occ.date)}, ${fmtTimeRange(occ.startMs, occ.endMs, tz())}`),
+      h('dt', null, 'Type'), h('dd', null, typeLabel(c.type)),
+      h('dt', null, 'Place'), h('dd', null, locationName(state, occ.locationId)),
+      h('dt', null, 'Repeats'), h('dd', null, rec),
+      h('dt', null, 'Source'), h('dd', null, src),
+      occ.modified ? [h('dt', null, 'This date'), h('dd', null, `Changed from the series (${fmtClockRange(c.start, c.end)})`)] : null,
+      occ.skipped ? [h('dt', null, 'This date'), h('dd', null, 'Skipped')] : null),
+    issues.length ? h('div', { class: 'callout callout-conflict' }, h('strong', null, 'Conflicts'), h('ul', null, issues.map((i) => h('li', null, i.detail)))) : null,
+    c.notes ? h('p', { class: 'muted' }, c.notes) : null);
+  const recurring = c.recurrence.freq === 'weekly';
+  const api = openDialog({
+    title: occ.title, size: 'sm', content: body,
+    actions: [
+      recurring && !occ.skipped ? { label: 'Skip this date', quiet: true, onClick: () => { setOccurrence(c.id, occ.date, { action: 'skip' }, `Skipped ${c.title} on ${fmtDate(occ.date)}. Other dates are unchanged.`); api.close(true); } } : null,
+      recurring && (occ.skipped || occ.modified) ? { label: 'Restore this date', quiet: true, onClick: () => { setOccurrence(c.id, occ.date, null, `Restored ${c.title} on ${fmtDate(occ.date)}.`); api.close(true); } } : null,
+      recurring && !occ.skipped ? { label: 'Change this date only', quiet: true, onClick: () => { api.close(true); openOccurrenceEdit(c, occ); } } : null,
+      { label: recurring ? 'Edit series' : 'Edit', primary: true, onClick: () => { api.close(true); openCommitmentForm(c); } },
+    ],
+  });
+  return api;
+}
+
+function openOccurrenceEdit(c, occ) {
+  const formId = uid('occ');
+  const form = h('form', { id: formId, class: 'form', novalidate: true, onsubmit: (e) => { e.preventDefault(); submit(); } },
+    errorSummary(),
+    h('div', { class: 'grid-2' },
+      field('Starts', time('start', occ.start)),
+      field('Ends', time('end', occ.end === 1440 ? 0 : occ.end), { name: 'end' }),
+      field('Location', select('locationId', [['', 'No location'], ...app.state.locations.map((l) => [l.id, l.name])], occ.locationId || ''), { wide: true })));
+  function submit() {
+    const start = parseClockInput(form.elements.start.value);
+    let end = parseClockInput(form.elements.end.value);
+    if (end === 0 && start > 0) end = 1440;
+    const errs = {};
+    if (start == null) errs.start = 'Choose a start time.';
+    if (end == null) errs.end = 'Choose an end time.';
+    else if (end === start) errs.end = 'Start and end cannot be the same time.';
+    if (!showErrors(form, errs)) return;
+    setOccurrence(c.id, occ.date, { action: 'modify', start, end, locationId: form.elements.locationId.value || null }, `Changed ${c.title} on ${fmtDate(occ.date)} only.`);
+    api.close(true);
+  }
+  const api = openDialog({ title: `${c.title}, ${fmtDate(occ.date)} only`, subtitle: 'The rest of the series stays as it is.', size: 'sm', content: form,
+    actions: [{ label: 'Cancel', quiet: true, onClick: () => api.close(false) }, { label: 'Save this date', primary: true, submit: true, form: formId }] });
+}
+
+function openCommitmentsList() {
+  const state = app.state;
+  const list = state.commitments.slice().sort((a, b) => (a.type < b.type ? -1 : a.type > b.type ? 1 : a.start - b.start));
+  const body = h('div', { class: 'stack' },
+    list.length ? h('ul', { class: 'plain-list' }, list.map((c) => h('li', { class: 'list-row' },
+      h('div', null,
+        h('div', { class: 'list-title' }, c.title),
+        h('div', { class: 'muted' }, `${typeLabel(c.type)}. ${c.recurrence.freq === 'weekly' ? `${c.recurrence.days.map((d) => WEEKDAY_SHORT[d]).join(', ')}, ` : `${fmtDate(c.startDate)}, `}${fmtClockRange(c.start, c.end)}. ${locationName(state, c.locationId)}${c.exceptions.length ? `. ${plural(c.exceptions.length, 'changed date')}` : ''}.`)),
+      h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => { api.close(true); openCommitmentForm(c); } }, 'Edit')))) : h('p', { class: 'empty' }, 'No commitments yet. Add your classes, shifts, meetings, meals, and protected time.'));
+  const api = openDialog({ title: 'Commitments', size: 'md', content: body,
+    actions: [{ label: 'Close', quiet: true, onClick: () => api.close() }, { label: 'Add event', primary: true, onClick: () => { api.close(); openCommitmentForm(); } }] });
+}
+
+// ---------- Places and travel ----------
+
+function openPlaces() {
+  const state = app.state;
+  let places = state.locations.map((l) => ({ ...l, equipment: [...l.equipment] }));
+  let routes = state.travel.map((t) => ({ ...t }));
+  const formId = uid('places');
+  const placesBox = h('div', { class: 'stack-sm' });
+  const routesBox = h('div', { class: 'stack-sm' });
+  const settingsBox = h('div', { class: 'grid-3' });
+
+  function read() {
+    const f = form.elements;
+    places = places.map((p, i) => ({ ...p, name: f[`p-name-${i}`].value.trim(), kind: f[`p-kind-${i}`].value, studyOk: f[`p-study-${i}`].checked && f[`p-kind-${i}`].value !== 'virtual', equipment: Object.keys(EQUIPMENT).filter((k) => f[`p-eq-${i}-${k}`].checked) }));
+    routes = routes.map((r, i) => ({ a: f[`r-a-${i}`].value, b: f[`r-b-${i}`].value, minutes: intVal(form, `r-m-${i}`) }));
+  }
+  function render() {
+    placesBox.replaceChildren(...places.map((p, i) => h('div', { class: 'place-row', dataset: { field: `place${i}` } },
+      h('div', { class: 'grid-3' },
+        field('Name', input(`p-name-${i}`, p.name, { maxlength: 80 })),
+        field('Kind', select(`p-kind-${i}`, LOCATION_KINDS, p.kind)),
+        h('div', { class: 'field' }, check(`p-study-${i}`, p.studyOk, 'Good for studying'))),
+      h('div', { class: 'checks' }, Object.entries(EQUIPMENT).map(([k, v]) => check(`p-eq-${i}-${k}`, p.equipment.includes(k), v))),
+      h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => { read(); places.splice(i, 1); render(); } }, 'Remove place'),
+      h('p', { class: 'field-error', hidden: true }))),
+    h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => { read(); places.push({ id: newId('loc'), name: '', kind: 'study', studyOk: true, equipment: [], source: { system: 'user', id: null } }); render(); } }, icon('plus', { size: 14 }), 'Add place'));
+    const opts = places.map((p) => [p.id, p.name || 'Unnamed place']);
+    routesBox.replaceChildren(...routes.map((r, i) => h('div', { class: 'route-row', dataset: { field: `route${i}` } },
+      h('label', { class: 'sr-only', for: `${formId}-ra-${i}` }, 'From'), select(`r-a-${i}`, opts, r.a, { id: `${formId}-ra-${i}` }),
+      h('span', { 'aria-hidden': 'true' }, 'and'),
+      h('label', { class: 'sr-only', for: `${formId}-rb-${i}` }, 'To'), select(`r-b-${i}`, opts, r.b, { id: `${formId}-rb-${i}` }),
+      h('label', { class: 'route-min' }, num(`r-m-${i}`, r.minutes, 0, 240), h('span', null, 'min')),
+      h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Remove route', onclick: () => { read(); routes.splice(i, 1); render(); } }, icon('x', { size: 14 })),
+      h('p', { class: 'field-error', hidden: true }))),
+    h('button', { type: 'button', class: 'btn btn-quiet btn-sm', disabled: places.length < 2, onclick: () => { read(); routes.push({ a: places[0].id, b: places[1].id, minutes: 10 }); render(); } }, icon('plus', { size: 14 }), 'Add travel time'));
+    const homeVal = form.elements?.home ? form.elements.home.value : state.settings.homeLocationId || '';
+    settingsBox.replaceChildren(
+      field('Home place', select('home', [['', 'Not set'], ...opts], homeVal), { hint: 'Each day starts and ends here.' }),
+      field('Unknown route estimate (min)', num('fallback', form.elements?.fallback?.value ?? state.settings.unknownTravelFallbackMin, 0, 120), { hint: 'Used, and labeled as an estimate, when no time is entered.' }),
+      field('Travel buffer (min)', num('buffer', form.elements?.buffer?.value ?? state.settings.travelBufferMin, 0, 60), { hint: 'Added to every trip.' }));
+  }
+  const form = h('form', { id: formId, class: 'form', novalidate: true, onsubmit: (e) => { e.preventDefault(); submit(); } },
+    errorSummary(),
+    h('section', { class: 'form-section' }, h('h3', null, 'Places'), placesBox),
+    h('section', { class: 'form-section' }, h('h3', null, 'Travel times'), h('p', { class: 'field-hint' }, 'Enter times you know. They apply in both directions. Margin has no map connection and does not measure routes.'), routesBox),
+    h('section', { class: 'form-section' }, h('h3', null, 'Travel settings'), settingsBox));
+  render();
+  function submit() {
+    read();
+    const errs = {};
+    places.forEach((p, i) => { const e = validateLocation(p); if (Object.keys(e).length) errs[`place${i}`] = `Place ${i + 1}: ${Object.values(e)[0]}`; });
+    const seen = new Set();
+    routes.forEach((r, i) => {
+      if (r.a === r.b) errs[`route${i}`] = `Travel time ${i + 1}: choose two different places.`;
+      else if (!Number.isInteger(r.minutes) || r.minutes < 0 || r.minutes > 240) errs[`route${i}`] = `Travel time ${i + 1}: minutes must be 0 to 240.`;
+      const k = r.a < r.b ? `${r.a}|${r.b}` : `${r.b}|${r.a}`;
+      if (seen.has(k)) errs[`route${i}`] = `Travel time ${i + 1}: this pair is already listed.`;
+      seen.add(k);
+    });
+    const fb = intVal(form, 'fallback');
+    const buf = intVal(form, 'buffer');
+    if (!Number.isInteger(fb) || fb < 0 || fb > 120) errs.fallback = 'Unknown route estimate must be 0 to 120 minutes.';
+    if (!Number.isInteger(buf) || buf < 0 || buf > 60) errs.buffer = 'Buffer must be 0 to 60 minutes.';
+    if (!showErrors(form, errs)) return;
+    savePlaces({
+      locations: places,
+      travel: routes.map((r) => ({ a: r.a < r.b ? r.a : r.b, b: r.a < r.b ? r.b : r.a, minutes: r.minutes })),
+      settings: { homeLocationId: form.elements.home.value || null, unknownTravelFallbackMin: fb, travelBufferMin: buf },
+    });
+    api.close(true);
+  }
+  const api = openDialog({ title: 'Places and travel', size: 'lg', content: form,
+    actions: [{ label: 'Cancel', quiet: true, onClick: () => api.close(false) }, { label: 'Save places', primary: true, submit: true, form: formId }] });
+}
+
+// ---------- Preferences ----------
+
+function openPreferences() {
+  const state = app.state;
+  const p = state.preferences;
+  const formId = uid('prefs');
+  const rows = [1, 2, 3, 4, 5, 6, 0].map((d) => {
+    const w = p.availability[d][0];
+    return h('div', { class: 'avail-row', dataset: { field: `availability${d}` } },
+      check(`av-on-${d}`, !!w, WEEKDAY_LONG[d]),
+      h('label', { class: 'sr-only', for: `${formId}-af-${d}` }, `${WEEKDAY_LONG[d]} from`), time(`av-from-${d}`, w ? w.start : 9 * 60, { id: `${formId}-af-${d}` }),
+      h('span', { 'aria-hidden': 'true' }, 'to'),
+      h('label', { class: 'sr-only', for: `${formId}-at-${d}` }, `${WEEKDAY_LONG[d]} until`), time(`av-to-${d}`, w ? (w.end === 1440 ? 0 : w.end) : 22 * 60, { id: `${formId}-at-${d}` }),
+      p.availability[d].length > 1 ? h('span', { class: 'muted' }, `Has ${p.availability[d].length} windows; saving keeps the first.`) : null,
+      h('p', { class: 'field-error', hidden: true }));
+  });
+  const form = h('form', { id: formId, class: 'form', novalidate: true, onsubmit: (e) => { e.preventDefault(); submit(); } },
+    errorSummary(),
+    h('section', { class: 'form-section' }, h('h3', null, 'Study hours'), h('p', { class: 'field-hint' }, 'Study is only planned inside these hours. This is a hard limit.'), h('div', { class: 'stack-sm' }, rows)),
+    h('section', { class: 'form-section' }, h('h3', null, 'Limits'), h('div', { class: 'grid-3' },
+      h('div', { class: 'field', dataset: { field: 'sleep' } }, h('span', { class: 'field-label' }, 'Protected sleep'),
+        h('div', { class: 'row gap' }, h('label', { class: 'sr-only', for: `${formId}-ss` }, 'Sleep starts'), time('sleepStart', p.sleep.start, { id: `${formId}-ss` }), h('span', null, 'to'), h('label', { class: 'sr-only', for: `${formId}-se` }, 'Sleep ends'), time('sleepEnd', p.sleep.end, { id: `${formId}-se` })),
+        h('p', { class: 'field-error', hidden: true })),
+      field('Daily study limit (min)', num('maxDailyStudyMin', p.maxDailyStudyMin, 0, 960)),
+      field('Longest single session (min)', num('maxContinuousMin', p.maxContinuousMin, 15, 480)),
+      field('Break between sessions (min)', num('breakMin', p.breakMin, 0, 120)),
+      field('Minimum useful session (min)', num('minSessionMin', p.minSessionMin, 5, 240)))),
+    h('section', { class: 'form-section' }, h('h3', null, 'Preferences'), h('p', { class: 'field-hint' }, 'These shape where work goes but are never treated as rules.'), h('div', { class: 'grid-3' },
+      field('Preferred session (min)', num('preferredSessionMin', p.preferredSessionMin, 10, 240)),
+      h('div', { class: 'field', dataset: { field: 'focusHours' } }, h('span', { class: 'field-label' }, 'Focus hours'),
+        h('div', { class: 'row gap' }, h('label', { class: 'sr-only', for: `${formId}-ff` }, 'Focus from'), time('focusStart', p.focusHours[0]?.start ?? 9 * 60, { id: `${formId}-ff` }), h('span', null, 'to'), h('label', { class: 'sr-only', for: `${formId}-ft` }, 'Focus until'), time('focusEnd', p.focusHours[0]?.end ?? 12 * 60, { id: `${formId}-ft` })),
+        h('p', { class: 'field-hint' }, 'Deep-focus work is steered here.'), h('p', { class: 'field-error', hidden: true })),
+      field('Keep free each day (min)', num('reserveFlexMin', p.reserveFlexMin, 0, 600), { hint: 'Flexibility time the planner leaves open.' }),
+      field('Evenings start at', time('eveningCutoff', p.eveningCutoff), { hint: 'Used by the protect-evenings option.' }))),
+    h('section', { class: 'form-section' }, h('h3', null, 'Assumptions'), h('div', { class: 'grid-3' },
+      field('Deadlines without a time are due at', time('dateOnlyCutoff', state.settings.dateOnlyCutoff)),
+      field('Planning window (days)', num('planningHorizonDays', state.settings.planningHorizonDays, 3, 28), { hint: 'How far ahead each proposal plans.' }),
+      h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Timezone'), h('p', null, 'America/New_York'), h('p', { class: 'field-hint' }, 'The only timezone this version supports. Daylight-saving changes are handled.')))));
+  function submit() {
+    const f = form.elements;
+    const clockOr = (name) => { const v = parseClockInput(f[name].value); return v == null ? NaN : v; };
+    const availability = Array.from({ length: 7 }, (_, d) => {
+      if (!f[`av-on-${d}`].checked) return [];
+      let end = clockOr(`av-to-${d}`);
+      if (end === 0) end = 1440;
+      return [{ start: clockOr(`av-from-${d}`), end }];
+    });
+    let fe = clockOr('focusEnd');
+    if (fe === 0) fe = 1440;
+    const prefs = {
+      ...p, availability,
+      sleep: { start: clockOr('sleepStart'), end: clockOr('sleepEnd') },
+      maxDailyStudyMin: intVal(form, 'maxDailyStudyMin'), maxContinuousMin: intVal(form, 'maxContinuousMin'), breakMin: intVal(form, 'breakMin'),
+      minSessionMin: intVal(form, 'minSessionMin'), preferredSessionMin: intVal(form, 'preferredSessionMin'),
+      focusHours: [{ start: clockOr('focusStart'), end: fe }], reserveFlexMin: intVal(form, 'reserveFlexMin'), eveningCutoff: clockOr('eveningCutoff'),
+    };
+    const errs = validatePreferences(prefs);
+    const cutoff = clockOr('dateOnlyCutoff');
+    const horizon = intVal(form, 'planningHorizonDays');
+    if (!Number.isInteger(cutoff)) errs.dateOnlyCutoff = 'Choose a time for date-only deadlines.';
+    if (!Number.isInteger(horizon) || horizon < 3 || horizon > 28) errs.planningHorizonDays = 'Planning window must be 3 to 28 days.';
+    if (!showErrors(form, errs)) return;
+    savePreferences(prefs, { dateOnlyCutoff: cutoff, planningHorizonDays: horizon });
+    api.close(true);
+  }
+  const api = openDialog({ title: 'Preferences', size: 'lg', content: form,
+    actions: [{ label: 'Cancel', quiet: true, onClick: () => api.close(false) }, { label: 'Save preferences', primary: true, submit: true, form: formId }] });
+}
+
+// ---------- Progress ----------
+
+function openProgressForm({ blockId = null, taskId = null, stepId = null, outcome = null, actualMin = null } = {}) {
+  const state = app.state;
+  const block = blockId ? state.plan.blocks.find((b) => b.id === blockId) : null;
+  const tid = block ? block.taskId : taskId;
+  const task = state.tasks.find((t) => t.id === tid);
+  if (!task) { toast('That task no longer exists.', { tone: 'warn' }); return null; }
+  const units = taskUnits(task);
+  let sid = block ? block.stepId : stepId;
+  if (task.steps.length && (!sid || !task.steps.some((s) => s.id === sid && !s.done))) sid = units[0]?.stepId ?? sid;
+  const step = sid ? task.steps.find((s) => s.id === sid) : null;
+  const unitRemaining = step ? step.remainingMin : task.remainingMin;
+  const planned = block ? Math.round((block.end - block.start) / MINUTE) : 30;
+  const formId = uid('prog');
+  let remTouched = false;
+  const outcomes = block ? OUTCOMES : { completed: 'Worked on it as intended', partial: 'Got less done than hoped', interrupted: 'Interrupted' };
+  const out0 = outcome || 'completed';
+  const actual = num('actualMin', actualMin ?? planned, 0, 720);
+  const remaining = num('remainingAfter', Math.max(0, unitRemaining - (actualMin ?? planned)), 0, 6000, { oninput: () => { remTouched = true; } });
+  const sync = () => {
+    const o = form.elements.outcome.value;
+    const missed = o === 'missed';
+    actual.disabled = missed;
+    for (const choice of form.querySelectorAll('input[name=finish]')) {
+      choice.disabled = missed && choice.value !== 'open';
+      if (missed) choice.checked = choice.value === 'open';
+    }
+    remaining.disabled = missed || form.elements.finish.value !== 'open';
+    if (!remTouched) remaining.value = missed ? unitRemaining : Math.max(0, unitRemaining - (intVal(form, 'actualMin') || 0));
+  };
+  const form = h('form', { id: formId, class: 'form', novalidate: true, onsubmit: (e) => { e.preventDefault(); submit(); } },
+    errorSummary(),
+    h('p', { class: 'lead' }, step ? `${task.title}: ${step.title}` : task.title),
+    block ? h('p', { class: 'muted' }, `Planned ${fmtDate(msToDate(block.start, tz()))}, ${fmtTimeRange(block.start, block.end, tz())} at ${locationName(state, block.locationId)}.`) : null,
+    group('What happened?', h('div', { class: 'radios' }, Object.entries(outcomes).map(([k, v]) => h('label', { class: 'check' }, h('input', { type: 'radio', name: 'outcome', value: k, checked: k === out0, onchange: sync }), h('span', null, v)))), { name: 'outcome' }),
+    h('div', { class: 'grid-2' },
+      field('Time actually spent (min)', actual, { hint: 'Minutes you worked, not the planned length.' }),
+      field(`Remaining for this ${step ? 'step' : 'task'} afterwards (min)`, remaining, { hint: `Before this: ${fmtDuration(unitRemaining)}. Adjust if the work turned out bigger or smaller.` })),
+    group('Finished?', h('div', { class: 'radios' },
+      h('label', { class: 'check' }, h('input', { type: 'radio', name: 'finish', value: 'open', checked: true, onchange: sync }), h('span', null, 'Not finished yet')),
+      step ? h('label', { class: 'check' }, h('input', { type: 'radio', name: 'finish', value: 'step', onchange: sync }), h('span', null, 'This step is finished')) : null,
+      h('label', { class: 'check' }, h('input', { type: 'radio', name: 'finish', value: 'task', onchange: sync }), h('span', null, 'The whole task is finished'))),
+    { hint: 'A recorded session never marks the task done by itself.' }),
+    h('div', { class: 'grid-3' },
+      field('Focus (optional)', select('focus', [['', 'Skip'], ['1', '1, scattered'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5, locked in']], '')),
+      field('Difficulty (optional)', select('difficulty', [['', 'Skip'], ['1', '1, easy'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5, very hard']], '')),
+      field('Note', input('note', '', { maxlength: 500 }))));
+  sync();
+  function submit() {
+    const f = form.elements;
+    const o = f.outcome.value;
+    const input2 = {
+      blockId: block ? block.id : null, taskId: task.id, stepId: step ? step.id : null, outcome: block ? o : (o === 'completed' ? 'logged' : o),
+      actualMin: o === 'missed' ? 0 : intVal(form, 'actualMin'), remainingAfter: intVal(form, 'remainingAfter'),
+      finish: f.finish.value === 'open' ? null : f.finish.value, focus: f.focus.value ? Number(f.focus.value) : null,
+      difficulty: f.difficulty.value ? Number(f.difficulty.value) : null, note: f.note.value.trim(),
+    };
+    if (o === 'missed') input2.remainingAfter = unitRemaining;
+    const r = recordProgressAction(input2);
+    if (!r.ok) { showErrors(form, r.errors); return; }
+    app.ui.session = null;
+    api.close(true);
+    const t2 = app.state.tasks.find((x) => x.id === task.id);
+    if (t2 && t2.kind === 'review' && t2.status === 'done' && t2.revisionTopicId) askConfidence(t2.revisionTopicId);
+    else if (t2 && t2.status !== 'done' && t2.steps.length && t2.steps.every((s) => s.done)) toast('Every step is done. Mark the task finished?', { actionLabel: 'Mark done', onAction: () => setDone(t2.id, true), timeout: 12000 });
+  }
+  const api = openDialog({ title: block ? 'Record this session' : 'Log time', size: 'md', content: form,
+    actions: [{ label: 'Cancel', quiet: true, onClick: () => api.close(false) }, { label: 'Record', primary: true, submit: true, form: formId }] });
+  return api;
+}
+
+function askConfidence(topicId) {
+  const topic = app.state.revision.topics.find((t) => t.id === topicId);
+  if (!topic) return;
+  const api = openDialog({ title: `How well did you recall ${topic.title}?`, subtitle: 'Sets when the next review is due.', size: 'sm',
+    content: h('div', { class: 'conf-row' }, [1, 2, 3, 4, 5].map((c) => h('button', { type: 'button', class: 'btn', onclick: () => { logReviewAction(topicId, c); api.close(true); } }, `${c}. ${CONFIDENCE_LABELS[c]}`))),
+    actions: [{ label: 'Not now', quiet: true, onClick: () => api.close(false) }] });
+}
+
+function openTopicForm() {
+  const formId = uid('topic');
+  const cats = [...new Set(app.state.tasks.map((t) => t.category))].sort();
+  const form = h('form', { id: formId, class: 'form', novalidate: true, onsubmit: (e) => { e.preventDefault(); submit(); } },
+    errorSummary(),
+    h('div', { class: 'grid-2' },
+      field('Topic', input('title', '', { maxlength: 120 }), { wide: true }),
+      field('Course or category', select('category', [...cats.map((c) => [c, c]), ['General', 'General']], cats[0] || 'General')),
+      field('Review length (min)', num('reviewMin', 20, 5, 120)),
+      field('How well do you know it now?', select('confidence', Object.entries(CONFIDENCE_LABELS).map(([k, v]) => [k, `${k}. ${v}`]), '3'), { wide: true })));
+  function submit() {
+    const title = form.elements.title.value.trim();
+    const reviewMin = intVal(form, 'reviewMin');
+    const errs = {};
+    if (!title) errs.title = 'Name the topic.';
+    if (!Number.isInteger(reviewMin) || reviewMin < 5 || reviewMin > 120) errs.reviewMin = 'Review length must be 5 to 120 minutes.';
+    if (!showErrors(form, errs)) return;
+    addTopicAction({ title, category: form.elements.category.value, reviewMin, confidence: Number(form.elements.confidence.value) });
+    api.close(true);
+  }
+  const api = openDialog({ title: 'Add revision topic', size: 'sm', content: form,
+    actions: [{ label: 'Cancel', quiet: true, onClick: () => api.close(false) }, { label: 'Add topic', primary: true, submit: true, form: formId }] });
+}
+
+// ---------- Session details ----------
+
+function openBlock(b, { proposed = false, removed = false, fragile = null } = {}) {
+  const state = app.state;
+  const n = now();
+  const st = blockStatus(b, n);
+  const task = state.tasks.find((t) => t.id === b.taskId);
+  const body = h('div', { class: 'stack' },
+    h('dl', { class: 'facts' },
+      h('dt', null, 'When'), h('dd', null, `${fmtDate(msToDate(b.start, tz()))}, ${fmtTimeRange(b.start, b.end, tz())} (${fmtDuration((b.end - b.start) / MINUTE)})`),
+      h('dt', null, 'Place'), h('dd', null, locationName(state, b.locationId)),
+      h('dt', null, 'Status'), h('dd', null, proposed ? 'Proposed, not approved' : removed ? 'Would be removed or moved by the proposal' : `${st.label}${b.locked ? ', locked' : ''}`),
+      b.actualMin != null ? [h('dt', null, 'Recorded'), h('dd', null, fmtDuration(b.actualMin))] : null,
+      task?.doneWhen ? [h('dt', null, 'Done when'), h('dd', null, task.doneWhen)] : null),
+    fragile ? h('div', { class: 'callout callout-warn' }, h('strong', null, 'Fragile session'), h('p', null, fragile)) : null,
+    b.reasons?.length ? h('section', null, h('h3', { class: 'h-sm' }, 'Why it is here'), reasonList(b.reasons)) : h('p', { class: 'muted' }, 'No placement notes for this session.'));
+  const actions = [];
+  if (!proposed && !removed) {
+    if (b.status === 'planned' && b.start <= n) actions.push({ label: 'Record outcome', primary: true, onClick: () => { api.close(true); openProgressForm({ blockId: b.id }); } });
+    if (b.status === 'planned' && b.end > n) actions.push({ label: b.locked ? 'Unlock' : 'Lock in place', quiet: true, onClick: () => { lockBlock(b.id, !b.locked); api.close(true); } });
+    if (b.status === 'planned' && b.start > n) actions.push({ label: 'Remove session', danger: true, onClick: () => { removeBlockAction(b.id); api.close(true); } });
+  }
+  if (task) actions.push({ label: 'Open task', quiet: true, onClick: () => { api.close(true); openTaskForm(task); } });
+  const api = openDialog({ title: blockTitle(state, b), size: 'md', content: body, actions });
+  return api;
+}
+
+// Lightweight daily check-in for setting a task's definition of done inline.
+function saveDoneWhen(taskId, text) {
+  update((s) => { const t = s.tasks.find((x) => x.id === taskId); if (t) t.doneWhen = text.slice(0, 300); }, { label: 'Set definition of done', message: 'Definition of done saved.' });
+}
+
+
+return { openTaskForm, openCommitmentForm, openOccurrence, openCommitmentsList, openPlaces, openPreferences, openProgressForm, askConfidence, openTopicForm, openBlock, saveDoneWhen };
+})();
+
+// src/ui/course.js
+__m["src/ui/course.js"] = (function () {
+// Course data stays in demo mode; personal work is never replaced by API refresh.
+const { h } = __m["src/ui/dom.js"];
+const { openDialog, toast } = __m["src/ui/dialog.js"];
+const { app, applyCourseImport, newCommitmentId } = __m["src/ui/app.js"];
+const { openCommitmentForm } = __m["src/ui/forms.js"];
+const { bundledCourseData, fetchCourseData, buildCourseImport, enrollmentCount, COURSE_SNAPSHOT_DATE } = __m["src/data/courseApi.js"];
+function openCourseReport() {
+  const c = app.state.meta.course;
+  if (!c) { openCourseImport(); return; }
+  const content = h('div', { class: 'stack' },
+    h('p', null, `${c.studentName} (fictional), ${c.termLabel}. Demo date ${c.asOf}. Source captured ${c.fetchedAt.slice(0, 10)}.`),
+    h('h3', null, 'Assumptions and limits'),
+    h('ul', { class: 'bullets' }, c.warnings.map((w) => h('li', null, w))),
+    h('h3', null, `Needs scheduling details (${c.pending.length})`),
+    h('p', { class: 'muted' }, 'These records are not calendar events yet. Add a commitment with the real day, start, end, and location. The source note stays here for reference; adding a commitment does not automatically match or remove it.'),
+    c.pending.length ? h('ul', { class: 'plain-list' }, c.pending.map((p) => h('li', { class: 'list-row' }, h('div', null,
+      h('strong', null, p.title), h('p', { class: 'muted' }, `${p.date ? p.date + '. ' : ''}${p.location ? p.location + '. ' : ''}${p.detail}`)),
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { api.close(); openCommitmentForm({ id: newCommitmentId(), title: p.title, type: p.table === 'job-assignments' ? 'work' : 'personal', startDate: p.date || c.asOf, start: 9 * 60, end: 10 * 60, recurrence: { freq: 'none' }, locationId: null, optional: false, notes: `${p.detail} ${p.location ? 'Source location: ' + p.location + '. ' : ''}Fill in the actual time before saving; 9-10 AM is an editable form default, not a source time.`, exceptions: [], source: { system: 'user', table: p.table, id: p.id } }); } }, 'Add commitment')))) : h('p', null, 'No additional records with missing times.'));
+  const api = openDialog({ title: 'Course data details', size: 'md', content,
+    actions: [{ label: 'Choose another student', onClick: () => { api.close(); openCourseImport(); } }, { label: 'Close', primary: true, onClick: () => api.close() }] });
+}
+
+function openCourseImport() {
+  let data = bundledCourseData();
+  let preview = null;
+  let busy = false;
+  const student = h('select', { 'aria-label': 'Demo student' });
+  const term = h('select', { 'aria-label': 'Academic term' });
+  const date = h('input', { type: 'date', 'aria-label': 'Course demo date', value: '2026-09-27' });
+  const effort = h('input', { type: 'number', min: 5, max: 6000, step: 5, value: 90, 'aria-label': 'Default assignment effort in minutes' });
+  const submitted = h('input', { type: 'checkbox', 'aria-label': 'Mark recorded submissions done' });
+  const status = h('p', { class: 'muted', role: 'status' }, `Bundled API snapshot, captured ${COURSE_SNAPSHOT_DATE.slice(0, 10)}. Available offline.`);
+  const output = h('div', { 'aria-live': 'polite' });
+  const refresh = h('button', { type: 'button', class: 'btn', onclick: loadLive }, 'Refresh from live API');
+  const makePreview = h('button', { type: 'button', class: 'btn', onclick: showPreview }, 'Preview course import');
+  const apply = h('button', { type: 'button', class: 'btn btn-primary', disabled: true, onclick: async () => {
+    if (!preview || busy) return;
+    const result = preview;
+    apply.disabled = true;
+    try { await applyCourseImport(result.state); api.close(); openCourseReport(); }
+    catch (e) { status.textContent = `Import failed: ${e.message}`; apply.disabled = false; }
+  } }, 'Replace demo with course data');
+  const label = (text, control, help = '') => h('label', { class: 'field' }, h('span', { class: 'field-label' }, text), control, help ? h('span', { class: 'field-hint' }, help) : null);
+  const body = h('div', { class: 'stack' },
+    h('p', { class: 'callout callout-warn' }, 'All course records are fictional. Applying replaces only your demo, including its edits and plan. Your personal workspace stays untouched. Undo can restore the previous demo during this session.'),
+    status, h('div', { class: 'row gap wrap' }, refresh, h('button', { type: 'button', class: 'btn btn-quiet', onclick: () => { if (busy) return; data = bundledCourseData(); populate(); invalidate(); status.textContent = `Using bundled snapshot from ${data.fetchedAt.slice(0, 10)}.`; } }, 'Use bundled snapshot')),
+    label('Academic term', term), label('Demo student', student, 'Only enrolled classes are included. The count helps you choose a populated schedule.'),
+    label('Demo date', date, 'Source dates stay unchanged. Choose a date inside the term; the demo clock starts at 8:00 AM.'),
+    label('Default assignment effort (minutes)', effort, 'Your estimate, not an API fact. Edit individual tasks after import.'),
+    h('label', { class: 'row gap' }, submitted, 'Mark submissions recorded by the demo date as done'),
+    h('p', { class: 'muted' }, 'Unchecked: assignments remain open with submission details in their notes. No study time or mastery is inferred.'),
+    makePreview, output);
+  function invalidate() { preview = null; apply.disabled = true; output.replaceChildren(); }
+  function fillStudents() {
+    const old = student.value;
+    const list = data.records.students.map((s) => ({ s, n: enrollmentCount(data, s.id, term.value) })).sort((a, b) => b.n - a.n || a.s.id - b.s.id);
+    student.replaceChildren(...list.map(({ s, n }) => h('option', { value: String(s.id) }, `${s.first_name} ${s.last_name} - ${n} classes - ${s.major}`)));
+    if (list.some(({ s }) => String(s.id) === old)) student.value = old;
+  }
+  function populate() {
+    const old = term.value;
+    term.replaceChildren(...data.records.terms.map((t) => h('option', { value: t.code }, t.label)));
+    term.value = data.records.terms.some((t) => t.code === old) ? old : (data.records.terms.find((t) => t.is_current) || data.records.terms[0]).code;
+    fillStudents(); updateDates();
+  }
+  function updateDates() {
+    const t = data.records.terms.find((t) => t.code === term.value);
+    date.min = t.start_date; date.max = t.end_date;
+    if (date.value < date.min || date.value > date.max) date.value = t.is_current && '2026-09-27' >= date.min && '2026-09-27' <= date.max ? '2026-09-27' : date.min;
+  }
+  async function loadLive() {
+    if (busy) return;
+    busy = true; refresh.disabled = true; makePreview.disabled = true; invalidate();
+    status.textContent = 'Reading public course records. No Dartmouth Chat API key is used.';
+    try { const fresh = await fetchCourseData(); data = fresh; populate(); status.textContent = `Live API records loaded ${fresh.fetchedAt}. Review before applying.`; }
+    catch (e) { status.textContent = `Live refresh failed: ${e.message}. The previously selected snapshot is unchanged and can still be previewed. You can use the bundled snapshot offline.`; }
+    finally { busy = false; refresh.disabled = false; makePreview.disabled = false; }
+  }
+  function showPreview() {
+    try {
+      preview = buildCourseImport(data, { studentId: student.value, termCode: term.value, asOf: date.value, estimateMin: Number(effort.value), markSubmitted: submitted.checked });
+      output.replaceChildren(h('section', { class: 'stack callout' },
+        h('h3', null, `${preview.student.first_name} ${preview.student.last_name}: ${preview.term.label}`),
+        h('p', null, `${preview.state.commitments.filter((c) => c.type === 'class').length} classes, ${preview.state.commitments.filter((c) => c.type === 'club').length} club meetings, ${preview.state.tasks.length} assignments (${preview.state.tasks.filter((t) => t.status === 'done').length} marked done), ${preview.pending.length} records needing scheduling details.`),
+        h('ul', { class: 'bullets' }, preview.warnings.map((w) => h('li', null, w))),
+        h('p', null, 'No plan is generated automatically. After import, review effort, set places and travel, and select Plan my week.')));
+      apply.disabled = false;
+    } catch (e) { invalidate(); output.append(h('p', { class: 'field-error' }, e.message)); }
+  }
+  populate();
+  term.addEventListener('change', () => { fillStudents(); updateDates(); invalidate(); });
+  for (const control of [student, date, effort, submitted]) { control.addEventListener('input', invalidate); control.addEventListener('change', invalidate); }
+  const api = openDialog({ title: 'Import course data', size: 'md', content: body,
+    actions: [{ label: 'Cancel', quiet: true, onClick: () => api.close() }, apply] });
+}
+
+return { openCourseReport, openCourseImport };
+})();
+
+// src/core/storage.js
+__m["src/core/storage.js"] = (function () {
+// Local persistence. Demo and personal data live under separate keys and are
+// never read into or written over each other. Nothing leaves the browser.
+
+const { normalizeState, emptyState, SCHEMA_VERSION, APP_ID } = __m["src/core/model.js"];
+const PREFIX = 'margin-planner';
+const KEYS = {
+  mode: `${PREFIX}.active-mode`,
+  data: (mode) => `${PREFIX}.${mode}.v${SCHEMA_VERSION}`,
+  backup: (mode) => `${PREFIX}.${mode}.backup`,
+  corrupt: (mode) => `${PREFIX}.${mode}.unreadable`,
+};
+const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+
+function memoryBackend(seed = {}) {
+  const m = new Map(Object.entries(seed));
+  return {
+    name: 'memory', persistent: false, map: m,
+    async get(k) { return m.has(k) ? m.get(k) : null; },
+    async set(k, v) { m.set(k, String(v)); },
+    async remove(k) { m.delete(k); },
+  };
+}
+
+function localStorageBackend(ls) {
+  const probe = `${PREFIX}.probe`;
+  ls.setItem(probe, '1');
+  ls.removeItem(probe);
+  return {
+    name: 'browser', persistent: true,
+    async get(k) { return ls.getItem(k); },
+    async set(k, v) { ls.setItem(k, v); },
+    async remove(k) { ls.removeItem(k); },
+  };
+}
+
+// The key-value store some sandboxed previews provide on window.storage.
+function hostStorageBackend(ws) {
+  return {
+    name: 'host', persistent: true,
+    async get(k) { try { const r = await ws.get(k, false); return r ? r.value : null; } catch { return null; } },
+    async set(k, v) { const r = await ws.set(k, v, false); if (!r) throw new Error('The host storage rejected the write.'); },
+    async remove(k) { try { await ws.delete(k, false); } catch { /* already absent */ } },
+  };
+}
+
+function pickBackend(win) {
+  try { if (win && win.localStorage) return localStorageBackend(win.localStorage); } catch { /* blocked */ }
+  try { if (win && win.storage && typeof win.storage.get === 'function') return hostStorageBackend(win.storage); } catch { /* unavailable */ }
+  return memoryBackend();
+}
+
+function describeStorageError(err) {
+  const name = err && (err.name || '');
+  if (/quota/i.test(name) || /quota/i.test(String(err && err.message))) return 'Browser storage is full. Export your data, then delete unneeded data or free space.';
+  return `Browser storage refused the change (${String((err && err.message) || err).slice(0, 120)}).`;
+}
+
+function createRepository(backend, { seedDemo, seedPersonal = () => emptyState('personal') }) {
+  async function keepUnreadable(mode, raw) {
+    try { await backend.set(KEYS.corrupt(mode), raw); } catch { /* best effort */ }
+  }
+  return {
+    backend,
+    async getActiveMode() {
+      try { const m = await backend.get(KEYS.mode); return m === 'personal' ? 'personal' : 'demo'; } catch { return 'demo'; }
+    },
+    async setActiveMode(mode) {
+      try { await backend.set(KEYS.mode, mode); return { ok: true }; } catch (e) { return { ok: false, error: describeStorageError(e) }; }
+    },
+    async loadMode(mode) {
+      const fresh = () => (mode === 'demo' ? seedDemo() : seedPersonal());
+      let raw;
+      try { raw = await backend.get(KEYS.data(mode)); } catch (e) { return { state: fresh(), status: 'unavailable', warnings: [describeStorageError(e)] }; }
+      if (raw == null) return { state: fresh(), status: 'new', warnings: [] };
+      let parsed;
+      try { parsed = JSON.parse(raw); } catch {
+        await keepUnreadable(mode, raw);
+        return { state: fresh(), status: 'recovered', warnings: ['Saved data could not be read. A copy was kept (Data, Recovery) and a fresh start was loaded.'] };
+      }
+      const res = normalizeState(parsed, mode);
+      if (!res.ok) {
+        await keepUnreadable(mode, raw);
+        return { state: fresh(), status: 'recovered', warnings: [`Saved data could not be used: ${res.errors.join(' ')} A copy was kept.`] };
+      }
+      return { state: res.state, status: 'stored', warnings: res.warnings };
+    },
+    async saveMode(mode, state) {
+      if (state.mode !== mode) return { ok: false, error: `Refused to save ${state.mode} data into ${mode} storage.` };
+      try { await backend.set(KEYS.data(mode), JSON.stringify(state)); return { ok: true }; } catch (e) { return { ok: false, error: describeStorageError(e) }; }
+    },
+    async removeMode(mode) {
+      try { await backend.remove(KEYS.data(mode)); return { ok: true }; } catch (e) { return { ok: false, error: describeStorageError(e) }; }
+    },
+    async backup(mode, state, nowMs) {
+      try { await backend.set(KEYS.backup(mode), JSON.stringify({ savedAt: nowMs, state })); return { ok: true }; } catch (e) { return { ok: false, error: describeStorageError(e) }; }
+    },
+    async getBackup(mode) {
+      try {
+        const raw = await backend.get(KEYS.backup(mode));
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        const res = normalizeState(obj.state, mode);
+        return res.ok ? { savedAt: obj.savedAt, state: res.state } : null;
+      } catch { return null; }
+    },
+    async removeBackup(mode) {
+      try { await backend.remove(KEYS.backup(mode)); return { ok: true }; } catch (e) { return { ok: false, error: describeStorageError(e) }; }
+    },
+    async getUnreadable(mode) {
+      try { return await backend.get(KEYS.corrupt(mode)); } catch { return null; }
+    },
+  };
+}
+
+function exportPayload(state, nowMs) {
+  return JSON.stringify({ app: APP_ID, kind: 'export', schemaVersion: SCHEMA_VERSION, exportedAt: new Date(nowMs).toISOString(), mode: state.mode, data: { ...state, proposal: null } }, null, 2);
+}
+
+function summarize(state) {
+  return {
+    tasks: state.tasks.length,
+    openTasks: state.tasks.filter((t) => t.status !== 'done').length,
+    commitments: state.commitments.length,
+    places: state.locations.length,
+    sessions: state.plan.blocks.length,
+    progress: state.log.length,
+    topics: state.revision.topics.length,
+  };
+}
+
+// Validates an import without touching any stored data.
+function parseImport(text, mode = 'personal') {
+  if (typeof text !== 'string' || !text.trim()) return { ok: false, errors: ['The file is empty.'] };
+  if (text.length > MAX_IMPORT_BYTES) return { ok: false, errors: ['The file is larger than 5 MB, which is more than planner data should need.'] };
+  let obj;
+  try { obj = JSON.parse(text); } catch { return { ok: false, errors: ['This file is not valid JSON.'] }; }
+  const isExport = obj && obj.kind === 'export' && obj.data;
+  const data = isExport ? { ...obj.data, schemaVersion: obj.data.schemaVersion ?? obj.schemaVersion } : obj;
+  const res = normalizeState(data, mode);
+  if (!res.ok) return res;
+  const warnings = [...res.warnings];
+  if (isExport && obj.mode === 'demo' && mode === 'personal') warnings.push('This file was exported from demo mode. Its synthetic data will become your personal data.');
+  res.state.proposal = null;
+  res.state.mode = mode;
+  if (mode === 'personal') res.state.meta.demoNow = null;
+  return { ok: true, state: res.state, warnings, summary: summarize(res.state), exportedAt: isExport ? obj.exportedAt : null };
+}
+
+return { KEYS, MAX_IMPORT_BYTES, memoryBackend, localStorageBackend, hostStorageBackend, pickBackend, describeStorageError, createRepository, exportPayload, summarize, parseImport };
+})();
+
+// src/ui/calendar.js
+__m["src/ui/calendar.js"] = (function () {
+// The weekly calendar. Fixed commitments, approved study, proposed study, travel,
+// sleep, and recorded sessions are distinguished by shape, border, and a text label,
+// never by color alone. Each future study block carries a "margin tail": how far it
+// could run over its estimate before colliding with the next thing in the day.
+
+const { h, icon } = __m["src/ui/dom.js"];
+const { app, now, tz } = __m["src/ui/app.js"];
+const { openBlock, openOccurrence, openCommitmentForm, openTaskForm } = __m["src/ui/forms.js"];
+const { addDays, zonedToMs, msToMinuteOfDay, msToDate, fmtTimeRange, fmtDuration, fmtTime, fmtMonthDay, WEEKDAY_SHORT, weekdayOf, MINUTE, fmtClock } = __m["src/core/time.js"];
+const { expandCommitments } = __m["src/core/recurrence.js"];
+const { sleepInterval, CONFIDENCE_MARGIN } = __m["src/core/scheduler.js"];
+const { travelBetween, travelCost, isPhysical, locationName } = __m["src/core/travel.js"];
+const { deadlineMs } = __m["src/core/model.js"];
+const { blockTitle, blockStatus, typeLabel } = __m["src/ui/common.js"];
+const { workloadForDates } = __m["src/core/analysis.js"];
+const START_H = 6;
+const END_H = 24;
+const PPM = 1;
+const top = (min) => (min - START_H * 60) * PPM;
+
+function clipToDay(s, e, d0, d1) { return [Math.max(s, d0), Math.min(e, d1)]; }
+
+function minuteIn(ms, date) {
+  const d = msToDate(ms, tz());
+  if (d < date) return 0;
+  if (d > date) return 1440;
+  return msToMinuteOfDay(ms, tz());
+}
+
+// Assigns side-by-side lanes to overlapping items so conflicts stay visible.
+function layoutLanes(items) {
+  const sorted = items.slice().sort((a, b) => a.s - b.s || b.e - a.e);
+  let cluster = [];
+  let clusterEnd = -1;
+  const flush = () => {
+    const lanes = [];
+    for (const it of cluster) {
+      let i = lanes.findIndex((end) => end <= it.s);
+      if (i === -1) { i = lanes.length; lanes.push(0); }
+      lanes[i] = it.e;
+      it.lane = i;
+    }
+    for (const it of cluster) it.lanes = lanes.length;
+    cluster = [];
+  };
+  for (const it of sorted) {
+    if (it.s >= clusterEnd && cluster.length) flush();
+    cluster.push(it);
+    clusterEnd = Math.max(clusterEnd, it.e);
+  }
+  if (cluster.length) flush();
+  return sorted;
+}
+
+function displayBlocks(state, alt) {
+  if (!alt) return { blocks: state.plan.blocks.map((b) => ({ b, kind: 'approved' })), ghosts: [] };
+  const replaced = new Set(alt.replacedIds);
+  const moved = new Set(alt.diff.moved.map((m) => m.from));
+  const blocks = [
+    ...state.plan.blocks.filter((b) => !replaced.has(b.id)).map((b) => ({ b, kind: 'approved' })),
+    ...alt.newBlocks.map((b) => ({ b, kind: 'proposed', added: alt.diff.added.includes(b.id) })),
+  ];
+  const ghosts = state.plan.blocks.filter((b) => replaced.has(b.id) && !alt.newBlocks.some((n) => n.id === b.id && n.start === b.start)).map((b) => ({ b, kind: 'ghost', moved: moved.has(b.id) }));
+  return { blocks, ghosts };
+}
+
+function renderCalendar(d) {
+  const state = app.state;
+  const n = d.now;
+  const zone = tz();
+  const weekStart = app.ui.weekStart;
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const occ = expandCommitments(state.commitments, addDays(weekStart, -1), dates[6], zone);
+  const { blocks, ghosts } = displayBlocks(state, d.alt);
+  const load = workloadForDates(state, n, dates, d.alt);
+  const fragile = app.stressCache && app.stressCache.key === d.stressKey ? new Map(app.stressCache.result.sessions.filter((s) => s.critical).map((s) => [s.blockId, s.text])) : new Map();
+  const prefs = state.preferences;
+  const selected = app.ui.selectedDate && dates.includes(app.ui.selectedDate) ? app.ui.selectedDate : (dates.includes(d.today) ? d.today : dates[0]);
+
+  const hours = [];
+  for (let hr = START_H; hr < END_H; hr++) hours.push(h('div', { class: 'cal-hour', style: { top: `${top(hr * 60)}px` } }, h('span', null, fmtClock(hr * 60).replace(':00', ''))));
+  const gutter = h('div', { class: 'cal-gutter', 'aria-hidden': 'true', style: { height: `${top(END_H * 60)}px` } }, hours);
+
+  const heads = [];
+  const cols = [];
+  dates.forEach((date, i) => {
+    const d0 = zonedToMs(date, 0, zone);
+    const d1 = zonedToMs(addDays(date, 1), 0, zone);
+    const isToday = date === d.today;
+    const wl = load[i];
+    const studyShown = d.alt ? wl.studyProposedTotal : wl.studyApproved;
+    const pct = Math.min(100, (studyShown / Math.max(1, wl.limit)) * 100);
+    const dayLength = Math.round((d1 - d0) / 3600000);
+    heads.push(h('div', { class: ['cal-dayhead', isToday && 'is-today', date === selected && 'is-selected'], role: 'columnheader' },
+      h('div', { class: 'dh-date' }, h('span', { class: 'dh-wd' }, WEEKDAY_SHORT[weekdayOf(date)]), h('span', { class: 'dh-num' }, String(Number(date.slice(8)))), isToday ? h('span', { class: 'dh-today' }, 'Today') : null),
+      h('div', { class: 'ribbon', title: `${fmtDuration(studyShown)} of study${d.alt ? ' with the proposal' : ''}, limit ${fmtDuration(wl.limit)}` },
+        h('div', { class: 'ribbon-bar' }, h('div', { class: ['ribbon-fill', studyShown > wl.limit && 'over', d.alt && 'proposed'], style: { width: `${pct}%` } })),
+        h('span', { class: 'ribbon-text' }, fmtDuration(studyShown), wl.deadlines.length ? `, ${wl.deadlines.length} due` : '')),
+      dayLength !== 24 ? h('div', { class: 'dh-note' }, `Clocks change: ${dayLength}-hour day`) : null));
+
+    const col = h('div', { class: ['cal-col', isToday && 'is-today', date === selected && 'is-selected'], role: 'gridcell', 'aria-label': `${WEEKDAY_SHORT[weekdayOf(date)]} ${fmtMonthDay(date)}`, style: { height: `${top(END_H * 60)}px` } });
+    // Availability shading: study hours are light, everything else is muted.
+    for (const w of prefs.availability[weekdayOf(date)] || []) {
+      col.append(h('div', { class: 'cal-avail', 'aria-hidden': 'true', style: { top: `${Math.max(0, top(w.start))}px`, height: `${(Math.min(w.end, END_H * 60) - Math.max(w.start, START_H * 60)) * PPM}px` } }));
+    }
+    for (const di of [-1, 0]) {
+      const [s, e] = sleepInterval(addDays(date, di), prefs.sleep, zone);
+      const [cs, ce] = clipToDay(s, e, d0, d1);
+      if (ce <= cs) continue;
+      const m0 = Math.max(START_H * 60, minuteIn(cs, date));
+      const m1 = Math.min(END_H * 60, minuteIn(ce, date) || (ce >= d1 ? 1440 : 0));
+      if (m1 <= m0) continue;
+      col.append(h('div', { class: 'cal-sleep', style: { top: `${top(m0)}px`, height: `${(m1 - m0) * PPM}px` } }, h('span', null, 'Sleep')));
+    }
+    // Items with lanes.
+    const items = [];
+    for (const o of occ) {
+      const [cs, ce] = clipToDay(o.startMs, o.endMs, d0, d1);
+      if (ce <= cs) continue;
+      items.push({ s: cs, e: ce, type: 'occ', o });
+    }
+    for (const x of [...blocks, ...ghosts]) {
+      const [cs, ce] = clipToDay(x.b.start, x.b.end, d0, d1);
+      if (ce <= cs) continue;
+      items.push({ s: cs, e: ce, type: 'block', x });
+    }
+    const physical = items.filter((it) => !(it.type === 'occ' && it.o.skipped) && !(it.type === 'block' && it.x.kind === 'ghost')).sort((a, b) => a.s - b.s);
+    const laid = layoutLanes(items.filter((it) => it.type === 'occ' || it.x.kind !== 'ghost'));
+    const ghostItems = items.filter((it) => it.type === 'block' && it.x.kind === 'ghost');
+
+    const occupied = physical.map(it => [it.s, it.e]);
+    // Travel strips between consecutive physical places, starting the day at home.
+    let prevLoc = state.settings.homeLocationId;
+    let prevEnd = d0;
+    for (const it of physical) {
+      const loc = it.type === 'occ' ? it.o.locationId : it.x.b.locationId;
+      if (it.type === 'occ' && it.o.type === 'protected') continue;
+      if (!isPhysical(state, loc)) continue;
+      const t = travelBetween(state, prevLoc, loc);
+      if (t.minutes > 0) {
+        const endM = minuteIn(it.s, date);
+        const startM = Math.max(minuteIn(prevEnd, date), endM - t.minutes - state.settings.travelBufferMin);
+        const tight = endM - minuteIn(prevEnd, date) < t.minutes;
+        occupied.push([it.s - (t.minutes + state.settings.travelBufferMin) * MINUTE, it.s]);
+        if (endM > START_H * 60 && endM - startM >= 3) {
+          col.append(h('div', { class: ['cal-travel', t.kind === 'fallback' && 'is-estimate', tight && 'is-tight'], style: { top: `${top(Math.max(START_H * 60, startM))}px`, height: `${Math.max(6, (endM - Math.max(START_H * 60, startM)) * PPM)}px` }, title: `${t.minutes} min to ${locationName(state, loc)}${t.kind === 'fallback' ? ' (estimate, no route entered)' : ''}` },
+            (endM - Math.max(START_H * 60, startM)) * PPM >= 13 || tight ? h('span', null, `${tight ? 'Too far: ' : ''}${t.kind === 'fallback' ? '~' : ''}${t.minutes} min to ${locationName(state, loc)}`) : null));
+        }
+      }
+      prevLoc = loc;
+      prevEnd = it.e;
+    }
+
+    for (const offset of [-1, 0]) occupied.push(sleepInterval(addDays(date, offset), prefs.sleep, zone));
+    const free = [];
+    for (const w of prefs.availability[weekdayOf(date)] || []) {
+      let cursor = zonedToMs(date, Math.max(START_H * 60, w.start), zone);
+      const end = zonedToMs(date, Math.min(END_H * 60, w.end), zone);
+      for (const [a,b] of occupied.slice().sort((a,b) => a[0]-b[0])) {
+        if (b <= cursor || a >= end) continue;
+        if (a > cursor) free.push([cursor, Math.min(a,end)]);
+        cursor = Math.max(cursor,b);
+      }
+      if (cursor < end) free.push([cursor,end]);
+    }
+    const freeMin = free.reduce((sum,[a,b]) => sum + (b-a)/MINUTE, 0);
+    heads[heads.length-1].append(h('div', { class: 'day-margin' }, `${fmtDuration(freeMin)} free`));
+    for (const [a,b] of free) {
+      const minutes = (b-a)/MINUTE;
+      if (minutes < 20) continue;
+      col.append(h('div', { class: 'free-window', style: { top: `${top(minuteIn(a,date))}px`, height: `${minutes*PPM}px` } }, `${Math.round(minutes)} min free`));
+    }
+    for (const it of laid) {
+      const m0 = Math.max(START_H * 60, minuteIn(it.s, date));
+      const m1 = Math.min(END_H * 60, minuteIn(it.e, date) || (it.e >= d1 ? 1440 : 0));
+      if (m1 <= m0) continue;
+      const style = { top: `${top(m0)}px`, height: `${Math.max(14, (m1 - m0) * PPM - 2)}px`, left: `calc(${(it.lane / it.lanes) * 100}% + 2px)`, width: `calc(${100 / it.lanes}% - 4px)` };
+      const px = (m1 - m0) * PPM;
+      const compact = px < 46 ? 'ev-compact' : px < 76 ? 'ev-medium' : null;
+      if (it.type === 'occ') { const node = renderOccurrence(it.o, style, compact); if (it.lanes > 1) { node.classList.add('has-conflict'); node.title = 'Overlapping events: ' + it.o.title; } col.append(node); }
+      else col.append(...renderBlock(state, it.x, style, compact, n, fragile, physical, date, d1, top(m0) + Math.max(14, (m1 - m0) * PPM - 2)));
+    }
+    for (const it of ghostItems) {
+      const m0 = Math.max(START_H * 60, minuteIn(it.s, date));
+      const m1 = Math.min(END_H * 60, minuteIn(it.e, date) || 1440);
+      if (m1 <= m0) continue;
+      col.append(...renderBlock(state, it.x, { top: `${top(m0)}px`, height: `${Math.max(14, (m1 - m0) * PPM - 2)}px`, left: '2px', width: 'calc(100% - 4px)' }, (m1 - m0) * PPM < 46 ? 'ev-compact' : 'ev-medium', n, fragile, physical, date, d1, 0));
+    }
+
+    const due = state.tasks.filter(t => t.status !== 'done' && t.deadline.date === date);
+    if (due.length) heads[heads.length-1].append(h('button', { type:'button', class:'cal-deadline', title:due.map(t => t.title).join('; '), onclick:() => openTaskForm(due[0]), 'aria-label':`${due.length} deadlines on ${date}: ${due.map(t=>t.title).join(', ')}. Open first task.` }, icon('flag', {size:12}), `${due.length} due`));
+    if (isToday) {
+      const m = msToMinuteOfDay(n, zone);
+      if (m >= START_H * 60) col.append(h('div', { class: 'cal-now', style: { top: `${top(m)}px` }, 'aria-hidden': 'true' }, h('span', null, `${app.mode === 'demo' ? 'Demo now' : 'Now'} ${fmtTime(n, zone)}`)));
+    }
+    col.addEventListener('dblclick', (e) => {
+      if (e.target !== col && !e.target.classList.contains('cal-avail')) return;
+      openCommitmentForm(null, date);
+    });
+    cols.push(col);
+  });
+
+  const chips = h('div', { class: 'daychips', role: 'tablist', 'aria-label': 'Day' }, dates.map((date) => h('button', {
+    type: 'button', role: 'tab', class: ['chip', date === selected && 'is-selected', date === d.today && 'is-today'], 'aria-selected': date === selected ? 'true' : 'false',
+    onclick: () => { app.ui.selectedDate = date; app.render(); },
+  }, h('span', null, WEEKDAY_SHORT[weekdayOf(date)]), h('strong', null, String(Number(date.slice(8)))))));
+
+  const nowHour = Math.floor(msToMinuteOfDay(n, zone) / 60);
+  const startH = Math.max(START_H, Math.min(END_H - 3, nowHour - 1));
+  const body = h('div', { class: 'cal-body', dataset: { scroll: 'cal', initial: String(top(startH * 60)) } }, gutter, h('div', { class: 'cal-cols' }, cols));
+  return h('section', { class: 'cal', 'aria-label': 'Week calendar' },
+    chips,
+    h('div', { class: 'cal-head', role: 'row' }, h('div', { class: 'cal-gutter-head', 'aria-hidden': 'true' }), h('div', { class: 'cal-heads' }, heads)),
+    body,
+    legend(!!d.alt));
+}
+
+function renderOccurrence(o, style, compact) {
+  const place = locationName(app.state, o.locationId);
+  const label = o.skipped ? 'Skipped' : typeLabel(o.type);
+  return h('button', {
+    type: 'button', class: ['ev', 'ev-fixed', `ev-t-${o.type}`, o.skipped && 'ev-skipped', o.modified && 'ev-modified', compact], style,
+    'aria-label': `${label}: ${o.title}, ${fmtTimeRange(o.startMs, o.endMs, tz())}${o.locationId ? `, ${place}` : ''}${o.modified ? ', changed for this date' : ''}`,
+    onclick: () => openOccurrence(o),
+  },
+  h('span', { class: 'ev-kind' }, label, o.modified ? ' (changed)' : ''),
+  h('span', { class: 'ev-title' }, o.title),
+  compact === 'ev-compact' ? null : h('span', { class: 'ev-meta' }, fmtTimeRange(o.startMs, o.endMs, tz())),
+  compact || !o.locationId ? null : h('span', { class: 'ev-meta' }, place));
+}
+
+function marginTail(state, b, physical, date, d1) {
+  const task = state.tasks.find((t) => t.id === b.taskId);
+  if (!task) return null;
+  const dur = (b.end - b.start) / MINUTE;
+  const overrun = Math.round(dur * (CONFIDENCE_MARGIN[task.confidence] || 0.25));
+  const next = physical.filter((it) => it.s >= b.end && !(it.type === 'block' && it.x.b.id === b.id)).sort((a, c) => a.s - c.s)[0];
+  const sleepStart = sleepInterval(date, state.preferences.sleep, tz())[0];
+  let limitMs = Math.min(sleepStart > b.end ? sleepStart : d1, next ? next.s : Infinity);
+  let label = next ? (next.type === 'occ' ? next.o.title : 'your next session') : 'sleep';
+  if (next && next.type === 'occ' && isPhysical(state, next.o.locationId)) limitMs -= travelCost(travelBetween(state, b.locationId, next.o.locationId), state.settings) * MINUTE;
+  const slack = Math.max(0, Math.round((limitMs - b.end) / MINUTE));
+  return { overrun, slack, ok: slack >= overrun, label };
+}
+
+function renderBlock(state, x, style, compact, n, fragile, physical, date, d1, bottomPx) {
+  const b = x.b;
+  const st = blockStatus(b, n);
+  const title = blockTitle(state, b);
+  let kind;
+  if (x.kind === 'proposed') kind = x.added ? 'Proposed' : 'Moved here';
+  else if (x.kind === 'ghost') kind = x.moved ? 'Moving' : 'Removed';
+  else kind = { planned: 'Study', now: 'Study now', unrecorded: 'Not recorded', completed: 'Done', partial: 'Partly done', interrupted: 'Interrupted', missed: 'Missed' }[st.key] || 'Study';
+  const future = b.end > n && b.status === 'planned' && x.kind !== 'ghost';
+  const tail = future ? marginTail(state, b, physical, date, d1) : null;
+  const frag = fragile.get(b.id);
+  const aria = `${kind}: ${title}, ${fmtTimeRange(b.start, b.end, tz())}, ${locationName(state, b.locationId)}${b.locked ? ', locked' : ''}${frag ? ', fragile' : ''}${tail ? (tail.ok ? `, room to run ${tail.overrun} min over` : `, only ${tail.slack} min before ${tail.label}`) : ''}`;
+  const el = h('button', {
+    type: 'button', style, 'aria-label': aria,
+    class: ['ev', x.kind === 'proposed' ? 'ev-proposed' : x.kind === 'ghost' ? 'ev-ghost' : 'ev-study', `ev-s-${st.key}`, b.locked && 'ev-locked', frag && 'ev-fragile', compact],
+    onclick: () => openBlock(b, { proposed: x.kind === 'proposed', removed: x.kind === 'ghost', fragile: frag }),
+  },
+  h('span', { class: 'ev-kind' }, b.locked ? icon('lock', { size: 11 }) : st.key === 'completed' ? icon('check', { size: 11 }) : null, kind, frag ? ', fragile' : ''),
+  h('span', { class: 'ev-title' }, x.kind === 'proposed' ? '＋ ' : st.key === 'missed' ? 'Missed: ' : '', title),
+  compact === 'ev-compact' ? null : h('span', { class: 'ev-meta' }, compact ? fmtTimeRange(b.start, b.end, tz()) : `${fmtTimeRange(b.start, b.end, tz())}, ${locationName(state, b.locationId)}`));
+  let tailEl = null;
+  if (tail && tail.overrun > 0) {
+    const hpx = tail.ok ? Math.max(4, Math.min(tail.overrun, 90) * PPM) : 3;
+    tailEl = h('div', { class: ['tail', tail.ok ? 'tail-ok' : 'tail-tight'], 'aria-hidden': 'true', title: tail.ok ? `Room to run ${tail.overrun} min over` : `Only ${tail.slack} min before ${tail.label}`,
+      style: { top: `${bottomPx + 1}px`, height: `${hpx}px`, left: style.left, width: style.width } });
+  }
+  return [el, tailEl].filter(Boolean);
+}
+
+function legend(withProposal) {
+  const item = (cls, label) => h('li', null, h('span', { class: `lg ${cls}`, 'aria-hidden': 'true' }), label);
+  return h('details', { class: 'legend' }, h('summary', null, 'Legend'),
+    h('ul', null,
+      item('lg-fixed', 'Classes & events'),
+      item('lg-study', 'Study'), item('lg-meal', 'Meals'), item('lg-personal', 'Personal'),
+      withProposal ? item('lg-proposed', 'Proposed session (+)') : null,
+      withProposal ? item('lg-ghost', 'Previous position (faded)') : null,
+      item('lg-done', 'Recorded session (check mark)'),
+      item('lg-sleep', 'Protected sleep')),
+    h('p', { class: 'muted' }, 'Double-click an empty spot to add a commitment on that day. Every block opens with Enter or a click.'));
+}
+
+
+return { displayBlocks, renderCalendar };
+})();
+
+// src/ui/flows.js
+__m["src/ui/flows.js"] = (function () {
+// Multi-step flows: the session launch brief, recovery after a disrupted day,
+// data management, help, and the what-if workspace logic.
+
+const { h, icon, plural, download, reasonList } = __m["src/ui/dom.js"];
+const { openDialog, confirmDialog, toast } = __m["src/ui/dialog.js"];
+const { app, now, today, tz, commit, generate, resetDemo, importIntoPersonal, restorePersonalBackup, deletePersonalData, recordProgressAction, setUi } = __m["src/ui/app.js"];
+const { openProgressForm, saveDoneWhen, openPlaces, openPreferences, openCommitmentForm, openTaskForm } = __m["src/ui/forms.js"];
+const { fallbackFor } = __m["src/core/recommend.js"];
+const { makeProposal } = __m["src/core/proposal.js"];
+const { buildContext, freeIntervals } = __m["src/core/scheduler.js"];
+const { exportPayload, parseImport, summarize } = __m["src/core/storage.js"];
+const { DEMO_SCENARIOS } = __m["src/data/demoSeed.js"];
+const { EQUIPMENT, taskRemaining, taskUnits } = __m["src/core/model.js"];
+const { fmtDate, fmtDuration, fmtTime, fmtTimeRange, fmtDateTime, MINUTE, msToDate } = __m["src/core/time.js"];
+const { locationName } = __m["src/core/travel.js"];
+const { expandCommitments } = __m["src/core/recurrence.js"];
+const { blockTitle, deadlineInfo } = __m["src/ui/common.js"];
+// ---------- Session launch brief ----------
+
+function openLaunchBrief({ taskId, stepId = null, minutes, locationId = null, blockId = null, endsAt = null }) {
+  const state = app.state;
+  const task = state.tasks.find((t) => t.id === taskId);
+  if (!task) return;
+  const units = taskUnits(task);
+  const unit = units.find((u) => u.stepId === stepId) || units[0];
+  const step = unit?.stepId ? task.steps.find((s) => s.id === unit.stepId) : null;
+  const nextUnit = units[units.indexOf(unit) + 1] || null;
+  const n = now();
+  const end = endsAt || n + minutes * MINUTE;
+  const dl = deadlineInfo(task, state.settings, n);
+  const doneInput = h('input', { type: 'text', maxlength: 300, value: task.doneWhen, 'aria-label': 'Definition of done', placeholder: 'For example: all tests pass and the write-up is drafted' });
+  const fallbackOut = h('div', { class: 'fallback-out', 'aria-live': 'polite' });
+  const fallbackMin = h('input', { type: 'number', min: 5, max: 240, value: Math.max(5, Math.min(30, minutes)), 'aria-label': 'Minutes you actually have' });
+
+  function findFallback() {
+    const m = Math.round(Number(fallbackMin.value));
+    if (!Number.isFinite(m) || m < 5) { fallbackOut.replaceChildren(h('p', { class: 'field-error' }, 'Enter at least 5 minutes.')); return; }
+    const r = fallbackFor(app.state, now(), m, { locationId });
+    const same = r.options.find((o) => o.taskId === task.id && o.fits);
+    const pick = same || r.pick;
+    if (!pick) { fallbackOut.replaceChildren(h('p', null, `Nothing useful fits in ${fmtDuration(m)}. Take the break, and keep the plan as it is.`)); return; }
+    fallbackOut.replaceChildren(
+      h('p', null, h('strong', null, pick.title), ` for ${fmtDuration(pick.minutes)}${pick.taskId === task.id ? ', a smaller piece of the same task' : ''}.`),
+      h('ul', { class: 'bullets' }, pick.reasons.slice(0, 3).map((x) => h('li', null, x))),
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { api.close(); openLaunchBrief({ taskId: pick.taskId, stepId: pick.stepId, minutes: pick.minutes, locationId: pick.locationId }); } }, 'Switch to this'));
+  }
+
+  const body = h('div', { class: 'brief' },
+    h('p', { class: 'brief-objective' }, step ? step.title : task.title),
+    step ? h('p', { class: 'muted' }, `Part of ${task.title}`) : null,
+    h('dl', { class: 'facts' },
+      h('dt', null, 'Time'), h('dd', null, `${fmtDuration(minutes)}, until ${fmtTime(end, tz())}`),
+      h('dt', null, 'Place'), h('dd', null, locationName(state, locationId)),
+      task.equipment.length ? [h('dt', null, 'Bring or use'), h('dd', null, task.equipment.map((e) => EQUIPMENT[e]).join(', '))] : null,
+      h('dt', null, 'Left on this'), h('dd', null, `${fmtDuration(unit ? unit.remaining : taskRemaining(task))}${step ? ' for this step' : ''}`),
+      h('dt', null, 'Deadline'), h('dd', null, `${dl.text} (${dl.rel})`),
+      nextUnit ? [h('dt', null, 'After this'), h('dd', null, nextUnit.stepTitle)] : null),
+    task.steps.length ? h('ol', { class: 'step-check' }, task.steps.map((s) => h('li', { class: s.done ? 'is-done' : s.id === step?.id ? 'is-current' : '' }, s.done ? icon('check', { size: 12, label: 'Done' }) : null, ` ${s.title}`))) : null,
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Done when'), h('div', { class: 'row gap' }, doneInput, h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => saveDoneWhen(task.id, doneInput.value.trim()) }, 'Save')),
+      task.doneWhen ? null : h('p', { class: 'field-hint' }, 'Not set yet. A concrete finish line makes it easier to stop and to resume.')),
+    h('details', { class: 'fallback' }, h('summary', null, 'Less time than planned?'),
+      h('div', { class: 'row gap' }, fallbackMin, h('span', null, 'minutes'), h('button', { type: 'button', class: 'btn btn-sm', onclick: findFallback }, 'Find what fits')),
+      fallbackOut));
+  const api = openDialog({
+    title: 'Session brief', size: 'md', content: body,
+    actions: [
+      { label: 'Close', quiet: true, onClick: () => api.close() },
+      { label: 'Start session', primary: true, onClick: () => {
+        setUi({ session: { taskId: task.id, stepId: unit?.stepId || null, blockId, startedAt: now(), plannedMin: minutes, locationId } });
+        api.close();
+        toast(`Started ${step ? step.title : task.title}. Record progress when you stop.`);
+      } },
+    ],
+  });
+}
+
+function endSession(outcome = 'completed') {
+  const s = app.ui.session;
+  if (!s) return;
+  const elapsed = Math.round((now() - s.startedAt) / MINUTE);
+  const actual = Math.max(0, Math.min(720, elapsed)); // Ask for actual time; never substitute planned minutes.
+  openProgressForm({ blockId: s.blockId && app.state.plan.blocks.some((b) => b.id === s.blockId && b.start <= now()) ? s.blockId : null, taskId: s.taskId, stepId: s.stepId, outcome, actualMin: actual });
+}
+
+// ---------- Recovery ----------
+
+function openRecovery() {
+  const state = app.state;
+  const n = now();
+  const zone = tz();
+  const pending = state.plan.blocks.filter((b) => b.status === 'planned' && b.end <= n && b.end > n - 7 * 86400000).sort((a, b) => a.start - b.start);
+  const missed = state.plan.blocks.filter((b) => b.status === 'missed' && b.end > n - 3 * 86400000);
+  const quick = (b, outcome) => {
+    const task = app.state.tasks.find((t) => t.id === b.taskId);
+    const step = b.stepId ? task.steps.find((s) => s.id === b.stepId) : null;
+    const rem = step ? step.remainingMin : task.remainingMin;
+    const dur = Math.round((b.end - b.start) / MINUTE);
+    const r = recordProgressAction({ blockId: b.id, taskId: b.taskId, stepId: b.stepId, outcome, actualMin: outcome === 'missed' ? 0 : dur, remainingAfter: outcome === 'missed' ? rem : Math.max(0, rem - dur) });
+    if (r.ok) { api.close(); openRecovery(); }
+  };
+  const ctx = buildContext(state, n, { horizonDays: 1, keepExistingFuture: true });
+  const todayFree = ctx.days[0] ? freeIntervals(ctx, ctx.days[0]).filter(([s, e]) => e - s >= 25 * MINUTE) : [];
+  const freeMin = todayFree.reduce((s, [a, b]) => s + (b - a) / MINUTE, 0);
+  const rec = app.derivedRec;
+  const gaps = [...(app.derivedCoverage || new Map()).entries()].filter(([, c]) => c.gap > 0 && !c.overdue && c.inHorizon).map(([id, c]) => ({ task: state.tasks.find((t) => t.id === id), ...c }));
+  const body = h('div', { class: 'stack' },
+    h('p', { class: 'lead' }, 'A disrupted day does not mean the plan failed. Record what happened, see what still fits, then compare the smallest fixes.'),
+    h('section', { class: 'rec-step' }, h('h3', null, '1. Record what happened'),
+      pending.length ? h('ul', { class: 'plain-list' }, pending.map((b) => h('li', { class: 'list-row' },
+        h('div', null, h('div', { class: 'list-title' }, blockTitle(state, b)), h('div', { class: 'muted' }, `${fmtDate(msToDate(b.start, zone))}, ${fmtTimeRange(b.start, b.end, zone)}`)),
+        h('div', { class: 'row gap-sm wrap' },
+          h('button', { type: 'button', class: 'btn btn-sm', onclick: () => quick(b, 'completed') }, 'Done as planned'),
+          h('button', { type: 'button', class: 'btn btn-sm', onclick: () => quick(b, 'missed') }, 'Missed'),
+          h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => { api.close(); openProgressForm({ blockId: b.id, outcome: 'partial' }); } }, 'Partly, with details'))))) : h('p', { class: 'muted' }, 'Every past session is recorded.'),
+      missed.length ? h('p', { class: 'muted' }, `${plural(missed.length, 'recent session')} marked missed. That work is still in your remaining effort.`) : null),
+    h('section', { class: 'rec-step' }, h('h3', null, '2. What still fits today'),
+      todayFree.length ? h('ul', { class: 'bullets' }, todayFree.map(([s, e]) => h('li', null, `${fmtTimeRange(s, e, zone)} (${fmtDuration((e - s) / MINUTE)})`))) : h('p', null, 'No study window of 25 minutes or more is left today.'),
+      todayFree.length ? h('p', { class: 'muted' }, `${fmtDuration(freeMin)} free in total today, before travel.`) : null,
+      rec?.pick ? h('p', null, 'Best next action: ', h('strong', null, rec.pick.title), ` for ${fmtDuration(rec.pick.minutes)}.`) : null),
+    h('section', { class: 'rec-step' }, h('h3', null, '3. Review remaining work'),
+      gaps.length ? h('ul', { class: 'bullets' }, gaps.map((g) => h('li', null, `${g.task.title}: ${fmtDuration(g.gap)} without a session before ${fmtDateTime(g.deadline, zone)}`))) : h('p', { class: 'muted' }, 'Every task due in the planning window is covered by approved sessions.'),
+      h('p', { class: 'muted' }, 'Options start with the smallest change, which keeps every approved session and only places missing work. Nothing changes until you approve one.')));
+  const api = openDialog({ title: 'Recover the plan', size: 'md', content: body,
+    actions: [{ label: 'Close', quiet: true, onClick: () => api.close() }, { label: 'Review remaining work', primary: true, onClick: () => { api.close(); generate('recovery'); } }] });
+}
+
+// ---------- What-if ----------
+
+const round5 = (n) => Math.max(0, Math.round(n / 5) * 5);
+
+function optionalOccurrences(days = 7) {
+  const s = app.state;
+  const t = today();
+  const end = msToDate(now() + days * 86400000, tz());
+  return expandCommitments(s.commitments.filter((c) => c.optional), t, end, tz()).filter((o) => !o.skipped && o.startMs > now());
+}
+
+function runWhatIf(params) {
+  const s = app.state;
+  const n = now();
+  const opts = { strategy: 'balanced', variant: 'whatif' };
+  const factChanges = [];
+  if (params.protectEvenings) opts.protectEveningsAfter = params.eveningCutoff;
+  if (params.maxDaily != null && params.maxDaily !== s.preferences.maxDailyStudyMin) opts.prefOverrides = { maxDailyStudyMin: params.maxDaily };
+  if (params.taskId && params.factor !== 1) {
+    const t = s.tasks.find((x) => x.id === params.taskId);
+    if (t) {
+      opts.estimateScale = { [t.id]: params.factor };
+      const from = taskRemaining(t);
+      factChanges.push({ type: 'taskRemaining', taskId: t.id, from, to: round5(from * params.factor), label: `Change "${t.title}" remaining from ${fmtDuration(from)} to ${fmtDuration(round5(from * params.factor))}` });
+    }
+  }
+  if (params.skip.length) {
+    opts.skipOccurrenceIds = params.skip;
+    for (const id of params.skip) {
+      const [cid, date] = id.split('@');
+      const c = s.commitments.find((x) => x.id === cid);
+      factChanges.push({ type: 'skipOccurrence', commitmentId: cid, date, label: `Skip ${c?.title || 'commitment'} on ${fmtDate(date)}` });
+    }
+  }
+  opts.factChanges = factChanges;
+  const alt = makeProposal(s, n, opts);
+  alt.label = 'Try a change';
+  alt.summary = 'Your what-if settings applied to a balanced plan.';
+  const baseline = makeProposal(s, n, { strategy: 'balanced' });
+  return { params, opts, alt, baseline, notes: opts.prefOverrides ? [`Uses a daily limit of ${fmtDuration(params.maxDaily)} for this plan only. Your saved limit stays ${fmtDuration(s.preferences.maxDailyStudyMin)}, so days above it will be flagged.`] : [] };
+}
+
+function whatIfToProposal(result) {
+  const next = structuredClone(app.state);
+  next.proposal = { origin: 'whatif', createdAt: now(), alternatives: [result.alt], selectedId: result.alt.id, base: result.opts };
+  app.ui.sideTab = 'review';
+  commit(next, { label: 'Preview what-if' });
+}
+
+// ---------- Data ----------
+
+function openData() {
+  const n = now();
+  const backend = app.repo.backend;
+  const where = backend.name === 'browser' ? 'Saved in this browser\'s local storage on this device.'
+    : backend.name === 'host' ? 'Saved in this preview\'s storage.'
+      : 'Not saved: browser storage is unavailable here. Changes last until this tab closes. Export to keep them.';
+  const backupSlot = h('div', null, h('p', { class: 'muted' }, 'Checking for a backup...'));
+  const unreadableSlot = h('div');
+  const fileInput = h('input', { type: 'file', accept: 'application/json,.json', class: 'sr-only', id: 'import-file', onchange: async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast('That file is larger than 5 MB.', { tone: 'warn' }); return; }
+    const text = await file.text();
+    api.close();
+    openImportPreview(text, file.name);
+  } });
+  const scenario = h('select', { 'aria-label': 'Demo scenario' }, Object.entries(DEMO_SCENARIOS).map(([k, v]) => h('option', { value: k }, v.label)));
+  scenario.value = app.state.meta.scenario || 'midweek';
+  const body = h('div', { class: 'stack' },
+    h('section', null, h('h3', { class: 'h-sm' }, 'Where your data lives'),
+      h('p', null, where),
+      h('p', { class: 'muted' }, 'Your tasks and progress stay on this device. An optional Course data refresh reads public synthetic API records; personal information is not uploaded. There is no cloud backup or sync; clearing site data deletes saved work. Demo and personal data are separate.'),
+      app.saveError ? h('p', { class: 'callout callout-conflict' }, app.saveError) : null),
+    h('section', null, h('h3', { class: 'h-sm' }, 'Export'),
+      h('p', { class: 'muted' }, `Downloads the ${app.mode} data as a JSON file you can import later.`),
+      h('button', { type: 'button', class: 'btn', onclick: () => { const ok = download(`margin-${app.mode}-${msToDate(n, tz())}.json`, exportPayload(app.state, Date.now())); toast(ok ? 'Export downloaded.' : 'This browser blocked the download.', { tone: ok ? 'neutral' : 'warn' }); } }, `Export ${app.mode} data`)),
+    h('section', null, h('h3', { class: 'h-sm' }, 'Import into personal data'),
+      h('p', { class: 'muted' }, 'You will see a preview first. Your current personal data is backed up before anything is replaced.'),
+      h('label', { class: 'btn', for: 'import-file', tabindex: '0', onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } } }, 'Choose a JSON file'), fileInput,
+      backupSlot),
+    unreadableSlot,
+    app.mode === 'demo' ? h('section', null, h('h3', { class: 'h-sm' }, 'Reset the demo'),
+      h('p', { class: 'muted' }, 'Rebuilds the synthetic demo. Personal data is not touched.'),
+      h('div', { class: 'row gap' }, scenario, h('button', { type: 'button', class: 'btn', onclick: async () => {
+        if (await confirmDialog({ title: 'Reset the demo?', message: `Demo data will be replaced with "${DEMO_SCENARIOS[scenario.value].label}". Your personal data is separate and stays as it is.`, confirmLabel: 'Reset demo' })) { resetDemo(scenario.value); api.close(); }
+      } }, 'Reset demo')),
+      h('p', { class: 'muted' }, DEMO_SCENARIOS[scenario.value].description)) : null,
+    app.mode === 'personal' ? h('section', null, h('h3', { class: 'h-sm' }, 'Delete personal data'),
+      h('p', { class: 'muted' }, 'Removes all personal data and its backup from this browser. Export first if you might want it back.'),
+      h('button', { type: 'button', class: 'btn btn-danger', onclick: async () => {
+        if (await confirmDialog({ title: 'Delete all personal data?', message: 'Tasks, commitments, places, plans, progress, and the backup will be deleted from this browser. This cannot be undone.', confirmLabel: 'Delete everything', danger: true, requireText: 'DELETE' })) { await deletePersonalData(); api.close(); }
+      } }, 'Delete all personal data')) : null);
+  scenario.addEventListener('change', () => { const p = scenario.closest('section').querySelector('p.muted:last-child'); if (p) p.textContent = DEMO_SCENARIOS[scenario.value].description; });
+  const api = openDialog({ title: 'Data', size: 'md', content: body, actions: [{ label: 'Close', quiet: true, onClick: () => api.close() }] });
+  app.repo.getBackup('personal').then((b) => {
+    backupSlot.replaceChildren(b ? h('div', { class: 'row gap wrap' }, h('p', { class: 'muted' }, `Backup from ${fmtDateTime(b.savedAt, tz())}: ${plural(summarize(b.state).tasks, 'task')}, ${plural(summarize(b.state).commitments, 'commitment')}.`),
+      h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: async () => { if (await confirmDialog({ title: 'Restore the backup?', message: 'Your current personal data will be backed up, then replaced with the backup.', confirmLabel: 'Restore backup' })) { await restorePersonalBackup(); api.close(); } } }, 'Restore backup'))
+      : h('p', { class: 'muted' }, 'No personal backup yet. One is made automatically before each import.'));
+  });
+  app.repo.getUnreadable(app.mode).then((raw) => {
+    if (!raw) return;
+    unreadableSlot.replaceChildren(h('section', null, h('h3', { class: 'h-sm' }, 'Recovery'), h('p', { class: 'muted' }, 'Earlier saved data could not be read and was set aside instead of deleted.'),
+      h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => download(`margin-${app.mode}-unreadable.json`, raw) }, 'Download the unreadable copy')));
+  });
+}
+
+function openImportPreview(text, name) {
+  const res = parseImport(text, 'personal');
+  if (!res.ok) {
+    const api = openDialog({ title: 'This file cannot be imported', size: 'sm', content: h('div', { class: 'stack' }, h('p', null, name), h('ul', { class: 'bullets' }, res.errors.map((e) => h('li', null, e))), h('p', { class: 'muted' }, 'Nothing was changed.')),
+      actions: [{ label: 'Close', primary: true, onClick: () => api.close() }] });
+    return;
+  }
+  const slot = h('tbody');
+  const rows = [['Tasks', 'tasks'], ['Open tasks', 'openTasks'], ['Commitments', 'commitments'], ['Places', 'places'], ['Plan sessions', 'sessions'], ['Progress records', 'progress'], ['Revision topics', 'topics']];
+  const fill = (cur) => slot.replaceChildren(...rows.map(([label, k]) => h('tr', null, h('th', { scope: 'row' }, label), h('td', null, String(res.summary[k])), h('td', null, cur ? String(cur[k]) : '...'))));
+  fill(null);
+  (app.mode === 'personal' ? Promise.resolve({ state: app.state }) : app.repo.loadMode('personal')).then((r) => fill(summarize(r.state)));
+  const body = h('div', { class: 'stack' },
+    h('p', null, `${name}${res.exportedAt ? `, exported ${res.exportedAt.slice(0, 10)}` : ''}`),
+    h('table', { class: 'table' }, h('thead', null, h('tr', null, h('th', null, ''), h('th', { scope: 'col' }, 'In the file'), h('th', { scope: 'col' }, 'Current personal'))), slot),
+    res.warnings.length ? h('div', { class: 'callout callout-warn' }, h('strong', null, 'Notes'), h('ul', null, res.warnings.map((w) => h('li', null, w)))) : null,
+    h('p', { class: 'muted' }, 'Importing replaces your personal data. The current personal data is backed up first and can be restored from Data.'));
+  const api = openDialog({ title: 'Preview import', size: 'md', content: body,
+    actions: [{ label: 'Cancel', quiet: true, onClick: () => api.close() }, { label: 'Replace personal data', primary: true, onClick: async () => { api.close(); await importIntoPersonal(res.state); } }] });
+}
+
+// ---------- Help ----------
+
+function openHelp() {
+  const keys = [['t', 'Go to today'], ['[ and ]', 'Previous and next week'], ['n', 'New task'], ['c', 'New event'], ['p', 'Plan: generate a proposal'], ['Ctrl+Z or Cmd+Z', 'Undo the last change'], ['?', 'This help']];
+  const body = h('div', { class: 'stack' },
+    h('section', null, h('h3', { class: 'h-sm' }, 'How planning works'),
+      h('ol', { class: 'bullets' },
+        h('li', null, 'Enter commitments, study hours, places, and tasks.'),
+        h('li', null, 'Plan creates proposals. Nothing on your calendar changes until you approve one.'),
+        h('li', null, 'Record what actually happened. Only recorded progress changes remaining effort.'),
+        h('li', null, 'When the day goes sideways, Recover compares the smallest fixes first.'))),
+    h('section', null, h('h3', { class: 'h-sm' }, 'Rules, preferences, estimates, heuristics'),
+      reasonList([
+        { type: 'hard', text: 'Never broken: sleep, study hours, commitments, travel, breaks, daily limit, deadlines, locked sessions.' },
+        { type: 'soft', text: 'Shapes placement: focus hours, preferred places, session length, free time kept each day.' },
+        { type: 'estimate', text: 'Uncertain inputs, such as travel times nobody entered.' },
+        { type: 'heuristic', text: 'Choices the planner made that a different method might make differently.' },
+      ])),
+    h('section', null, h('h3', { class: 'h-sm' }, 'Keyboard'), h('table', { class: 'table' }, h('tbody', null, keys.map(([k, v]) => h('tr', null, h('th', { scope: 'row' }, h('kbd', null, k)), h('td', null, v)))))),
+    h('section', null, h('h3', { class: 'h-sm' }, 'Limits'), h('p', { class: 'muted' }, 'The planner is a deterministic heuristic, not an optimizer: when it cannot place work, a different schedule might still exist. Robustness checks are scenarios, not probabilities. Only America/New_York is supported.')));
+  const api = openDialog({ title: 'Help', size: 'md', content: body, actions: [{ label: 'Close', primary: true, onClick: () => api.close() }] });
+}
+
+function openStartGuide() {
+  const s = app.state;
+  const steps = [
+    ['Add the places you study and travel between', s.locations.length > 0, () => openPlaces()],
+    ['Add classes, shifts, meals, and protected time', s.commitments.length > 0, () => openCommitmentForm()],
+    ['Set your study hours, sleep, and limits', false, () => openPreferences()],
+    ['Add tasks with deadlines and estimates', s.tasks.length > 0, () => openTaskForm()],
+    ['Generate a proposal and approve it', s.plan.blocks.length > 0, () => generate('plan')],
+  ];
+  return h('section', { class: 'starter', 'aria-label': 'Getting started' },
+    h('h2', null, 'Set up your own planner'),
+    h('p', { class: 'muted' }, 'Personal data stays in this browser. The demo is separate and unaffected.'),
+    h('ol', { class: 'starter-list' }, steps.map(([label, done, fn]) => h('li', { class: done ? 'is-done' : '' },
+      h('button', { type: 'button', class: 'btn btn-quiet', onclick: fn }, done ? icon('check', { size: 14, label: 'Done' }) : null, label)))));
+}
+
+return { openLaunchBrief, endSession, openRecovery, optionalOccurrences, runWhatIf, whatIfToProposal, openData, openImportPreview, openHelp, openStartGuide };
+})();
+
+// src/ui/panels.js
+__m["src/ui/panels.js"] = (function () {
+// Side and left panels. Each renders from the current state and derived analysis.
+
+const { h, icon, plural, reasonList } = __m["src/ui/dom.js"];
+const { confirmDialog } = __m["src/ui/dialog.js"];
+const { app, now, today, tz, setDone, setUi, generate, regenerate, selectAlternative, approveSelected, cancelProposalAction, checkIn, applyCalibration, dismissCalibration, clearCalibrationAction, toggleCalibration, removeTopicAction, stress } = __m["src/ui/app.js"];
+const { openTaskForm, openOccurrence, openBlock, openProgressForm, openPreferences, openPlaces, openTopicForm, askConfidence, openCommitmentForm } = __m["src/ui/forms.js"];
+const { openLaunchBrief, endSession, openRecovery, runWhatIf, whatIfToProposal, optionalOccurrences } = __m["src/ui/flows.js"];
+const { fmtDate, fmtDuration, fmtTime, fmtTimeRange, fmtDateTime, fmtClock, addDays, msToDate, MINUTE, toClockInput, parseClockInput, fmtDayRelative } = __m["src/core/time.js"];
+const { locationName } = __m["src/core/travel.js"];
+const { taskRemaining, TASK_KINDS } = __m["src/core/model.js"];
+const { workloadForDates, deadlineClusters } = __m["src/core/analysis.js"];
+const { calibrationGroups, calibrationSuggestions, MIN_SAMPLES } = __m["src/core/calibration.js"];
+const { CONFIDENCE_LABELS, FIRST_INTERVAL, FACTOR } = __m["src/core/revision.js"];
+const { selectedAlternative } = __m["src/core/proposal.js"];
+const { blockTitle, deadlineInfo, SEVERITY_LABEL, whenLabel } = __m["src/ui/common.js"];
+// ---------- Now ----------
+
+function renderNow(d) {
+  const state = app.state;
+  const rec = d.rec;
+  const zone = tz();
+  const session = app.ui.session;
+  const studyPlaces = [['', 'Where I last was'], ...state.locations.filter((l) => l.kind !== 'virtual').map((l) => [l.id, l.name])];
+  const locSel = h('select', { id: 'now-loc', 'aria-label': 'Where you are', onchange: (e) => setUi({ locationId: e.target.value || null }) }, studyPlaces.map(([v, l]) => h('option', { value: v }, l)));
+  locSel.value = app.ui.locationId || '';
+  const energy = state.checkins[d.today] || null;
+  const energyBtns = h('div', { class: 'seg', role: 'group', 'aria-label': 'Energy check-in' }, [['low', 'Low'], ['ok', 'Okay'], ['high', 'High']].map(([k, l]) => h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': energy === k ? 'true' : 'false', onclick: () => checkIn(k), dataset: { fk: `energy-${k}` } }, l)));
+
+  let main;
+  if (session) {
+    const t = state.tasks.find((x) => x.id === session.taskId);
+    const step = session.stepId ? t?.steps.find((s) => s.id === session.stepId) : null;
+    main = h('div', { class: 'now-main' },
+      h('p', { class: 'now-kicker' }, `In session since ${fmtTime(session.startedAt, zone)}`),
+      h('p', { class: 'now-title' }, step ? step.title : t?.title || 'Session'),
+      h('p', { class: 'muted' }, `Planned ${fmtDuration(session.plannedMin)} at ${locationName(state, session.locationId)}.`),
+      h('div', { class: 'row gap-sm wrap' },
+        h('button', { type: 'button', class: 'btn btn-primary', onclick: () => endSession('completed'), dataset: { fk: 'sess-record' } }, 'Record progress'),
+        h('button', { type: 'button', class: 'btn', onclick: () => endSession('interrupted') }, 'I was interrupted'),
+        h('button', { type: 'button', class: 'btn btn-quiet', onclick: () => openLaunchBrief({ taskId: session.taskId, stepId: session.stepId, minutes: session.plannedMin, locationId: session.locationId, blockId: session.blockId, endsAt: session.startedAt + session.plannedMin * MINUTE }) }, 'Brief'),
+        h('button', { type: 'button', class: 'btn btn-quiet', onclick: () => setUi({ session: null }) }, 'Stop without recording')));
+  } else if (rec.status === 'in-session' || rec.status === 'upcoming') {
+    const b = rec.block;
+    main = h('div', { class: 'now-main' },
+      h('p', { class: 'now-kicker' }, rec.status === 'upcoming' ? rec.headline : 'Planned right now'),
+      h('p', { class: 'now-title' }, blockTitle(state, b)),
+      h('p', { class: 'muted' }, rec.status === 'upcoming' ? rec.sub : `${fmtTimeRange(b.start, b.end, zone)} at ${locationName(state, b.locationId)}`),
+      h('div', { class: 'row gap-sm wrap' },
+        h('button', { type: 'button', class: 'btn btn-primary', dataset: { fk: 'now-start' }, onclick: () => openLaunchBrief({ taskId: b.taskId, stepId: b.stepId, minutes: Math.round((b.end - Math.max(b.start, d.now)) / MINUTE), locationId: b.locationId, blockId: b.id, endsAt: b.end }) }, icon('play', { size: 14 }), 'Open session brief'),
+        rec.status === 'in-session' ? h('button', { type: 'button', class: 'btn', onclick: () => openProgressForm({ blockId: b.id }) }, 'Record outcome') : null));
+  } else if (rec.pick) {
+    const p = rec.pick;
+    const alts = rec.options.filter((o) => o.unitId !== p.unitId);
+    main = h('div', { class: 'now-main' },
+      h('p', { class: 'now-kicker' }, rec.headline),
+      h('p', { class: 'now-title' }, p.title),
+      h('p', { class: 'now-sub' }, `${fmtDuration(p.minutes)} at ${locationName(state, p.locationId)}`),
+      h('ul', { class: 'bullets' }, p.reasons.slice(0, 4).map((r) => h('li', null, r))),
+      h('div', { class: 'row gap-sm wrap' },
+        h('button', { type: 'button', class: 'btn btn-primary', dataset: { fk: 'now-start' }, onclick: () => openLaunchBrief({ taskId: p.taskId, stepId: p.stepId, minutes: p.minutes, locationId: p.locationId }) }, icon('play', { size: 14 }), 'Start this')),
+      alts.length ? h('details', { class: 'now-alts' }, h('summary', null, `Other options (${alts.length})`),
+        h('ul', { class: 'plain-list' }, alts.map((o) => h('li', { class: ['alt-row', !o.fits && 'is-nofit'] },
+          h('div', null, h('div', { class: 'list-title' }, o.title), h('div', { class: 'muted' }, o.fits ? `Fits: ${fmtDuration(o.minutes)} at ${locationName(state, o.locationId)}. ${o.reasons[0] || ''}` : `Does not fit: ${o.whyNot}`)),
+          o.fits ? h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => openLaunchBrief({ taskId: o.taskId, stepId: o.stepId, minutes: o.minutes, locationId: o.locationId }) }, 'Start') : null)))) : null);
+  } else {
+    main = h('div', { class: 'now-main' },
+      h('p', { class: 'now-kicker' }, rec.headline),
+      h('p', { class: 'now-title' }, rec.status === 'no-window' ? 'Take a break' : rec.sub),
+      rec.status === 'no-window' ? h('p', { class: 'muted' }, rec.sub) : null,
+      rec.next ? h('p', null, 'Next realistic window: ', h('strong', null, whenLabel(rec.next.start, rec.next.end, zone, d.today)), '.') : h('p', { class: 'muted' }, 'No free study window in the next two days.'),
+      rec.nextSession ? h('p', { class: 'muted' }, `Next planned session: ${blockTitle(state, rec.nextSession)}, ${whenLabel(rec.nextSession.start, rec.nextSession.end, zone, d.today)}.`) : null,
+      rec.status === 'no-window' && rec.options?.length ? h('details', { class: 'now-alts' }, h('summary', null, 'Why nothing fits'),
+        h('ul', { class: 'plain-list' }, rec.options.slice(0, 6).map((o) => h('li', { class: 'alt-row is-nofit' }, h('div', null, h('div', { class: 'list-title' }, o.title), h('div', { class: 'muted' }, o.whyNot || 'Fits, but the window is too short to be useful.')))))) : null);
+  }
+  return h('section', { class: 'panel now', 'aria-labelledby': 'now-h' },
+    h('div', { class: 'panel-head' }, h('h2', { id: 'now-h' }, 'What now'), h('span', { class: 'muted' }, `${app.mode === 'demo' ? 'Demo time ' : ''}${fmtTime(d.now, zone)}`)),
+    main,
+    h('div', { class: 'now-context' },
+      h('label', { class: 'field-label', for: 'now-loc' }, 'I am at'), locSel,
+      h('span', { class: 'field-label' }, 'Energy'), energyBtns),
+    energy === 'low' ? h('p', { class: 'muted small' }, 'Low energy steers suggestions to lighter work. It never changes your plan by itself. A lighter-day option appears when you plan.') : null);
+}
+
+// ---------- Tasks ----------
+
+function renderTasks(d, { onAdd = openTaskForm } = {}) {
+  const state = app.state;
+  const filter = app.ui.taskFilter || 'open';
+  const coverage = d.analysis.coverage;
+  const suggestions = new Set(calibrationSuggestions(state).map((s) => s.taskId));
+  const robust = app.stressCache && app.stressCache.key === d.stressKey ? new Map(app.stressCache.result.tasks.map((t) => [t.taskId, t.status])) : new Map();
+  const open = state.tasks.filter((t) => t.status !== 'done').map((t) => ({ t, dl: deadlineInfo(t, state.settings, d.now) })).sort((a, b) => a.dl.ms - b.dl.ms);
+  const done = state.tasks.filter((t) => t.status === 'done').sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+  const soon = d.now + 48 * 3600000;
+  const groups = filter === 'done' ? [['Done', done.map((t) => ({ t, dl: deadlineInfo(t, state.settings, d.now) }))]] : [
+    ['Overdue', open.filter((x) => x.dl.overdue)],
+    ['Due in the next 48 hours', open.filter((x) => !x.dl.overdue && x.dl.ms <= soon)],
+    ['Later', open.filter((x) => x.dl.ms > soon)],
+  ];
+  const row = ({ t, dl }) => {
+    const c = coverage.get(t.id);
+    const rem = taskRemaining(t);
+    const pct = c && c.remaining ? Math.min(100, (c.planned / c.remaining) * 100) : 100;
+    const rs = robust.get(t.id);
+    const rsLabel = { fragile: 'Fragile', tight: 'Tight', uncovered: 'Not covered' }[rs];
+    return h('li', { class: 'task-with-check' }, h('input', { type: 'checkbox', checked: t.status === 'done', 'aria-label': `Mark ${t.title} ${t.status === 'done' ? 'incomplete' : 'done'}`, onchange: e => setDone(t.id, e.target.checked) }), h('button', { type: 'button', class: ['task', dl.overdue && t.status !== 'done' && 'is-overdue', t.status === 'done' && 'is-done'], onclick: () => openTaskForm(t), dataset: { fk: `task-${t.id}` } },
+      h('span', { class: 'task-top' }, h('span', { class: 'task-cat' }, t.category), h('span', { class: 'task-kind' }, TASK_KINDS[t.kind]), t.priority === 'high' ? h('span', { class: 'tag tag-high' }, 'High priority') : null, rsLabel ? h('span', { class: `tag tag-${rs}` }, rsLabel) : null, suggestions.has(t.id) ? h('span', { class: 'tag tag-learn' }, 'Estimate tip') : null),
+      h('span', { class: 'task-title' }, t.title),
+      t.status === 'done' ? h('span', { class: 'task-meta' }, `Done${t.completedAt ? ` ${fmtDate(msToDate(t.completedAt, tz()))}` : ''}`) : [
+        h('span', { class: 'task-meta' }, `${dl.overdue ? 'Overdue: ' : 'Due '}${dl.text}`, h('span', { class: 'muted' }, `, ${dl.rel.replace(/^overdue, due |^due /, '')}`)),
+        h('span', { class: 'task-cover' },
+          h('span', { class: 'cover-bar', 'aria-hidden': 'true' }, h('span', { class: ['cover-fill', pct < 100 && 'is-short'], style: { width: `${pct}%` } })),
+          h('span', null, rem ? `${fmtDuration(c?.planned || 0)} planned of ${fmtDuration(rem)} left` : 'No effort left. Mark it done when finished.')),
+      ]));
+  };
+  const filterSel = h('select', { 'aria-label': 'Show tasks', onchange: (e) => setUi({ taskFilter: e.target.value }) }, [['open', 'Open'], ['done', 'Done']].map(([v, l]) => h('option', { value: v }, l)));
+  filterSel.value = filter;
+  const any = groups.some(([, list]) => list.length);
+  return h('section', { class: 'panel tasks', 'aria-labelledby': 'tasks-h' },
+    h('div', { class: 'panel-head' }, h('h2', { id: 'tasks-h' }, 'Tasks and deadlines'), filterSel,
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => onAdd(), dataset: { fk: 'add-task' } }, icon('plus', { size: 14 }), 'Add task')),
+    any ? groups.filter(([, list]) => list.length).map(([label, list]) => h('div', { class: 'task-group' }, h('h3', { class: 'h-sm' }, `${label} (${list.length})`), h('ul', { class: 'task-list' }, list.map(row))))
+      : h('p', { class: 'empty' }, filter === 'done' ? 'Nothing finished yet.' : 'No open tasks. Add assignments, exams, readings, or everyday tasks with a deadline and an estimate.'));
+}
+
+// ---------- Side panel ----------
+
+const TABS = [['review', 'Review'], ['issues', 'Issues'], ['load', 'Week load'], ['robust', 'Stress test'], ['learn', 'Learning'], ['whatif', 'Try a change']];
+
+function renderSide(d, { onlyReview = false } = {}) {
+  const hasProposal = !!app.state.proposal;
+  let tab = onlyReview ? 'review' : app.ui.sideTab;
+  if (tab === 'review' && !hasProposal) tab = 'issues';
+  const tabs = TABS.filter(([k]) => onlyReview ? k === 'review' : k !== 'review' || hasProposal);
+  const count = d.analysis.counts.conflict + d.analysis.counts.warning;
+  const tablist = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Planning panels', onkeydown: (e) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const i = tabs.findIndex(([k]) => k === tab);
+    const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length][0];
+    setUi({ sideTab: next });
+    requestAnimationFrame(() => document.getElementById(`tab-${next}`)?.focus());
+  } }, tabs.map(([k, l]) => h('button', { type: 'button', role: 'tab', id: `tab-${k}`, 'aria-selected': k === tab ? 'true' : 'false', 'aria-controls': 'side-panel', tabindex: k === tab ? '0' : '-1', class: 'tab', onclick: () => setUi({ sideTab: k }) },
+    l, k === 'issues' && count ? h('span', { class: 'tab-count' }, String(count)) : null)));
+  const body = { review: renderReview, issues: renderIssues, load: renderLoad, robust: renderRobust, learn: renderLearn, whatif: renderWhatIf }[tab](d);
+  return h('aside', { class: 'panel side' }, tablist, h('div', { id: 'side-panel', role: 'tabpanel', 'aria-labelledby': `tab-${tab}`, class: 'side-body', dataset: { scroll: 'side' } }, body));
+}
+
+
+function renderReview(d) {
+  const state = app.state;
+  const p = state.proposal;
+  const alt = d.alt;
+  const zone = tz();
+  const stale = d.staleness;
+  const byId = new Map([...state.plan.blocks, ...alt.newBlocks].map((b) => [b.id, b]));
+  const item = (b, prefix = '') => h('li', null, h('button', { type: 'button', class: 'linklike', onclick: () => openBlock(b, { proposed: alt.newBlocks.includes(b) }) }, `${prefix}${whenLabel(b.start, b.end, zone, d.today)}: ${blockTitle(state, b)}, ${locationName(state, b.locationId)}`));
+  const origin = { plan: 'New proposal', recovery: 'Recovery options', whatif: 'What-if preview' }[p.origin] || 'Proposal';
+  const lowEnergy = state.checkins[d.today] === 'low';
+  const lightCap = Math.round(state.preferences.maxDailyStudyMin * 0.5 / 5) * 5;
+  const lighten = !!p.base?.dayCaps?.[d.today];
+  return h('div', { class: 'review' },
+    h('div', { class: 'review-head' },
+      h('h2', null, origin),
+      h('p', { class: 'muted' }, `Generated ${fmtDateTime(p.createdAt, zone)}. Your approved plan is unchanged until you approve.`)),
+    stale.stale ? h('div', { class: 'callout callout-conflict', role: 'alert' }, h('strong', null, 'This proposal is out of date'), h('ul', null, stale.reasons.map((r) => h('li', null, r))),
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => regenerate() }, 'Regenerate')) : null,
+    lowEnergy && p.origin !== 'whatif' ? h('label', { class: 'check callout' }, h('input', { type: 'checkbox', checked: lighten, onchange: (e) => regenerate({ dayCaps: e.target.checked ? { [d.today]: lightCap } : null }) }),
+      h('span', null, `Lighten today: at most ${fmtDuration(lightCap)} of study (you checked in with low energy)`)) : null,
+    h('div', { class: 'review-actions' },
+      h('button', { type: 'button', class: 'btn btn-primary', disabled: stale.stale, onclick: () => approveSelected(), dataset: { fk: 'approve' } }, alt.relaxed ? 'Approve relaxed plan' : 'Approve plan'),
+      h('button', { type: 'button', class: 'btn', onclick: () => cancelProposalAction(), dataset: { fk: 'cancel-proposal' } }, 'Cancel proposal')),
+    p.alternatives.length > 1 ? h('details', { class: 'plan-alternatives' }, h('summary', null, `Selected: ${alt.label}. Compare other plans`),
+      h('div', { class: 'options', role: 'radiogroup', 'aria-label': 'Proposal options' }, p.alternatives.map((a) => {
+        const m = a.metrics;
+        const changes = a.diff.added.length + a.diff.moved.length + a.diff.removed.length;
+        const stat = (label, value, warn = false) => h('div', { class: ['opt-stat', warn && 'is-warn'] }, h('dt', null, label), h('dd', null, value));
+        return h('label', { class: ['opt', a.id === alt.id && 'is-selected', a.relaxed && 'is-relaxed'] },
+          h('span', { class: 'opt-head' }, h('input', { type: 'radio', name: 'alt', checked: a.id === alt.id, onchange: () => selectAlternative(a.id), dataset: { fk: `alt-${a.id}` } }),
+            h('span', { class: 'opt-name' }, a.label), a.relaxed ? h('span', { class: 'tag tag-relaxed' }, 'Relaxes your limits') : null,
+            h('span', { class: 'opt-changes' }, `${changes} change${changes === 1 ? '' : 's'}`)),
+          h('span', { class: 'opt-sum' }, a.summary),
+          h('dl', { class: 'opt-stats' },
+            stat('Planned', fmtDuration(m.plannedTotalMin)),
+            stat('Not placed', m.unplacedMin ? fmtDuration(m.unplacedMin) : 'None', m.unplacedMin > 0),
+            stat('Evenings', fmtDuration(m.eveningMin)),
+            stat('Busiest day', m.busiest ? `${fmtDate(m.busiest.date).split(', ')[0]}, ${fmtDuration(m.busiest.min)}` : 'None'),
+            stat('Least buffer', m.tightest ? fmtDuration(m.tightest.minutes) : 'None')));
+      })),
+      h('p', { class: 'muted small' }, 'Planned counts all future study sessions under that option. Least buffer is the shortest gap between a task\'s last session and its deadline.')) : null,
+    alt.relaxed ? h('div', { class: 'callout callout-warn' }, h('strong', null, 'Relaxes limits you set'), h('p', null, 'This option uses up to 1 hour more study per day and the free time you normally keep. Approve only if that is acceptable this week.')) : null,
+    alt.factChanges?.length ? h('div', { class: 'callout callout-warn' }, h('strong', null, 'Approving also changes these facts'), h('ul', null, alt.factChanges.map((f) => h('li', null, f.label)))) : null,
+    h('section', null, h('h3', { class: 'h-sm' }, 'What changes'),
+      h('p', null, `${plural(alt.diff.added.length, 'session')} added, ${alt.diff.moved.length} moved, ${alt.diff.removed.length} removed, ${alt.diff.unchanged} unchanged.`),
+      alt.diff.added.length ? h('details', null, h('summary', null, `Added (${alt.diff.added.length})`), h('ul', { class: 'changes' }, alt.diff.added.map((id) => item(byId.get(id))))) : null,
+      alt.diff.moved.length ? h('details', null, h('summary', null, `Moved (${alt.diff.moved.length})`), h('ul', { class: 'changes' }, alt.diff.moved.map((m) => {
+        const from = byId.get(m.from);
+        const to = byId.get(m.to);
+        return h('li', null, h('button', { type: 'button', class: 'linklike', onclick: () => openBlock(to, { proposed: true }) }, `${blockTitle(state, to)}: from ${whenLabel(from.start, from.end, zone, d.today)} to ${whenLabel(to.start, to.end, zone, d.today)}`));
+      }))) : null,
+      alt.diff.removed.length ? h('details', null, h('summary', null, `Removed (${alt.diff.removed.length})`), h('ul', { class: 'changes' }, alt.diff.removed.map((id) => item(byId.get(id))))) : null),
+    h('section', null, h('h3', { class: 'h-sm' }, 'Not placed by this planning attempt'),
+      alt.unplaced.length ? h('ul', { class: 'issues' }, alt.unplaced.map((u) => h('li', { class: `issue issue-${u.code === 'overdue' ? 'conflict' : 'warning'}` },
+        h('div', { class: 'issue-title' }, `${u.title}: ${fmtDuration(u.minutes)}`), h('p', null, u.text),
+        h('div', { class: 'row gap-sm' }, h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => openTaskForm(state.tasks.find((t) => t.id === u.taskId)) }, 'Open task'),
+          ['capacity', 'contention'].includes(u.code) ? h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => openPreferences() }, 'Review limits') : null))))
+        : h('p', null, 'Everything due inside the planning window fits.'),
+      alt.unplaced.length ? h('p', { class: 'muted small' }, 'Another arrangement might still fit this work. To make room: lower the scope of a task, revisit priorities, start earlier, or try a relaxed option. Nothing here changes a deadline.') : null,
+      alt.deferred.length ? h('p', { class: 'muted small' }, `${fmtDuration(alt.metrics.deferredMin)} is due after the planning window and will be planned later.`) : null),
+    h('details', { class: 'decisions' }, h('summary', null, 'Decisions and assumptions'), reasonList(alt.decisions))); 
+}
+
+const ACTION_LABEL = { recover: 'Record and recover', adjust: 'Adjust plan', openTask: 'Open task', openCommitment: 'Open', preferences: 'Preferences', places: 'Places and travel', openBlock: 'Open session' };
+
+function runIssueAction(i) {
+  const s = app.state;
+  if (i.action === 'recover') openRecovery();
+  else if (i.action === 'adjust') generate('recovery');
+  else if (i.action === 'openTask') { const t = s.tasks.find((x) => x.id === i.refs.tasks?.[0]); if (t) openTaskForm(t); }
+  else if (i.action === 'openBlock') { const b = s.plan.blocks.find((x) => x.id === i.refs.blocks?.[0]); if (b) openBlock(b); }
+  else if (i.action === 'preferences') openPreferences();
+  else if (i.action === 'places') openPlaces();
+  else if (i.action === 'openCommitment') {
+    const occId = i.refs.occurrences?.[0];
+    const occ = occId ? app.derivedOccurrences?.find((o) => o.id === occId) : null;
+    if (occ) openOccurrence(occ);
+    else { const c = s.commitments.find((x) => x.id === i.refs.commitments?.[0]); if (c) openCommitmentForm(c); }
+  }
+}
+
+function renderIssues(d) {
+  const a = d.analysis;
+  const state = app.state;
+  const drift = a.issues.some((i) => i.kind === 'unrecorded' || i.kind === 'missed');
+  const noPlan = !state.plan.blocks.some((b) => b.end > d.now) && state.tasks.some((t) => t.status !== 'done');
+  const clusters = deadlineClusters(state, d.now);
+  return h('div', { class: 'stack' },
+    drift ? h('div', { class: 'callout callout-recover' }, h('strong', null, 'The plan has drifted'), h('p', null, 'Some sessions were missed or are not recorded yet. Recovery starts with the smallest fix.'),
+      h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => openRecovery(), dataset: { fk: 'recover' } }, 'Recover')) : null,
+    noPlan ? h('div', { class: 'callout' }, h('strong', null, 'No approved plan yet'), h('p', null, 'Generate a proposal to see how your work fits around your commitments.'),
+      h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => generate('plan') }, 'Plan my week')) : null,
+    clusters.length ? h('div', { class: 'callout' }, h('strong', null, 'Deadline cluster'), h('p', null, `${clusters[0].titles.length} deadlines within 48 hours from ${fmtDateTime(clusters[0].start, tz())}: ${clusters[0].titles.join(', ')}.`)) : null,
+    a.issues.length ? h('ul', { class: 'issues' }, a.issues.map((i) => h('li', { class: `issue issue-${i.severity}` },
+      h('div', { class: 'issue-sev' }, i.severity === 'conflict' ? icon('alert', { size: 13 }) : i.severity === 'warning' ? icon('clock', { size: 13 }) : icon('info', { size: 13 }), SEVERITY_LABEL[i.severity]),
+      h('div', { class: 'issue-title' }, i.title), h('p', null, i.detail),
+      ACTION_LABEL[i.action] ? h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => runIssueAction(i) }, ACTION_LABEL[i.action]) : null)))
+      : h('p', { class: 'empty' }, `No conflicts or gaps in the next ${state.settings.planningHorizonDays} days.`));
+}
+
+function renderLoad(d) {
+  const state = app.state;
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(app.ui.weekStart, i));
+  const rows = workloadForDates(state, d.now, dates, d.alt);
+  const max = Math.max(state.preferences.maxDailyStudyMin, ...rows.map((r) => Math.max(r.studyApproved, r.studyProposedTotal, r.commitMin)), 1);
+  return h('div', { class: 'stack' },
+    h('p', { class: 'muted small' }, `Computed from your calendar${d.alt ? ' with the open proposal applied' : ''}. These are scheduling indicators, not a measure of stress or wellbeing.`),
+    h('ul', { class: 'load' }, rows.map((r) => {
+      const study = d.alt ? r.studyProposedTotal : r.studyApproved;
+      return h('li', { class: 'load-day' },
+        h('div', { class: 'load-head' }, h('strong', null, fmtDayRelative(r.date, d.today)), h('span', { class: 'muted' }, r.deadlines.length ? plural(r.deadlines.length, 'deadline') : '')),
+        h('div', { class: 'load-bars', 'aria-hidden': 'true' },
+          h('div', { class: 'lb lb-commit', style: { width: `${(r.commitMin / max) * 100}%` } }),
+          h('div', { class: ['lb', 'lb-study', d.alt && 'is-proposed'], style: { width: `${(study / max) * 100}%` } }),
+          h('div', { class: 'lb-limit', style: { left: `${(r.limit / max) * 100}%` } })),
+        h('p', { class: 'small' }, `Commitments ${fmtDuration(r.commitMin)}. Study ${fmtDuration(study)} of ${fmtDuration(r.limit)}. Longest stretch ${fmtDuration(r.longestStretchMin)}.`),
+        r.flags.length ? h('ul', { class: 'flags' }, r.flags.map((f) => h('li', null, icon('alert', { size: 12 }), f.text))) : null);
+    })));
+}
+
+function renderRobust(d) {
+  const state = app.state;
+  const hasPlan = state.plan.blocks.some((b) => b.status === 'planned' && b.end > d.now);
+  if (!hasPlan) return h('p', { class: 'empty' }, 'Approve a plan first. The robustness check tests the approved plan, not proposals.');
+  const cached = app.stressCache && app.stressCache.key === d.stressKey;
+  if (!cached) {
+    return h('div', { class: 'stack' },
+      h('p', null, 'Test how the approved plan holds up if estimates run long, or if you lose one of your next sessions.'),
+      h('button', { type: 'button', class: 'btn btn-primary', onclick: () => { stress(); app.render(); }, dataset: { fk: 'run-stress' } }, 'Run robustness check'));
+  }
+  const r = app.stressCache.result;
+  const label = { uncovered: 'Not covered', fragile: 'Fragile', tight: 'Tight', holds: 'Holds' };
+  const crit = r.sessions.filter((s) => s.critical);
+  return h('div', { class: 'stack' },
+    h('details', null, h('summary', null, 'Scenarios tested'), h('ul', { class: 'bullets' }, r.assumptions.map((a) => h('li', null, a)))),
+    crit.length ? h('section', null, h('h3', { class: 'h-sm' }, `Critical sessions (${crit.length})`),
+      h('ul', { class: 'issues' }, crit.map((s) => h('li', { class: 'issue issue-warning' }, h('p', null, s.text),
+        h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => { const b = state.plan.blocks.find((x) => x.id === s.blockId); if (b) openBlock(b, { fragile: s.text }); } }, 'Open session'))))) : h('p', null, 'No single lost session breaks a deadline among those tested.'),
+    h('section', null, h('h3', { class: 'h-sm' }, 'By task'),
+      h('ul', { class: 'robust' }, r.tasks.map((t) => h('li', { class: `robust-${t.status}` }, h('div', { class: 'row gap-sm' }, h('span', { class: `tag tag-${t.status}` }, label[t.status]), h('strong', null, t.title)),
+        h('ul', { class: 'bullets small' }, t.notes.map((n2) => h('li', null, n2))))))),
+    h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => { app.stressCache = null; stress(); app.render(); } }, 'Run again'));
+}
+
+function renderLearn(d) {
+  const state = app.state;
+  const groups = calibrationGroups(state);
+  const sugg = calibrationSuggestions(state);
+  const pctText = (ratio) => {
+    const pct = Math.round((ratio - 1) * 100);
+    return pct === 0 ? 'matched your estimates' : pct > 0 ? `took ${pct}% longer than estimated` : `took ${-pct}% less time than estimated`;
+  };
+  const topics = state.revision.topics.slice().sort((a, b) => (a.nextDue || '') < (b.nextDue || '') ? -1 : 1);
+  return h('div', { class: 'stack' },
+    h('section', null, h('div', { class: 'row space' }, h('h3', { class: 'h-sm' }, 'Estimates'),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: state.settings.calibrationEnabled, onchange: (e) => toggleCalibration(e.target.checked) }), h('span', null, 'Suggest adjustments'))),
+      h('p', { class: 'muted small' }, `Compares the original estimate of each finished task with the time you recorded. A group needs ${MIN_SAMPLES} finished tasks before it suggests anything. Work with an interruption is shown but left out, and missed sessions never count as speed.`),
+      groups.length ? h('ul', { class: 'cal-groups' }, groups.map((g) => h('li', null,
+        h('strong', null, g.label), ': ',
+        g.n ? `${g.n} usable, ${g.ratio.toFixed(2)}× your estimate (median; range ${g.min.toFixed(2)}× to ${g.max.toFixed(2)}×)` : 'no usable observations',
+        g.excluded ? `, ${g.excluded} left out for interruptions` : '',
+        g.enough ? '.' : `. Not enough data yet (${g.n} of ${MIN_SAMPLES}).`))) : h('p', { class: 'empty' }, 'No finished tasks with recorded time yet.'),
+      state.settings.calibrationEnabled && sugg.length ? h('ul', { class: 'issues' }, sugg.map((s) => h('li', { class: 'issue issue-info' },
+        h('div', { class: 'issue-title' }, s.title), h('p', null, `${s.groupLabel} work ${pctText(s.ratio)} (median of ${s.n}). Suggested remaining: ${fmtDuration(s.to)} instead of ${fmtDuration(s.from)}.`),
+        h('div', { class: 'row gap-sm' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => applyCalibration(s) }, 'Use suggestion'), h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => dismissCalibration(s) }, 'Keep my estimate'))))) : null,
+      h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: async () => { if (await confirmDialog({ title: 'Clear learned history?', message: 'Finished work recorded so far will no longer be used for suggestions. Your tasks and progress records are not deleted.', confirmLabel: 'Clear history' })) clearCalibrationAction(); } }, 'Clear learned history')),
+    h('section', null, h('div', { class: 'row space' }, h('h3', { class: 'h-sm' }, 'Revision'), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => openTopicForm() }, icon('plus', { size: 14 }), 'Add topic')),
+      h('p', { class: 'muted small' }, `A simple interval rule, not an optimized algorithm: recall 1 resets to 1 day; otherwise the gap grows by ${Object.entries(FACTOR).map(([k, v]) => `${v}x at ${k}`).join(', ')}. First reviews: ${Object.values(FIRST_INTERVAL).join(', ')} days. Each due review becomes one ordinary task.`),
+      topics.length ? h('ul', { class: 'plain-list' }, topics.map((t) => h('li', { class: 'list-row' },
+        h('div', null, h('div', { class: 'list-title' }, t.title), h('div', { class: 'muted small' }, `${t.category}. Last recall ${t.confidence}, ${CONFIDENCE_LABELS[t.confidence]}. Next review ${t.nextDue ? fmtDayRelative(t.nextDue, d.today) : 'not set'}${t.intervalDays ? ` (every ${plural(t.intervalDays, 'day')})` : ''}.`)),
+        h('div', { class: 'row gap-sm' }, h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => askConfidence(t.id) }, 'Log review'),
+          h('button', { type: 'button', class: 'btn-icon', 'aria-label': `Remove ${t.title}`, onclick: async () => { if (await confirmDialog({ title: 'Remove this topic?', message: `"${t.title}" and its open review task will be removed.`, confirmLabel: 'Remove' })) removeTopicAction(t.id); } }, icon('x', { size: 14 })))))) : h('p', { class: 'empty' }, 'No revision topics. Add topics you want to keep fresh before exams.')));
+}
+
+function renderWhatIf(d) {
+  const state = app.state;
+  const w = app.whatIf || { protectEvenings: false, eveningCutoff: state.preferences.eveningCutoff, maxDaily: state.preferences.maxDailyStudyMin, taskId: '', factor: 1, skip: [], result: null };
+  app.whatIf = w;
+  const open = state.tasks.filter((t) => t.status !== 'done' && taskRemaining(t) > 0);
+  const opts = optionalOccurrences(7);
+  const read = (form) => {
+    w.protectEvenings = form.elements.wiEve.checked;
+    w.eveningCutoff = parseClockInput(form.elements.wiEveAt.value) ?? state.preferences.eveningCutoff;
+    const md = Number(form.elements.wiMax.value) * 60;
+    w.maxDaily = Number.isFinite(md) ? Math.max(0, Math.min(960, Math.round(md))) : state.preferences.maxDailyStudyMin;
+    w.taskId = form.elements.wiTask.value;
+    w.factor = Number(form.elements.wiFactor.value);
+    w.skip = opts.filter((o) => form.elements[`wi-skip-${o.id}`]?.checked).map((o) => o.id);
+  };
+  const taskSel = h('select', { name: 'wiTask', id: 'wi-task' }, [h('option', { value: '' }, 'Choose a task (optional)'), ...open.map((t) => h('option', { value: t.id }, t.title))]);
+  taskSel.value = w.taskId;
+  const factorSel = h('select', { name: 'wiFactor', id: 'wi-factor' }, [[0.75, '75% of the estimate'], [1, 'Unchanged'], [1.25, '125%'], [1.5, '150%']].map(([v, l]) => h('option', { value: String(v) }, l)));
+  factorSel.value = String(w.factor);
+  const form = h('form', { class: 'form whatif', novalidate: true, onsubmit: (e) => { e.preventDefault(); read(form); w.result = runWhatIf(w); app.render(); } },
+    h('p', { class: 'muted small' }, 'Try a change without touching your plan. Preview it as a proposal if you like the result.'),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'wiEve', checked: w.protectEvenings }), h('span', null, 'Protect evenings after')),
+    h('input', { type: 'time', name: 'wiEveAt', step: 300, value: toClockInput(w.eveningCutoff), 'aria-label': 'Evenings start at' }),
+    h('label', { class: 'field-label', for: 'wi-max' }, 'Daily study limit (hours)'), h('input', { type: 'number', id: 'wi-max', name: 'wiMax', min: 0, max: 16, step: 0.25, value: w.maxDaily / 60 }),
+    h('label', { class: 'field-label', for: 'wi-task' }, 'Change a task estimate'), h('div', { class: 'row gap-sm wrap' }, taskSel, h('label', { class: 'sr-only', for: 'wi-factor' }, 'Estimate change'), factorSel),
+    opts.length ? h('fieldset', { class: 'fieldset' }, h('legend', null, 'Skip optional commitments (next 7 days)'),
+      h('div', { class: 'checks checks-col' }, opts.map((o) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name: `wi-skip-${o.id}`, checked: w.skip.includes(o.id) }), h('span', null, `${o.title}, ${fmtDate(o.date)} ${fmtTime(o.startMs, tz())}`)))))
+      : h('p', { class: 'muted small' }, 'Mark a commitment as optional to try skipping it here.'),
+    h('button', { type: 'submit', class: 'btn btn-primary', dataset: { fk: 'run-whatif' } }, 'Run what-if'));
+  let result = null;
+  if (w.result) {
+    const a = w.result.alt.metrics;
+    const b = w.result.baseline.metrics;
+    const rowM = (label, x, y, fmt = fmtDuration) => h('tr', null, h('th', { scope: 'row' }, label), h('td', null, fmt(y)), h('td', null, fmt(x)));
+    result = h('section', { class: 'stack' },
+      h('h3', { class: 'h-sm' }, 'Result'),
+      h('table', { class: 'table' }, h('thead', null, h('tr', null, h('th', null, ''), h('th', { scope: 'col' }, 'Balanced now'), h('th', { scope: 'col' }, 'With your changes'))),
+        h('tbody', null,
+          rowM('Placed', a.placedMin, b.placedMin), rowM('Not placed', a.unplacedMin, b.unplacedMin), rowM('Evening study', a.eveningMin, b.eveningMin),
+          rowM('Busiest day', a.busiest?.min || 0, b.busiest?.min || 0), rowM('Sessions', a.sessions, b.sessions, String))),
+      w.result.alt.unplaced.length ? h('ul', { class: 'bullets small' }, w.result.alt.unplaced.map((u) => h('li', null, `${u.title}: ${fmtDuration(u.minutes)} not placed. ${u.text}`))) : h('p', null, 'Everything due in the planning window fits with these changes.'),
+      w.result.alt.factChanges.length ? h('p', { class: 'muted small' }, `Previewing as a proposal keeps these as pending changes, applied only if you approve: ${w.result.alt.factChanges.map((f) => f.label).join('; ')}.`) : null,
+      w.result.notes.map((n2) => h('p', { class: 'muted small' }, n2)),
+      h('button', { type: 'button', class: 'btn', onclick: () => whatIfToProposal(w.result) }, 'Preview as proposal'));
+  }
+  return h('div', { class: 'stack' }, form, result);
+}
+
+
+return { renderNow, renderTasks, renderSide, runIssueAction };
+})();
+
+// src/ui/main.js
+__m["src/ui/main.js"] = (function () {
+// A quiet workspace: Today, Week and Tasks. Advanced tools are opened on demand.
+const { h, icon } = __m["src/ui/dom.js"];
+const { openCourseImport, openCourseReport } = __m["src/ui/course.js"];
+const { toast, openDialog } = __m["src/ui/dialog.js"];
+const { app, initApp, derived, switchMode, setDemoNow, nextMorning, undo, weekShift, goToday, generate, now, tz, saveTask, newTaskId } = __m["src/ui/app.js"];
+const { createRepository, pickBackend } = __m["src/core/storage.js"];
+const { buildDemoState } = __m["src/data/demoSeed.js"];
+const { renderCalendar } = __m["src/ui/calendar.js"];
+const { renderNow, renderTasks, renderSide, runIssueAction } = __m["src/ui/panels.js"];
+const { openTaskForm, openCommitmentForm, openCommitmentsList, openPlaces, openPreferences, openBlock, openOccurrence } = __m["src/ui/forms.js"];
+const { openData, openHelp, openStartGuide, openRecovery } = __m["src/ui/flows.js"];
+const { fmtDateTime, fmtDate, fmtTimeRange, fmtDuration, fmtMonthDay, addDays, MINUTE, HOUR, msToDate, zonedToMs, parseClockInput, toClockInput, fmtYear, startOfWeek, weekdayOf } = __m["src/core/time.js"];
+const { fingerprint, taskRemaining, deadlineMs } = __m["src/core/model.js"];
+const { expandCommitments } = __m["src/core/recurrence.js"];
+const root = document.getElementById('app');
+let view = 'week';
+let calendarView = 'week';
+let miniMonth = null;
+let toolsDialog = null;
+let settingsDialog = null;
+let hadProposal = false;
+let dismissedWarnings = false;
+let nowDetailsOpen = false;
+function navigate(next) { view = next; app.render(); window.scrollTo({ top: 0 }); }
+function planWeek() { view = 'week'; generate('plan'); }
+function demoClock(d) {
+  const input = h('input', { type: 'datetime-local', step: 300, 'aria-label': 'Set demo time', value: `${msToDate(d.now, tz())}T${toClockInput(Math.round((d.now - zonedToMs(msToDate(d.now, tz()), 0, tz())) / MINUTE))}` });
+  const set = () => {
+    const [date, time] = input.value.split('T');
+    const m = parseClockInput(time || '');
+    if (!date || m == null) { toast('Choose a date and time.', { tone: 'warn' }); return; }
+    setDemoNow(zonedToMs(date, m, tz()));
+  };
+  return h('div', { class: 'clock clock-demo', role: 'group', 'aria-label': 'Demo clock' },
+    h('span', { class: 'clock-badge' }, 'Demo time'),
+    h('span', { class: 'clock-time' }, fmtDateTime(d.now, tz())),
+    h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => setDemoNow(d.now + 30 * MINUTE), dataset: { fk: 'clock-30' } }, '+30 min'),
+    h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => setDemoNow(d.now + 2 * HOUR), dataset: { fk: 'clock-2h' } }, '+2 hr'),
+    h('button', { type: 'button', class: 'btn btn-quiet btn-sm', onclick: () => nextMorning(), dataset: { fk: 'clock-morning' } }, 'Next morning'),
+    h('details', { class: 'menu' }, h('summary', { class: 'btn btn-quiet btn-sm' }, 'Set'), h('div', { class: 'menu-list menu-pad' }, input, h('button', { type: 'button', class: 'btn btn-sm', onclick: set }, 'Set demo time'))));
+}
+
+function openTools(tab = 'issues') {
+  app.ui.sideTab = tab;
+  toolsDialog = openDialog({ title: 'Planning tools', size: 'lg', content: renderSide(derived()), onClose: () => { toolsDialog = null; } });
+  toolsDialog.dlg.classList.add('tools-drawer');
+}
+function openSettings() {
+  const mode = (m, label) => h('button', { type: 'button', class: 'seg-btn', role: 'radio', 'aria-checked': app.mode === m ? 'true' : 'false', onclick: async () => { settingsDialog.close(); view = 'today'; await switchMode(m); } }, label);
+  const item = (title, desc, fn) => h('button', { type: 'button', class: 'settings-item', onclick: () => { settingsDialog.close(); fn(); } }, h('span', null, h('strong', null, title), h('small', null, desc)), icon('right', { size: 16 }));
+  settingsDialog = openDialog({ title: 'Settings', size: 'md', onClose: () => { settingsDialog = null; }, content: h('div', { class: 'settings-content' },
+    h('p', { class: 'eyebrow' }, 'WORKSPACE'),
+    h('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Data mode' }, mode('personal', 'Personal'), mode('demo', 'Course demo')),
+    h('p', { class: 'muted small' }, app.mode === 'demo' ? 'A fictional schedule to explore. Personal data is kept separately.' : 'Your own schedule, saved in this browser.'),
+    app.mode === 'demo' ? h('details', { class: 'settings-clock' }, h('summary', null, 'Adjust demo time'), demoClock(derived())) : null,
+    item('Study preferences', 'Available hours, sleep, breaks and focus time', openPreferences),
+    item('Places & walking', 'Locations, travel times and buffers', openPlaces),
+    item('Your events', 'Classes, shifts and recurring plans', openCommitmentsList),
+    item('Course data', 'Import a fictional student from the class API', openCourseImport),
+    app.state.meta.course && app.mode === 'demo' ? item('Course import details', 'Source records and missing meeting times', openCourseReport) : null,
+    item('Backups & data', 'Export, import, restore or reset', openData),
+    item('Help', 'How planning works and keyboard shortcuts', openHelp)) });
+}
+function plannerMark() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 30 30'); svg.setAttribute('width', '30'); svg.setAttribute('height', '30'); svg.setAttribute('aria-hidden', 'true'); svg.classList.add('planner-mark');
+  for (const d of ['M3 23V7h7v10h7V7h10v16', 'M3 23h7v-6h7v6h10']) {
+    const path = document.createElementNS(svg.namespaceURI, 'path'); path.setAttribute('d', d); path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '2'); path.setAttribute('stroke-linejoin', 'round'); svg.append(path);
+  }
+  return svg;
+}
+function navigation() {
+  const nav = (id, title, glyph) => h('button', { type: 'button', class: ['nav-item', view === id && 'is-active'], 'aria-current': view === id ? 'page' : null, onclick: () => navigate(id), dataset: { fk: `nav-${id}` } }, icon(glyph, { size: 17 }), title);
+  return h('aside', { class: 'navigation' },
+    h('a', { class: 'brand', href: '#', onclick: (e) => { e.preventDefault(); navigate('week'); }, 'aria-label': 'Margin home' }, h('span', { class: 'logo-orbit', 'aria-hidden': 'true' }, h('span')), h('span', { class: 'brand-name' }, 'Margin')),
+    h('nav', { class: 'primary-nav', 'aria-label': 'Main navigation' }, nav('today', 'Overview', 'today'), nav('week', 'Calendar', 'week'), nav('tasks', 'Tasks', 'tasks')),
+    h('p', { class: 'nav-section-label' }, 'Workspace'),
+    h('div', { class: 'workspace-options' }, ['personal', 'demo'].map((m) => h('button', { type: 'button', class: ['workspace-option', app.mode === m && 'is-current'], onclick: async () => { if (m !== app.mode) await switchMode(m); } }, h('span', { class: `workspace-dot ${m}` }), m === 'personal' ? 'Personal' : 'Course demo', app.mode === m ? h('span', { class: 'current-check' }, '✓') : null))),
+    h('div', { class: 'nav-utility' }, h('p', { class: 'nav-section-label' }, 'Tools'),
+      h('button', { class: 'nav-item', onclick: () => openTools('load') }, icon('chart', { size: 17 }), 'Workload'),
+      h('button', { class: 'nav-item', onclick: openRecovery }, icon('undo', { size: 17 }), 'Recover plan'),
+      h('button', { class: 'nav-item settings-button', onclick: openSettings }, icon('settings', { size: 17 }), 'Settings'),
+      h('button', { class: 'nav-item', onclick: openHelp }, icon('help', { size: 17 }), 'Help')),
+    h('div', { class: 'nav-footer' }, h('span', { class: 'profile-avatar', 'aria-hidden': 'true' }, 'M'), h('div', null, h('strong', null, app.mode === 'demo' ? 'Course demo' : 'Personal'), h('small', null, 'Saved on this device'))));
+}
+function openSearch() {
+  const output = h('div', { class: 'search-results', 'aria-live': 'polite' });
+  const input = h('input', { type: 'search', placeholder: 'Search tasks and events', 'aria-label': 'Search your planner', oninput: run });
+  function run() {
+    const q = input.value.trim().toLowerCase();
+    if (!q) { output.replaceChildren(h('p', { class: 'muted' }, 'Type a title or course name.')); return; }
+    const tasks = app.state.tasks.filter((t) => `${t.title} ${t.category}`.toLowerCase().includes(q)).map((t) => ({ title: t.title, sub: `${t.category} · Task`, open: () => openTaskForm(t) }));
+    const events = app.state.commitments.filter((c) => c.title.toLowerCase().includes(q)).map((c) => ({ title: c.title, sub: 'Event', open: () => openCommitmentForm(c) }));
+    const results = [...tasks, ...events].slice(0, 15);
+    output.replaceChildren(...(results.length ? results.map((r) => h('button', { class: 'search-result', onclick: () => { api.close(); r.open(); } }, h('strong', null, r.title), h('small', null, r.sub))) : [h('p', { class: 'muted' }, 'No matching tasks or events.')]));
+  }
+  const api = openDialog({ title: 'Search', size: 'md', content: h('div', { class: 'stack command-palette' }, input, output) }); run();
+}
+function heading(d) {
+  return h('header', { class: 'page-heading' }, h('div', null, h('h1', null, view === 'today' ? 'Overview' : view === 'week' ? 'Calendar' : 'Tasks'), h('p', { class: 'page-sub' }, view === 'week' ? 'Your classes, study time, and everything between.' : view === 'today' ? 'Your next step and the rest of today.' : 'Assignments and deadlines, all in one place.')),
+    h('div', { class: 'heading-actions' }, h('button', { class: 'search-trigger', onclick: openSearch, 'aria-label': 'Search your planner' }, icon('search', { size: 15 }), h('span', null, 'Search tasks, events…'), h('kbd', null, '⌘ K')),
+      view === 'today' ? h('button', { type: 'button', class: 'btn btn-primary', onclick: quickAddTask }, icon('plus', { size: 15 }), 'Add task') : null));
+}
+function quickAddTask() {
+  const title = h('input', { name: 'title', type: 'text', placeholder: 'e.g. Finish calculus problem set', maxlength: 200, required: true });
+  const date = h('input', { name: 'deadline', type: 'date', value: msToDate(now(), tz()), required: true });
+  const minutes = h('input', { name: 'estimateMin', type: 'number', value: 60, min: 5, max: 6000, step: 5, required: true });
+  const error = h('p', { class: 'field-error', role: 'alert' });
+  const draft = () => ({ id: newTaskId(), title: title.value.trim(), category: 'Study', kind: 'assignment', priority: 'medium', deadline: { date: date.value, time: null }, estimateMin: Number(minutes.value), remainingMin: Number(minutes.value), confidence: 'medium', focus: 'normal', location: { mode: 'any', ids: [] }, equipment: [], status: 'todo', notes: '', doneWhen: '', splittable: true, minSessionMin: null, steps: [], dependsOn: [], lateTarget: null, revisionTopicId: null, calibratedFrom: null, createdAt: now(), completedAt: null, source: { system: 'user', id: null } });
+  const field = (label, input) => h('label', { class: 'field' }, h('span', { class: 'field-label' }, label), input);
+  const submit = () => { if (!title.value.trim()) { error.textContent = 'Give the task a title.'; title.focus(); return; } if (!date.value || !minutes.checkValidity()) { error.textContent = 'Choose a deadline and an estimate from 5 to 6000 minutes.'; return; } saveTask(draft()); api.close(); };
+  const form = h('form', { id: 'quick-task', class: 'form', onsubmit: (e) => { e.preventDefault(); submit(); } }, field('What do you need to do?', title), h('div', { class: 'grid-2' }, field('Due date', date), field('Time needed (minutes)', minutes)), error,
+    h('button', { type: 'button', class: 'text-action', onclick: () => { const t = draft(); api.close(); openTaskForm(t); } }, 'More options: course, priority, steps…'));
+  const api = openDialog({ title: 'Add task', size: 'sm', content: form, actions: [{ label: 'Cancel', quiet: true, onClick: () => api.close() }, { label: 'Add task', primary: true, onClick: submit }] });
+}
+function systemNotes() {
+  const out = [];
+  if (app.saveError || app.repo.backend.name === 'memory') out.push(h('div', { class: 'banner banner-conflict', role: 'alert' }, 'Changes are not being saved. Export a backup to keep your work.', h('button', { class: 'btn btn-sm', onclick: openData }, 'Export')));
+  if (app.loadWarnings.length && !dismissedWarnings) out.push(h('div', { class: 'banner banner-warn' }, app.loadWarnings.join(' '), h('button', { class: 'btn btn-sm', onclick: () => { dismissedWarnings = true; app.render(); } }, 'Dismiss')));
+  if (app.mode === 'demo') out.push(h('div', { class: 'demo-ribbon' }, h('span', null, app.state.meta.course ? `${app.state.meta.course.studentName} · Fictional course data` : 'Sample schedule · October 2026'), h('button', { class: 'text-action', onclick: openSettings }, 'Use my own schedule')));
+  if (app.mode === 'demo' && app.state.meta.course?.pending.length) out.push(h('div', { class: 'source-note' }, `${app.state.meta.course.pending.length} commitments need meeting times before they can block your calendar. `, h('button', { class: 'text-action', onclick: openCourseReport }, 'Review details')));
+  return out;
+}
+function quietNow(d) {
+  const node = renderNow(d);
+  const more = h('details', { class: 'now-extra', open: nowDetailsOpen, ontoggle: (e) => { if (e.target.isConnected) nowDetailsOpen = e.target.open; } }, h('summary', null, 'Details & preferences'));
+  for (const item of [...node.querySelectorAll('.bullets, .now-context, .now-alts')]) more.append(item);
+  if (!app.ui.session && !['in-session', 'upcoming'].includes(d.rec.status)) { const kicker = node.querySelector('.now-kicker'); if (kicker) more.prepend(kicker); }
+  node.append(more);
+  const title = node.querySelector('.panel-head h2'); if (title) title.textContent = app.ui.session ? 'Session in progress' : 'Suggested next task';
+  return node;
+}
+function agenda(d) {
+  const occurrences = expandCommitments(app.state.commitments, d.today, d.today, tz()).filter((o) => !o.skipped);
+  const blocks = app.state.plan.blocks.filter((b) => msToDate(b.start, tz()) === d.today && b.status !== 'missed');
+  const items = [...occurrences.map((o) => ({ start: o.startMs, end: o.endMs, title: o.title, kind: o.type, open: () => openOccurrence(o) })), ...blocks.map((b) => ({ start: b.start, end: b.end, title: app.state.tasks.find((t) => t.id === b.taskId)?.title || 'Study session', kind: 'study', open: () => openBlock(b) }))].sort((a, b) => a.start - b.start);
+  const future = view === 'week' ? items : items.filter((i) => i.end > d.now);
+  const list = view === 'week' ? future : future.slice(0, 6);
+  return h('section', { class: 'agenda-section' }, h('div', { class: 'section-title' }, h('h2', null, view === 'week' ? fmtDate(d.today) : 'Schedule'), view !== 'week' ? h('button', { class: 'text-action', onclick: () => navigate('week') }, 'Open week') : null),
+    list.length ? h('ol', { class: 'agenda-list' }, list.map((i) => h('li', null, h('button', { type: 'button', class: ['agenda-row', `agenda-${i.kind}`], onclick: i.open }, h('span', { class: 'agenda-time' }, fmtTimeRange(i.start, i.end, tz())), h('span', { class: 'agenda-line' }), h('span', { class: 'agenda-info' }, h('strong', null, i.title), h('small', null, i.kind === 'study' ? 'Study session' : i.kind === 'class' ? 'Class' : 'Event')), icon('right', { size: 16 }))))) : h('div', { class: 'empty-agenda' }, h('p', null, 'No more events today.'), h('span', null, 'Add a class, shift or appointment to this schedule.'), h('button', { class: 'btn btn-quiet', onclick: () => openCommitmentForm(null, d.today) }, '+ Add a commitment')),
+    view !== 'week' && future.length > 6 ? h('button', { class: 'text-action', onclick: () => navigate('week') }, `${future.length - 6} more in your calendar`) : null);
+}
+function dueSoon(d) {
+  const list = app.state.tasks.filter((t) => t.status !== 'done' && taskRemaining(t) > 0).sort((a, b) => deadlineMs(a, app.state.settings) - deadlineMs(b, app.state.settings)).slice(0, 3);
+  return h('section', { class: 'due-soon' }, h('div', { class: 'section-title' }, h('h2', null, 'On your radar'), h('button', { class: 'text-action', onclick: () => navigate('tasks') }, 'All tasks ↗')),
+    list.length ? list.map((t) => h('button', { type: 'button', class: 'radar-row', onclick: () => openTaskForm(t) }, h('span', { class: 'radar-dot' }), h('span', null, h('small', null, t.category), h('strong', null, t.title)), h('span', { class: 'radar-meta' }, `${t.deadline.date < d.today ? 'Overdue · ' : ''}${fmtMonthDay(t.deadline.date)}`, h('small', null, `${fmtDuration(taskRemaining(t))} left`)))) : h('p', { class: 'muted' }, 'Nothing waiting on you. Add a task when you need to.'));
+}
+function todayView(d) {
+  const empty = app.mode === 'personal' && !app.state.tasks.length && !app.state.commitments.length;
+  return h('div', { class: 'today-content' }, empty ? openStartGuide() : null,
+    h('div', { class: 'today-grid' }, quietNow(d), agenda(d)),
+    h('div', { class: 'today-utilities' },
+      h('button', { class: 'btn btn-quiet recovery-link', onclick: openRecovery }, icon('undo', { size: 15 }), 'Missed a study session?'),
+      (d.analysis.counts.conflict + d.analysis.counts.warning) > 0 ? h('button', { class: 'text-action', onclick: () => openTools('issues') }, `Review ${d.analysis.counts.conflict + d.analysis.counts.warning} scheduling issues`) : null),
+    h('details', { class: 'deadline-disclosure' }, h('summary', null, 'Upcoming deadlines'), dueSoon(d)));
+}
+function shiftPeriod(delta) {
+ if (calendarView === 'week') { weekShift(delta * 7); return; }
+ app.ui.selectedDate = addDays(app.ui.selectedDate || msToDate(now(), tz()), delta);
+ app.ui.weekStart = startOfWeek(app.ui.selectedDate); app.render();
+}
+function weekView(d) {
+  const ws = app.ui.weekStart;
+  const selected = app.ui.selectedDate || d.today;
+  const label = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: tz() }).format(zonedToMs(ws, 12 * 60, tz()));
+  return h('section', { class: ['week-workspace', `calendar-${calendarView}`], id: 'calendar', tabindex: '-1' },
+    h('div', { class: 'toolbar' }, h('div', { class: 'calendar-view-tabs', role: 'group', 'aria-label': 'Calendar view' }, ['week', 'day', 'agenda'].map((m) => h('button', { class: ['view-tab', calendarView === m && 'is-active'], 'aria-pressed': calendarView === m ? 'true' : 'false', onclick: () => { calendarView = m; app.render(); } }, m[0].toUpperCase() + m.slice(1)))),
+      h('div', { class: 'toolbar-actions' }, h('button', { class: 'btn', onclick: () => openTools('issues') }, `${d.analysis.counts.conflict + d.analysis.counts.warning} issues`), h('button', { class: 'btn-icon', 'aria-label': 'Search your planner', onclick: openSearch }, icon('search')), h('button', { class: 'btn btn-quiet', onclick: goToday }, 'Today'), h('button', { class: 'btn', onclick: () => openCommitmentForm(null, selected) }, icon('plus', { size: 14 }), 'Add event'), h('button', { class: 'btn btn-primary', onclick: planWeek }, app.state.proposal ? 'Replan' : 'Plan my week'))),
+    h('div', { class: ['week-grid', app.state.proposal && 'has-review'] },
+      h('div', { class: 'calendar-frame' }, h('div', { class: 'calendar-month-bar' }, h('button', { class: 'btn-icon', 'aria-label': 'Previous period', onclick: () => shiftPeriod(-1) }, icon('left', { size: 16 })), h('div', null, h('h2', { class: 'week-label' }, calendarView === 'week' ? label : fmtDate(selected)), h('small', null, calendarView === 'week' ? `${fmtMonthDay(ws)} to ${fmtMonthDay(addDays(ws, 6))}, ${fmtYear(ws)}` : 'Your full day')), h('button', { class: 'btn-icon', 'aria-label': 'Next period', onclick: () => shiftPeriod(1) }, icon('right', { size: 16 }))), calendarView === 'agenda' ? agenda({ ...d, today: selected, now: selected === d.today ? d.now : zonedToMs(selected, 0, tz()) }) : renderCalendar(d)),
+      app.state.proposal ? h('details', { class: 'proposal-drawer', open: true }, h('summary', null, 'Review your proposed plan'), renderSide(d, { onlyReview: true })) : null),
+    h('div', { class: 'week-bottom' }, h('span', null, 'Walking and breaks are included in study planning.'), h('button', { class: 'text-action', onclick: () => openTools('issues') }, 'Review planning details')));
+}
+function monthShift(delta) {
+  const m = miniMonth || (app.ui.selectedDate || msToDate(now(), tz())).slice(0, 7);
+  const [y, mo] = m.split('-').map(Number); const d = new Date(Date.UTC(y, mo - 1 + delta, 1)); miniMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; app.render();
+}
+function tasksView(d) {
+  return h('div', { class: 'tasks-workspace' }, renderTasks(d, { onAdd: quickAddTask }), h('div', { class: 'tasks-foot' }, h('p', null, 'Set a deadline and time estimate for each task.'), h('button', { class: 'text-action', onclick: () => openTools('learn') }, 'Revision & estimate suggestions ↗')));
+}
+function render() {
+  const d = derived();
+  if (app.state.proposal && !hadProposal) { view = 'week'; toolsDialog?.close(); }
+  hadProposal = !!app.state.proposal;
+  d.stressKey = `${JSON.stringify(fingerprint(app.state))}|${now()}`;
+  app.derivedIssues = d.analysis.issues; app.derivedCoverage = d.analysis.coverage; app.derivedRec = d.rec;
+  app.derivedOccurrences = expandCommitments(app.state.commitments, addDays(d.today, -1), addDays(d.today, app.state.settings.planningHorizonDays), tz());
+  const fk = document.activeElement?.dataset?.fk;
+  const scrolls = {}; for (const e of root.querySelectorAll('[data-scroll]')) scrolls[e.dataset.scroll] = e.scrollTop;
+  root.replaceChildren(h('div', { class: 'shell new-shell' }, h('a', { class: 'skip', href: '#workspace' }, 'Skip to content'), navigation(),
+    h('main', { class: 'workspace', id: 'workspace', tabindex: '-1' }, view === 'week' ? null : heading(d), systemNotes(), view === 'today' ? todayView(d) : view === 'week' ? weekView(d) : tasksView(d), h('footer', { class: 'workspace-footer' }, h('span', { class: 'version-stamp' }, 'Saved on this device'), h('button', { class: 'text-action', onclick: () => openTools('load') }, 'Planning tools')))));
+  const toolbar = root.querySelector('.toolbar'); const monthbar = root.querySelector('.calendar-month-bar'); if (toolbar && monthbar) toolbar.prepend(monthbar);
+  for (const e of root.querySelectorAll('[data-scroll]')) e.scrollTop = scrolls[e.dataset.scroll] ?? Number(e.dataset.initial || 0);
+  if (fk) root.querySelector(`[data-fk="${CSS.escape(fk)}"]`)?.focus({ preventScroll: true });
+  if (toolsDialog?.dlg.open) { const scroll = toolsDialog.body.querySelector('.side-body')?.scrollTop || 0; toolsDialog.body.replaceChildren(renderSide(d)); const panel = toolsDialog.body.querySelector('.side-body'); if (panel) panel.scrollTop = scroll; }
+}
+function onKey(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!document.querySelector('dialog[open]')) openSearch(); return; }
+  if (document.querySelector('dialog[open]') || ['input', 'textarea', 'select'].includes(e.target.tagName?.toLowerCase()) || e.target.isContentEditable) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const map = { t: () => navigate('today'), '[': () => { view = 'week'; weekShift(-7); }, ']': () => { view = 'week'; weekShift(7); }, n: quickAddTask, c: () => openCommitmentForm(null, app.ui.selectedDate), p: planWeek, '?': openHelp };
+  if (map[e.key]) { e.preventDefault(); map[e.key](); }
+}
+async function boot() {
+  document.documentElement.dataset.theme = 'dark';
+  const repo = createRepository(pickBackend(window), { seedDemo: () => buildDemoState('midweek') });
+  await initApp(repo); app.render = render; render(); document.addEventListener('keydown', onKey);
+  setInterval(() => { if (app.mode === 'personal' && !document.querySelector('dialog[open]')) render(); }, 60000);
+}
+boot().catch((e) => { root.replaceChildren(h('div', { class: 'fatal', role: 'alert' }, h('h1', null, 'Margin could not start'), h('p', null, e.message))); console.error(e); });
+
+return {  };
+})();
+
+})();

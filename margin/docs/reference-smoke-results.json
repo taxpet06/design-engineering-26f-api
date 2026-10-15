@@ -1,0 +1,102 @@
+{
+  "ranAt": "2026-10-15T06:50:16.585Z",
+  "results": [
+    {
+      "name": "two-area layout with no right rail",
+      "ok": true
+    },
+    {
+      "name": "week view shows seven days",
+      "ok": true
+    },
+    {
+      "name": "no free-window hatching visible",
+      "ok": true
+    },
+    {
+      "name": "dark charcoal background",
+      "ok": true
+    },
+    {
+      "name": "rounded solid event blocks",
+      "ok": true
+    },
+    {
+      "name": "calendar has more than 600 pixels of height",
+      "ok": true
+    },
+    {
+      "name": "deadline markers are outside event grid",
+      "ok": true
+    },
+    {
+      "name": "day view really changes the calendar",
+      "ok": true
+    },
+    {
+      "name": "week view restores seven columns",
+      "ok": true
+    },
+    {
+      "name": "agenda is an actual schedule list",
+      "ok": true
+    },
+    {
+      "name": "search returns source tasks and events",
+      "ok": true
+    },
+    {
+      "name": "search opens editable task details",
+      "ok": true
+    },
+    {
+      "name": "search keyboard shortcut works",
+      "ok": true
+    },
+    {
+      "name": "add event opens a functional form",
+      "ok": true
+    },
+    {
+      "name": "today navigation returns to demo week",
+      "ok": true
+    },
+    {
+      "name": "issues remain accessible from toolbar",
+      "ok": true
+    },
+    {
+      "name": "Tasks has one add button",
+      "ok": true
+    },
+    {
+      "name": "completion checkbox updates task list",
+      "ok": true
+    },
+    {
+      "name": "Day navigation changes date and keeps one column",
+      "ok": true
+    },
+    {
+      "name": "all rendered text uses at least 12px",
+      "ok": true
+    },
+    {
+      "name": "mobile does not overflow",
+      "ok": true
+    },
+    {
+      "name": "mobile calendar and day navigation work",
+      "ok": true
+    },
+    {
+      "name": "mobile tools remain accessible",
+      "ok": true
+    },
+    {
+      "name": "no uncaught runtime errors",
+      "ok": true
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,66 @@
+{
+  "ranAt": "2026-10-15T06:44:04.031Z",
+  "results": [
+    {
+      "name": "bundled course snapshot available without network",
+      "ok": true
+    },
+    {
+      "name": "preview states fictional data and missing schedule details",
+      "ok": true
+    },
+    {
+      "name": "import opens source report",
+      "ok": true
+    },
+    {
+      "name": "source banner and classes are visible",
+      "ok": true
+    },
+    {
+      "name": "planner works with actual course records",
+      "ok": true
+    },
+    {
+      "name": "course plan can be approved",
+      "ok": true
+    },
+    {
+      "name": "import and source report persist across refresh",
+      "ok": true
+    },
+    {
+      "name": "personal task survived demo import and reload",
+      "ok": true
+    },
+    {
+      "name": "apply disabled until preview",
+      "ok": true
+    },
+    {
+      "name": "changing inputs invalidates preview",
+      "ok": true
+    },
+    {
+      "name": "out-of-term date is rejected",
+      "ok": true
+    },
+    {
+      "name": "course demo remains usable on mobile without page overflow",
+      "ok": true
+    },
+    {
+      "name": "network failure is explicit; snapshot still works",
+      "ok": true
+    },
+    {
+      "name": "offline preview remains available after failed refresh",
+      "ok": true
+    },
+    {
+      "name": "no uncaught course-flow errors",
+      "ok": true
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,187 @@
+{
+  "ranAt": "2026-10-15T06:50:19.688Z",
+  "passed": 36,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Calendar is the landing page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "only three main navigation choices",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "advanced options are not on the landing screen",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "uniform background without wallpaper",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "today agenda has titles and real times",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "next action details collapsed initially",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "location and energy remain accessible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "session brief works from Today",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "active session appears",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "agenda events open details",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Tasks has its own page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "task cards are readable and actionable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "quick task entry uses only three fields",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "task validation still works",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Week shows seven calendar columns without persistent planning panels",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "walking and study blocks preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "review opens only when needed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "proposal options and preview blocks render",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "cancel leaves approved plan unchanged",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "plan approval closes review",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "advanced planning opens on demand",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "learning tab rerenders within dialog",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "what-if comparison still works",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "robustness check still works",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "settings groups preferences, places, data and imports",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "preferences open from settings",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "personal workspace remains separate and empty",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "user content stays text",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "personal tasks survive refresh",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mode switching does not copy personal tasks",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile has no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile main navigation visible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile Week displays one day",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile day switching works",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile task page has no overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no runtime errors",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

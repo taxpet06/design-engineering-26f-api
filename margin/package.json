@@ -1,0 +1,18 @@
+{
+  "name": "margin-study-planner",
+  "version": "1.6.0",
+  "description": "Margin: a deterministic, local-first study planner for a Dartmouth student.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "node tools/build.mjs",
+    "serve": "python3 -m http.server 8080",
+    "smoke": "node tools/smoke.mjs",
+    "smoke:course": "node tools/course-smoke.mjs",
+    "smoke:reference": "node tools/reference-smoke.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
