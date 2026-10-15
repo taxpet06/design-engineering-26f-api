@@ -2,6 +2,12 @@
 
 HELLO CLAUDE SQUAD!!
 
+### 👉 [Open the Club Finder frontend](https://htmlpreview.github.io/?https://github.com/taxpet06/design-engineering-26f-api/blob/Claude_Squad/frontend/index.html)
+
+Runs straight from this branch's `frontend/` folder, nothing to install. To run it
+locally instead: `python3 -m http.server 8000 --directory frontend`, then open
+`http://localhost:8000`.
+
 This is a fake REST API full of realistic-looking Dartmouth "student life" data —
 students, courses, grades, clubs, events, housing, and more. It's the shared
 prototype for the Design Engineering 26F course: something already live that
