@@ -1,0 +1,9 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+const dir=path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/,'$1')); const root=path.resolve(dir,'../..');
+const index=JSON.parse(await fs.readFile(path.join(dir,'orc-index.json'),'utf8')); const snapshot=JSON.parse(await fs.readFile(path.join(root,'src/data/snapshot.json'),'utf8'));
+const subjects=new Set('COSC AAAS ANTH ARTH ASCL CLST COGS COLT CRWT CSDA EAPS EDUC EEER ENGL FILM'.split(' '));
+function plain(s=''){return s.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(+n)).replace(/&ndash;/g,'–').replace(/&mdash;/g,'—').replace(/&rsquo;/g,'’').replace(/\s+/g,' ').trim()}
+function norm(s){return s.replace(/-/g,' ').replace(/\s+/g,' ').trim().replace(/^([A-Z]+) 0*(\d+) (\d+)$/,'$1 $2.$3').replace(/^([A-Z]+) 0*(\d+)$/,'$1 $2')}
+
+const wanted=JSON.parse(await fs.readFile(path.join(dir,'cs-policy-urls.json'),'utf8')); wanted.push({Name:'2026 course supplement',Path:'/current/orc/2026-new-course-supplement'});const result=[];await Promise.all(wanted.map(async n=>{const url='https://dartmouth.smartcatalogiq.com/en'+n.Path.toLowerCase();const r=await fetch(url);const html=await r.text();const text=plain(html.slice(html.indexOf('<h1'),html.indexOf('<!-- end main -->')));result.push({name:n.Name,url,status:r.status,retrievedAt:new Date().toISOString(),catalogEdition:'2026-27',text});await fs.writeFile(path.join(dir,'cs-raw',n.Name.replace(/[^a-z0-9]/gi,'-')+'.html'),html)}));await fs.writeFile(path.join(dir,'cs-policies.json'),JSON.stringify(result,null,2));console.log(result.map(x=>({name:x.name,len:x.text.length,status:x.status})));

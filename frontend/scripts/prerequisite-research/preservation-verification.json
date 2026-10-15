@@ -1,0 +1,15 @@
+{
+  "verifiedAt": "2026-10-15T19:00:56.241Z",
+  "checks": {
+    "sections": true,
+    "bundles": true,
+    "terms": true,
+    "departments": true,
+    "coverage": true,
+    "equivalences": true,
+    "exported_at": true,
+    "source": true,
+    "courseOfferings": true,
+    "backend": true
+  }
+}

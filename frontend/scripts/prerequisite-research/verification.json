@@ -1,0 +1,88 @@
+{
+  "completedAt": "2026-10-15T19:06:05.711Z",
+  "coverage": {
+    "verified": 369,
+    "unresolved": 1038,
+    "unmatched": 65,
+    "failed-source": 0
+  },
+  "totalCourses": 1472,
+  "computerScience": {
+    "total": 44,
+    "verified": 35,
+    "unresolved": 9
+  },
+  "tests": {
+    "frontend": {
+      "passed": 75,
+      "failed": 0,
+      "command": "node node_modules/vitest/vitest.mjs run"
+    },
+    "prerequisiteImport": {
+      "passed": 16,
+      "failed": 0,
+      "command": "node --test frontend/scripts/refresh-catalog.test.mjs frontend/scripts/merge-prerequisites.test.mjs"
+    },
+    "backend": {
+      "passed": 9,
+      "failed": 0,
+      "command": "node --test smoke-test.js"
+    },
+    "browser": {
+      "passed": 11,
+      "failed": 0,
+      "command": "node node_modules/@playwright/test/cli.js test",
+      "viewports": [
+        1440,
+        390
+      ]
+    },
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "preservation": {
+    "sections": true,
+    "bundles": true,
+    "terms": true,
+    "departments": true,
+    "coverage": true,
+    "equivalences": true,
+    "exported_at": true,
+    "source": true,
+    "courseOfferings": true,
+    "backend": true
+  },
+  "limitations": [
+    "1038 courses retain unresolved academic or registration conditions.",
+    "65 offering identities remain unmatched to current ORC/supplement evidence.",
+    "Unknown academic preparation stays selectable with an advisory; source-verified unmet coursework and unconfirmed permission waivers block.",
+    "No blanket advanced-CS rule; recommended preparation is not mandatory."
+  ],
+  "preview": "http://127.0.0.1:4173",
+  "screenshots": [
+    ".impeccable/prerequisite-verification/real-saved-viewport-1440.png",
+    ".impeccable/prerequisite-verification/real-saved-viewport-390.png",
+    ".impeccable/prerequisite-verification/saved-course-requires-correction.png",
+    ".impeccable/prerequisite-verification/real-verified-third-1440.png",
+    ".impeccable/prerequisite-verification/real-verified-third-390.png"
+  ],
+  "backendChanged": false,
+  "committed": false,
+  "pushed": false,
+  "deployed": false,
+  "verifiedPreview": {
+    "pins": [
+      "WRIT 2",
+      "COSC 1"
+    ],
+    "third": "ENGS 12",
+    "completedCourses": [],
+    "viewports": [
+      1440,
+      390
+    ],
+    "addedThroughRecommendations": true,
+    "reloaded": true,
+    "registrationPermission": "advisory"
+  }
+}

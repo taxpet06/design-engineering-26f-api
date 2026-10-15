@@ -1,0 +1,50 @@
+[
+  {
+    "from": "COSC 11",
+    "to": "COSC 30",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/computer-science",
+      "retrievedAt": "2026-10-15T18:48:44.823Z",
+      "verification": "verified",
+      "catalogEdition": "2026-27",
+      "sourceText": "For the academic year 2026-27: COSC 11 is currently COSC 30; COSC 12 is currently COSC 31; COSC 14 is currently COSC 50; COSC 17 is currently COSC 70."
+    }
+  },
+  {
+    "from": "COSC 12",
+    "to": "COSC 31",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/computer-science",
+      "retrievedAt": "2026-10-15T18:48:44.823Z",
+      "verification": "verified",
+      "catalogEdition": "2026-27",
+      "sourceText": "For the academic year 2026-27: COSC 11 is currently COSC 30; COSC 12 is currently COSC 31; COSC 14 is currently COSC 50; COSC 17 is currently COSC 70."
+    }
+  },
+  {
+    "from": "COSC 14",
+    "to": "COSC 50",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/computer-science",
+      "retrievedAt": "2026-10-15T18:48:44.823Z",
+      "verification": "verified",
+      "catalogEdition": "2026-27",
+      "sourceText": "For the academic year 2026-27: COSC 11 is currently COSC 30; COSC 12 is currently COSC 31; COSC 14 is currently COSC 50; COSC 17 is currently COSC 70."
+    }
+  },
+  {
+    "from": "COSC 17",
+    "to": "COSC 70",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/computer-science",
+      "retrievedAt": "2026-10-15T18:48:44.823Z",
+      "verification": "verified",
+      "catalogEdition": "2026-27",
+      "sourceText": "For the academic year 2026-27: COSC 11 is currently COSC 30; COSC 12 is currently COSC 31; COSC 14 is currently COSC 50; COSC 17 is currently COSC 70."
+    }
+  }
+]

@@ -1,0 +1,691 @@
+[
+  {
+    "from": "EARS 1",
+    "to": "EAPS 1",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 1 / EAPS 1",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 2",
+    "to": "EAPS 2",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 2 / EAPS 2",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 3",
+    "to": "EAPS 3",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 3 / EAPS 3",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 6.05",
+    "to": "EAPS 4",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 6.05 / EAPS 4",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 5",
+    "to": "EAPS 5",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 5 / EAPS 5",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 6",
+    "to": "EAPS 6",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 6 / EAPS 6",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 7.06",
+    "to": "EAPS 7",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 7.06 / EAPS 7",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 8",
+    "to": "EAPS 8",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 8 / EAPS 8",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 9",
+    "to": "EAPS 9",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 9 / EAPS 9",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 19",
+    "to": "EAPS 10",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 19 / EAPS 10",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 15",
+    "to": "EAPS 15",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 15 / EAPS 15",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 16",
+    "to": "EAPS 16",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 16 / EAPS 16",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 17",
+    "to": "EAPS 17",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 17 / EAPS 17",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 18",
+    "to": "EAPS 18",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 18 / EAPS 18",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 12",
+    "to": "EAPS 22",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 12 / EAPS 22",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 13",
+    "to": "EAPS 23",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 13 / EAPS 23",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 14",
+    "to": "EAPS 24",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 14 / EAPS 24",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 39",
+    "to": "EAPS 30",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 39 / EAPS 30",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 33",
+    "to": "EAPS 33",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 33 / EAPS 33",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 34",
+    "to": "EAPS 34",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 34 / EAPS 34",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 35",
+    "to": "EAPS 35",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 35 / EAPS 35",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 77",
+    "to": "EAPS 37",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 77 / EAPS 37",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 38",
+    "to": "EAPS 38",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 38 / EAPS 38",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 40",
+    "to": "EAPS 40",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 40 / EAPS 40",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 51",
+    "to": "EAPS 41",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 51 / EAPS 41",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 52",
+    "to": "EAPS 42",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 52 / EAPS 42",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 45",
+    "to": "EAPS 45",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 45 / EAPS 45",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 46",
+    "to": "EAPS 46",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 46 / EAPS 46",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 47",
+    "to": "EAPS 47",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 47 / EAPS 47",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 58",
+    "to": "EAPS 48",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 58 / EAPS 48",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 59",
+    "to": "EAPS 49",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 59 / EAPS 49",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 70",
+    "to": "EAPS 50",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 70 / EAPS 50",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 73",
+    "to": "EAPS 51",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 73 / EAPS 51",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 74",
+    "to": "EAPS 54",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 74 / EAPS 54",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 76",
+    "to": "EAPS 56",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 76 / EAPS 56",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 60",
+    "to": "EAPS 60",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 60 / EAPS 60",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 61.01",
+    "to": "EAPS 61",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 61.01 / EAPS 61",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 62",
+    "to": "EAPS 62",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 62 / EAPS 62",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 64",
+    "to": "EAPS 64",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 64 / EAPS 64",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 66.01",
+    "to": "EAPS 66",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 66.01 / EAPS 66",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 67",
+    "to": "EAPS 67",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 67 / EAPS 67",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 32",
+    "to": "EAPS 70",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 32 / EAPS 70",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 72",
+    "to": "EAPS 72",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 72 / EAPS 72",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 65",
+    "to": "EAPS 74",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 65 / EAPS 74",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 75",
+    "to": "EAPS 75",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 75 / EAPS 75",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 36",
+    "to": "EAPS 76",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 36 / EAPS 76",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 37",
+    "to": "EAPS 77",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 37 / EAPS 77",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 78",
+    "to": "EAPS 78",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 78 / EAPS 78",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 79.01",
+    "to": "EAPS 79",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 79.01 / EAPS 79",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 87",
+    "to": "EAPS 90",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 87 / EAPS 90",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 88",
+    "to": "EAPS 91",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 88 / EAPS 91",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 89",
+    "to": "EAPS 92",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 89 / EAPS 92",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  },
+  {
+    "from": "EARS 90",
+    "to": "EAPS 93",
+    "kind": "renumbering",
+    "evidence": {
+      "source": "https://eaps.dartmouth.edu/sites/eaps/files/2026-09/EARS_EAPS_Transition_Information_Undergraduate_Revised.pdf",
+      "retrievedAt": "2026-10-15T18:55:00.032Z",
+      "catalogEdition": "2026 EARS/EAPS undergraduate transition (September revision)",
+      "verification": "verified",
+      "sourceText": "OLD COURSE # / NEW COURSE #: EARS 90 / EAPS 93",
+      "note": "Explicit old/new course-number table, page 2; visually verified against rendered PDF."
+    }
+  }
+]

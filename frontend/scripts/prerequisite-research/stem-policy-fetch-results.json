@@ -1,0 +1,145 @@
+[
+  {
+    "id": "policy-Physics-and-Astronomy",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Physics-and-Astronomy"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/physics-and-astronomy",
+    "retrievedAt": "2026-10-15T18:51:09.415Z",
+    "file": "stem-sources/policy-Physics-and-Astronomy.html.gz"
+  },
+  {
+    "id": "policy-Economics",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Economics"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/economics",
+    "retrievedAt": "2026-10-15T18:51:09.417Z",
+    "file": "stem-sources/policy-Economics.html.gz"
+  },
+  {
+    "id": "policy-Government",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Government"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/government",
+    "retrievedAt": "2026-10-15T18:51:09.417Z",
+    "file": "stem-sources/policy-Government.html.gz"
+  },
+  {
+    "id": "policy-Geography",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Geography"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/geography",
+    "retrievedAt": "2026-10-15T18:51:09.422Z",
+    "file": "stem-sources/policy-Geography.html.gz"
+  },
+  {
+    "id": "policy-Psychological-and-Brain-Sciences",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Psychological-and-Brain-Sciences"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/psychological-and-brain-sciences",
+    "retrievedAt": "2026-10-15T18:51:09.448Z",
+    "file": "stem-sources/policy-Psychological-and-Brain-Sciences.html.gz"
+  },
+  {
+    "id": "policy-Engineering-Sciences",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Engineering-Sciences"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/engineering-sciences",
+    "retrievedAt": "2026-10-15T18:51:09.448Z",
+    "file": "stem-sources/policy-Engineering-Sciences.html.gz"
+  },
+  {
+    "id": "policy-Mathematics",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Mathematics"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/mathematics",
+    "retrievedAt": "2026-10-15T18:51:09.448Z",
+    "file": "stem-sources/policy-Mathematics.html.gz"
+  },
+  {
+    "id": "policy-Quantitative-Social-Science",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Quantitative-Social-Science"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/quantitative-social-science",
+    "retrievedAt": "2026-10-15T18:51:09.448Z",
+    "file": "stem-sources/policy-Quantitative-Social-Science.html.gz"
+  },
+  {
+    "id": "supplement",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/2026s/Supplement"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/2026s/supplement",
+    "retrievedAt": "2026-10-15T18:51:09.526Z",
+    "file": "stem-sources/supplement.html.gz"
+  },
+  {
+    "id": "policy-Biological-Sciences",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Biological-Sciences"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/biological-sciences",
+    "retrievedAt": "2026-10-15T18:51:09.541Z",
+    "file": "stem-sources/policy-Biological-Sciences.html.gz"
+  },
+  {
+    "id": "policy-Chemistry",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Chemistry"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/chemistry",
+    "retrievedAt": "2026-10-15T18:51:09.557Z",
+    "file": "stem-sources/policy-Chemistry.html.gz"
+  },
+  {
+    "id": "policy-Environmental-Studies-Program",
+    "title": "Department policy",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Environmental-Studies-Program"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/environmental-studies-program",
+    "retrievedAt": "2026-10-15T18:51:09.565Z",
+    "file": "stem-sources/policy-Environmental-Studies-Program.html.gz"
+  }
+]

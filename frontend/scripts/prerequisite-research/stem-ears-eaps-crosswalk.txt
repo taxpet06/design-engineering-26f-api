@@ -1,0 +1,108 @@
+                             Earth and Planetary Sciences Major (13 courses)
+ Prerequisites (3):
+ (1) Intro course
+ (1) CHEM 5 or 11
+ (1) MATH 3, 8, 9, 11, 13, 23, or 46
+ Course Requirements (9):
+ (1) Data Analysis course (EAPS 15-29)
+ (4) Methods and Concepts courses (EAPS 30-49)
+ (1) Advanced QuanNtaNve Analysis course (EAPS 50-69)
+ (1) Advanced Topics course (EAPS 70-89)
+ (2) AddiNonal courses numbered EAPS 15 and above
+ ***Among these courses, at least (2) must be “ﬁeld data collecNon” courses (EAPS 15, 16, 18,
+ 33, 35, 38, 40, 42, 45, 46, 47, 48, 49, 56)
+ CulminaNng Experience (1):
+ (1) EAPS 90, 91, or 92 (and opNonally 93)
+
+
+                             Earth and Planetary Sciences Minor (8 courses)
+ Prerequisites (3):
+ As above
+ Course Requirements (5):
+ (5) EAPS courses numbered EAPS 15–89, at least (1) must be a ﬁeld data collecNon course
+
+
+             Earth and Planetar y Sciences Modiﬁed Major, EAPS Primary (10 courses)
+ Prerequisites (3):
+ As above
+ Course Requirements (6):
+ (6) EAPS courses numbered EAPS 15–89, at least (2) must be ﬁeld data collecNon courses
+ (discussed above)
+ CulminaNng Experience (1):
+ (1) EAPS 90, 91, or 92 (and opNonally 93)
+
+
+             Earth and Planetar y Sciences Modiﬁed Major, EAPS Secondary (                   8 courses)
+ Prerequisites (3):
+ As above
+ Course Requirements (5):
+ (5) EAPS courses numbered EAPS 15–89, at least (1) must be ﬁeld data collecNon courses
+ (discussed above)
+
+
+OLD   COUR S E  #                       NEW COURSE #                          COU R  S  E    T IT LE
+Introductory   Cours e s
+EARS                  1                 EAPS                1                 How      t he    E  a  r t h   W  or ks
+EARS                  2                 EAPS                2                 Evolution of Earth and Life
+EARS                  3                 EAPS                3                 Elementary Oceanography
+EARS              6.05                  EAPS                4                 Model i ng    the  E a rth  S  ys tem
+EARS                  5                 EAPS                5                 Natural Disasters and Catastrophes
+EARS                  6                 EAPS                6                 Environmental Change
+EARS              7.06                  EAPS                7                 First-Year Seminar in Earth and Planetary Sciences: Soils and Society
+EARS                  8                 EAPS                8                 Ca  rbon   S   e que s  t ra  t i  on:   O pport uni  t i  e s     a  nd   Cha  l  l  e ng  e s
+EARS                  9                 EAPS                9                 Earth Resources
+EARS                 19                 EAPS              10                  Ha  bi  t a  bl  e    P l  a  ne t s
+
+Data Analysis Courses
+EARS                 15                 EAPS              15                  Earth' s Clim ate -  Past, Present, F uture
+EARS                 16                 EAPS              16                  Hydr ol  og   y   a  nd   W  a  t e r    R   e s  our c e s
+EARS                 17                 EAPS              17                  Statistics for Earth and Planetary Scientists
+EARS                 18                 EAPS              18                  Environmental Earth S cience
+EARS                 12                 EAPS              22                  Big Data Hydrology
+EARS                 13                 EAPS              23                  Com  put a  t i  ona  l     Me t hods     i  n   E a  rt h   a  nd   Pl  a  ne t a  ry   S   c i  e nc e s
+EARS                 14                 EAPS              24                  Meteorol og  y
+
+Me  t hods     Cours  e  s
+EARS                 39                 EAPS              30                  Remote Sensing of the Environment
+EARS                 33                 EAPS              33                  Earth and Planetary S urface Processes and Landforms
+EARS                 34                 EAPS              34                  Biogeochemical Cycles
+EARS                 35                 EAPS              35                  The Soil Resource
+EARS                 77                 EAPS              37                  Environmental Applications of GIS
+EARS                 38                 EAPS              38                  Sedimentary Geology
+EARS                 40                 EAPS              40                  Ma teri a l s   of    the  E a rth
+EARS                 51                 EAPS              41                  Mi nera l og  y  a nd  E a rth  Proces s es
+EARS                 52                 EAPS              42                  Structural Geology and Tectonics
+EARS                 45                 EAPS              45                  Field Methods: Solid Earth Processes
+EARS                 46                 EAPS              46                  Field Methods: Surface Processes
+EARS                 47                 EAPS              47                  Field Methods: Cold Regions Processes
+EARS                 58                 EAPS              48                  Sedimentary Petrology and Stratigraphy
+EARS                 59                 EAPS              49                  Ig neous  and Metam orphic Petrolog y
+
+Adv  anc e d  Cours e s
+Quantitativ e  Cours es
+EARS                 70                 EAPS              50                  Glaciology
+EARS                 73                 EAPS              51                  Is otope G eolog y
+EARS                 74                 EAPS              54                  Soils and Water Chemistry
+EARS                 76                 EAPS              56                  Watershed Hydrology
+EARS                 60                 EAPS              60                  Earth S ystem Modeling
+EARS             61.01                  EAPS              61                  Hydr oc l  i  m   a  t ol  og   y
+EARS                 62                 EAPS              62                  Geochemistry
+EARS                 64                 EAPS              64                  Geophysics
+EARS             66.01                  EAPS              66                  Environmental Transport and F ate
+EARS                 67                 EAPS              67                  Geomechanics
+
+Topical Courses
+EARS                 32                 EAPS              70                  Ma croevol uti on
+EARS                 72                 EAPS              72                  Geobiology
+EARS                 65                 EAPS              74                  Advanced R em ote S ensing
+EARS                 75                 EAPS              75                  Qua terna ry  Pa l eocl i m a tol og y
+EARS                 36                 EAPS              76                  Astrobiology
+EARS                 37                 EAPS              77                  Ma ri ne  G  eol og  y
+EARS                 78                 EAPS              78                  Cl  i  m  a  t e    Dyna  m  i  c s
+EARS             79.01                  EAPS              79                  Special Topics Seminar
+
+Culm inating  E x  pe rie nce
+EARS                 87                 EAPS              90                  Special Projects: Senior Culminating Experience
+EARS                 88                 EAPS              91                  Alternative Culm inating Experience
+EARS                 89                 EAPS              92                  Honor s     T  he s  i  s
+EARS                 90                 EAPS              93                  Honor s     T  he s  i  s     I I

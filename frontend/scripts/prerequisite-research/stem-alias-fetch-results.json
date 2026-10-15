@@ -1,0 +1,80 @@
+[
+  {
+    "id": "EAPS 33",
+    "oldId": "EARS 33",
+    "title": "Earth Surface Processes and Landforms",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Earth-and-Planetary-Sciences/EARS-Earth-Sciences-Undergraduate/EAPS-33"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/earth-and-planetary-sciences/ears-earth-sciences-undergraduate/eaps-33",
+    "retrievedAt": "2026-10-15T18:57:33.815Z",
+    "file": "stem-sources/EAPS-33.html.gz"
+  },
+  {
+    "id": "EAPS 3",
+    "oldId": "EARS 3",
+    "title": "Elementary Oceanography",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Earth-and-Planetary-Sciences/EARS-Earth-Sciences-Undergraduate/EAPS-3"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/earth-and-planetary-sciences/ears-earth-sciences-undergraduate/eaps-3",
+    "retrievedAt": "2026-10-15T18:57:33.817Z",
+    "file": "stem-sources/EAPS-3.html.gz"
+  },
+  {
+    "id": "EAPS 23",
+    "oldId": "EARS 13",
+    "title": "Introduction to Computational Methods in Earth Science",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Earth-and-Planetary-Sciences/EARS-Earth-Sciences-Undergraduate/EAPS-23"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/earth-and-planetary-sciences/ears-earth-sciences-undergraduate/eaps-23",
+    "retrievedAt": "2026-10-15T18:57:33.817Z",
+    "file": "stem-sources/EAPS-23.html.gz"
+  },
+  {
+    "id": "EAPS 64",
+    "oldId": "EARS 64",
+    "title": "Geophysics",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Earth-and-Planetary-Sciences/EARS-Earth-Sciences-Undergraduate/EAPS-64"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/earth-and-planetary-sciences/ears-earth-sciences-undergraduate/eaps-64",
+    "retrievedAt": "2026-10-15T18:57:33.824Z",
+    "file": "stem-sources/EAPS-64.html.gz"
+  },
+  {
+    "id": "EAPS 10",
+    "oldId": "EARS 19",
+    "title": "Habitable Planets",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Earth-and-Planetary-Sciences/EARS-Earth-Sciences-Undergraduate/EAPS-10"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/earth-and-planetary-sciences/ears-earth-sciences-undergraduate/eaps-10",
+    "retrievedAt": "2026-10-15T18:57:33.824Z",
+    "file": "stem-sources/EAPS-10.html.gz"
+  },
+  {
+    "id": "EAPS 54",
+    "oldId": "EARS 74",
+    "title": "Soil and Water Chemistry",
+    "matches": [
+      "https://dartmouth.smartcatalogiq.com/en/current/orc/Departments-Programs-Undergraduate/Earth-and-Planetary-Sciences/EARS-Earth-Sciences-Undergraduate/EAPS-54"
+    ],
+    "status": "retrieved",
+    "httpStatus": 200,
+    "source": "https://dartmouth.smartcatalogiq.com/en/current/orc/departments-programs-undergraduate/earth-and-planetary-sciences/ears-earth-sciences-undergraduate/eaps-54",
+    "retrievedAt": "2026-10-15T18:57:33.824Z",
+    "file": "stem-sources/EAPS-54.html.gz"
+  }
+]

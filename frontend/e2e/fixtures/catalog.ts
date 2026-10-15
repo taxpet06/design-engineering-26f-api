@@ -1,0 +1,15 @@
+import type { Catalog, Course, CourseBundle, Evidence, Meeting, Section } from '../../src/types';
+const evidence: Evidence={source:'https://courses.dartmouth.edu/',retrievedAt:'2026-10-15',verification:'verified',note:'Test fixture only'};
+const course=(code:string,department:string):Course=>({id:code,code,title:`Test ${code}`,department,credits:1,level:'Undergraduate',description:'Invented test record; never used as a production offering.',source:evidence.source,prerequisite:{kind:'none',evidence}});
+const courses=[course('MATH 3','Mathematics'),course('COSC 1','Computer Science'),course('COSC 10','Computer Science'),course('MATH 8','Mathematics'),course('ENGS 20','Engineering Sciences'),course('HIST 1','History')];
+courses.push(course('ECON 1','Economics'));
+courses[2].prerequisite={kind:'course',courseId:'COSC 1',evidence};
+const meeting=(day:string,start:number,kind:Meeting['kind']='class'):Meeting=>({days:[day],start,end:start+50,startDate:'2026-09-14',endDate:'2026-11-18',kind});
+const section=(id:string,course_id:string,m:Meeting[]):Section=>({id:`26F:${id}`,crn:id,course_id,term:'26F',section_number:id,component:'Lecture',instructor:'Test instructor',meetings:m,source:evidence.source,verification:'verified',reviewReasons:[],companionOptions:[],componentsVerified:true});
+const sections=[section('T1','MATH 3',[meeting('Mon',540),meeting('Tue',540,'x-hour')]),section('T2','COSC 1',[meeting('Wed',540)]),section('T3','COSC 10',[meeting('Thu',540)]),section('T4','MATH 8',[meeting('Fri',540)]),section('T5','ENGS 20',[meeting('Mon',660)]),section('T6','HIST 1',[meeting('Tue',540)])];
+sections.push(section('T7','ECON 1',[meeting('Fri',540)]));
+sections[4].meetings=[];sections[4].verification='needsReview';sections[4].reviewReasons=['Meeting times have not been published.'];
+sections[5].verification='needsReview';sections[5].reviewReasons=['Instructor permission needs evidence.'];
+sections.push(section('T44','MATH 8',[meeting('Fri',780)]));
+const bundles:CourseBundle[]=sections.map(s=>({id:s.id,course_id:s.course_id,term:s.term,section_number:s.section_number,componentIds:[s.id],meetings:s.meetings,source:s.source,verification:s.verification,reviewReasons:s.reviewReasons}));
+export const fixture:Catalog={version:2,source:evidence.source,exported_at:'2026-10-15T00:00:00Z',courses,sections,bundles,terms:[{id:'26F',code:'26F',label:'Fall 2026',start_date:'2026-09-14',end_date:'2026-11-18',is_current:true,historical:false}],departments:['Mathematics','Computer Science','Engineering Sciences','History'].map(name=>({id:name,name,code:name})),coverage:[{term:'26F',sourceCount:7,importedCount:7,excludedCount:0,subjects:4,bundles:7}]};

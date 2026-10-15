@@ -1,0 +1,24 @@
+{
+  "snapshot": {
+    "sections": "53a216b18e34b47306008c0d6e3b4218304414d39401b143b487f1b127814804",
+    "bundles": "074a29a0f91e3ebd9a03069a76e14466d8798f13fce7a362f19650830f526240",
+    "terms": "35a087dab414af2a15921db4dee5beaa1f703b73dc061b988bc447745f9c1b62",
+    "departments": "d12ee56e2ed0e8741624c699a5433b4e11b71f0fb8c9fe209e87c763e5e658e6",
+    "coverage": "402219577998a48dfacb5e896abcbf0abc4fb2b8cf0cc6fb24f52d3408697615",
+    "equivalences": "77f4474b7cc2955a46540f03bd32b5a2414f36fc11b935785288e41d5b88a476",
+    "exported_at": "ed3cf7c5e896fbbacd868b3a8d5c2ff14f4077e54af45bf060db85681739c09b",
+    "source": "9c8df1ddde59e266a06f40717c4843f5afbc01e80d9e6664df359e3ee6fc3c87"
+  },
+  "backend": {
+    "app.js": "20cf6ea4cd890342d668375957678db59fb3bc531a1aa80e0e0c8e7f735b84aa",
+    "computed-routes.js": "1192dc7c482efdbc4e8f4abb65112592bf1d9b798a1449fc1bf880c710fb33b6",
+    "data.js": "3a411e9f8e60bbd28d835860aa648d35577c6ca3d87767a7caa5f821feda0bc2",
+    "openapi.js": "49551f1ec422ef79952eefeae99cdc3fb4d128c52628260901fcb4523fb33cb2",
+    "resources.js": "3dd381842d4e69fa7901052d2ccd4f05c0e62218ec164b6b9c2e849e5cda83e7",
+    "routes.js": "2a12d8686d6b7ef9c22fcf58a23134ecd5db4e75dee97f4126f5b6bf1984f74a",
+    "server.js": "c56210bb2f701f444f28f7d973d97d0c713d5bf65ddbdd31d93f0db44227097b",
+    "smoke-test.js": "00e92ae499c09942b280776618039331e51f3b336da8b9fdfc7a4f152a6b5d7a",
+    "package.json": "9e8f2776a37ad66b5ec4afcb917c148839ac227899c834ef33f73c302480a37f",
+    "package-lock.json": "ab7fe02c60ffb8f636a18b6ee69d0552de8eff63972a01dcef40ad63953a1f6a"
+  }
+}

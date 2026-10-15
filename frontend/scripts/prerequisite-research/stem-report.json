@@ -1,0 +1,96 @@
+{
+  "completedAt": "2026-10-15T18:59:47.517Z",
+  "assignedDepartments": [
+    "MATH",
+    "ENGS",
+    "PHYS",
+    "ASTR",
+    "CHEM",
+    "BIOL",
+    "EARS",
+    "ENVS",
+    "QSS",
+    "ECON",
+    "GOVT",
+    "GEOG",
+    "PSYC"
+  ],
+  "totalCourses": 411,
+  "coverageCounts": {
+    "unresolved": 230,
+    "verified": 166,
+    "unmatched": 15
+  },
+  "failedSourceCourses": 0,
+  "retrievedCourseRecords": 396,
+  "verifiedNoPrerequisiteCourses": [
+    "BIOL 14",
+    "BIOL 16",
+    "BIOL 12",
+    "BIOL 13",
+    "ENGS 11",
+    "ENGS 12",
+    "ENGS 2",
+    "ENGS 6",
+    "ENGS 9",
+    "GOVT 83.05"
+  ],
+  "unmatchedCourses": [
+    "BIOL 9",
+    "CHEM 7.06",
+    "EARS 80.04",
+    "EARS 86",
+    "ENGS 15.06",
+    "ENGS 7.02",
+    "ENVS 15",
+    "ENVS 7.15",
+    "ENVS 7.17",
+    "GEOG 31",
+    "GEOG 7.20",
+    "GOVT 96.03",
+    "PSYC 53.16",
+    "PSYC 7.06",
+    "PSYC 84.03"
+  ],
+  "renumberings": {
+    "file": "stem-equivalences.json",
+    "rows": 53,
+    "offeringIdentitiesRecovered": 12,
+    "source": "stem-ears-eaps-crosswalk.pdf",
+    "visuallyVerifiedPage": 2
+  },
+  "method": [
+    "Exact course identifiers matched against official ORC index; catalog URLs normalized to lowercase because mixed case returned HTTP404.",
+    "Every HTTP response required success and exact course heading identity (or documented official EARS/EAPS renumbering).",
+    "Prerequisite/corequisite fields and descriptions inspected. Department major requirements were not treated as universal course prerequisites.",
+    "Explicit no-prerequisite statements only; absent fields remained unresolved.",
+    "Complex ambiguous conditions remained advisory, retaining independently verified mandatory coursework where applicable.",
+    "Recommended preparation separated from mandatory coursework. Coursework OR permission used waiver branches; ordinary registration permission remained advisory.",
+    "Course-rule MATH13 substitution by MATH11 and MATH22 substitution by MATH24 retain separate source evidence.",
+    "Official supplement checked; GOVT30.10 and60.22 matched there."
+  ],
+  "validation": {
+    "ruleNodesChecked": 1378,
+    "referencedCourses": 144,
+    "allEvidenceComplete": true,
+    "allVerifiedSourceTextNonempty": true,
+    "allConcurrentFlagsInCorequisite": true,
+    "sourceTextCourseReferenceCheck": "Passed with three understood source abbreviations: ENVS 2 or 3 for ENVS31/80.18; Government 5 for GOVT85.12.",
+    "independentSampleReview": "Humanities research agent reviewed 15 representative entries against retained source text; no mismatches found."
+  },
+  "rebuild": "node frontend/scripts/prerequisite-research/stem-build.mjs",
+  "evidenceFiles": [
+    "stem-evidence.json",
+    "stem-policy-evidence.json",
+    "stem-sources/*.html.gz",
+    "stem-supplement-index.json",
+    "stem-ears-eaps-crosswalk.pdf",
+    "stem-ears-eaps-crosswalk.txt"
+  ],
+  "limits": [
+    "No verified absence inferred from empty prerequisite fields.",
+    "Some placement, grade, course-range, registration or equivalent-preparation conditions cannot be represented as exact completed-course logic and remain unresolved.",
+    "MATH50 prerequisite punctuation remains ambiguous and advisory.",
+    "No alias guessed for EARS86 or EARS80.04."
+  ]
+}

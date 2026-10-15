@@ -1,0 +1,642 @@
+  <head>
+    <title>Welcome to the MATH 100-COSC 49.02/149.2 Web Page</title>
+  </head>
+  
+  <style type="text/css"> 
+	BODY { margin: 3% 8%; }
+	TABLE { align: center; }
+	TABLE.index TR { border: thin solid black; vertical-align:
+	baseline; }
+	H3 { color: #990000 }
+  </style>
+  <body bgcolor=#FFFFFF>
+	
+	<p style="text-align:center; color: #990000; font-size: xx-large;
+	  font-weight: bold"> MATH 100 / COSC 149.2 and COSC 49.02 </p>
+	<p style="text-align:center; color: #002C8F; font-size: x-large">
+		(Topics in Probability) <br>
+	<p style="text-align:center; color: #990000; font-size: x-large;
+          font-weight: bold"> Permutations, Probability, and Sorting
+	  </p>
+
+	<p style="text-align:center; font-size: medium"> Instructor: Prof. Peter Winkler
+	  <tt> (peter.winkler at dartmouth.edu) </tt>
+	</p>
+
+	<p style="text-align: center; color #005F5A"> 
+	  <a href="#abstract">Abstract</a> | 
+	  <a href="#classes">Classes</a> |
+	  <a href="#staff">Staff</a> |
+	  <a href="#textbooks">Textbooks</a> |
+	  <a href="#grading">Grading</a> |
+	  <a href="#news">News and current assignment</a> |
+	  <a href="#pat assignments">Past assignments</a> |
+	  <a href="#exams">Exams</a> |
+	  <a href="#honour">Honor Code</a>
+	</p>
+
+    <hr>
+
+	<table class="index" width="100%" cellpadding="10%">
+	  <tbody>
+		
+		<!-- News -->
+		
+
+		<tr>
+		  <td> <h3> <a name="news">News</a></h3>
+		  <td>
+
+                  <p> <p style="text-align : justify">
+		<p>
+	  	You may visit your exam 10-12 Thursday 6/11, Kemeny 231.
+                  <br>
+
+		  <p> <p style="text-align : justify">
+		  The following link may be useful to those needing a review
+		  of poset theory:  <a href="https://appliedcombinatorics.org/book/ch_posets.html">here</a>.
+		  You can skip Dilworth's Theorem and some other parts.  Thanks to Wayner for the link!
+                  <br>
+
+ 		  <p> <p style="text-align : justify">
+                  On the shelves outside our classroom (between Kemeny 007 and 008)
+                  the column closest to 007 is devoted to returning your graded
+                  homeworks.  You can pick them up anytime, they're sorted into
+                  five alphabetic slots.
+                  <br>
+
+                  <p> <p style="text-align : justify">
+		  The classroom in which we will meet is Kemeny 007,
+		  sometimes called the "Bond room."
+                  The time slot is 9L, thus regular class meets MWF
+		  from 8:50 am to 9:55 am, with X-hour (which will
+		  be used occasionally for make-up or review) Thursday 9:05-9:55.
+                  <br>
+
+		  <p> <p style="text-align : justify">
+		  For those of you who are brushing up on probability using
+                  Grinstead and Snell, a set of answers that are "mostly correct"
+                  to the exercises therein was sent to me by Charles Grinstead and can be found
+                  <a href="https://math.dartmouth.edu/~pw/GSanswers.pdf">here</a>.
+		  <br>
+
+<tr>
+
+</dd></dl></p>
+
+		  </td>
+		</tr>
+
+		<!-- Abstract -->
+
+		<tr>
+		  <td> <h3> <a name="abstract">Abstract</a></h3>
+		  <td>
+			<p style="text-align : justify"> Permutations are everywhere,
+			it seems, in mathematics and computer science, and even in
+			the social sciences.  In many cases, for instance, when you
+                        are interested in sorting, it is natural to think of the
+			set of permutations on a set of <i>n</i> elements as a probability
+			space.  Suppose you have information about some job candidates
+                        that suggests some are better than others, but nothing directly
+			comparing <i>x</i> and <i>y</i>.  What is the probability that
+                        <i>x</i> is better than <i>y</i>?  Does it necessarily go up
+			if you get a new letter saying <i>x</i> is better than <i>z</i>?
+
+                        <p> Suppose you wish to sort a set of data, but comparisons are
+                        expensive.  Which pair of elements, if compared, would give
+			you the most information?  
+
+                       <p> This course will take you to the world of partial orders,
+			linear extensions, permutahedra, permutation patterns, sorting
+ 			algorithms, exact and approximate counting problems, random
+			walk, and limit structures.  You will need to have taken at
+			least a basic course in probability (such as MATH 20) and seen enough
+			mathematics or theoretical computer science to be comfortable
+			with abstract concepts and logical reasoning.  
+
+			<p> There will be a homework assignment due at the beginning
+			of each class, usually just one problem.  You may consult with
+			your colleagues or AI on homework provided they are suitably credited,
+			but neither will be available during exams.  You will not be required
+			to write computer programs, but writing and running a program will
+			sometimes provide an alternative way to do an assignment.
+
+		  <br>
+<p>
+Here is a rough weekly syllabus:
+</p>
+
+<p>
+<dl><dt>
+1. The probability space of permutations: fixed points, cycles
+</dt>
+
+<p>
+<dl><dt>
+2. Partial orders and linear extensions: permutahedron, convex subsets
+</dt>
+
+<p>
+<dt>
+3. Probability and sorting: correlation, XYZ inequality
+</dt>
+
+<p>
+<dt>
+4. The 1/3-2/3 conjecture and its successors
+</dt>
+
+<p>
+<dt>
+5. MCMC and approximate counting of linear extensions
+</dt>
+
+<p>
+<dt>
+6. #P hardness and exact counting of linear extensions
+</dt>
+
+<p>
+<dt>
+7. Sorting algoithms: quicksort, merging, filing
+</dt>
+
+<p>
+<dt>
+8. Stack-sorting, permutation patterns, Marcus-Tardos Theorem
+</dt> 
+
+<p>
+<dt>
+9. Permutations generated by random walk
+</dt>
+
+<p>
+<dt>
+10. Limit structures, permutons
+</dt>
+
+
+			</p>
+			
+		  </td>
+		</tr>
+		
+		<!-- Classes -->
+
+		<tr>
+		  <td> <h3> <a name="classes">Classes</a></h3>
+		  <td>
+			<p style="text-align : left"> <em> Room:</em> TBA <br>
+			<em> Lectures: </em>  9L slot: Monday, Wednesday and Friday 8:50 - 9:55. <br>
+
+			<em> Classroom: </em> Kemeny Hall 007.
+<br>
+			 <em> X-hour: </em> Thursdays 9:05 - 9:55. Will be used only when so announced in class.</p>
+			
+		  </td>
+		</tr>
+
+		<!-- Staff -->
+
+		<tr>
+		  <td> <h3> <a name="staff">Staff</a></h3></td>
+		  <td>
+		      <dl>
+			  <dt>Instructor:</dt>
+			  <dd><b>Prof. Pete Winkler</b> --  Kemeny Hall 231 <br>
+			  <em>Office Hours:</em> Tue 9-10, Thu 11-12.
+
+			  <em>email:</em> peter.winkler at dartmouth.edu <br>
+			  </dd>
+                     </dl>
+
+                      <dl>
+                          <dt>TA:</dt>
+                          <dd><b>Andrew Zhao</b>  <br>
+                          <em>email:</em> Andrew.E.Zhao.28 at dartmouth.edu<br>
+                          </dd>
+                     </dl>
+                  </td>
+
+                </tr>
+		
+		<!-- Textbooks -->
+
+ <tr>
+                  <td> <h3> <a name="Textbooks">Textbooks</a></h3></td>
+                  <td>
+                        <p style="text-align : justify"> There is no official textbook
+			for the course. 
+                  </td>
+
+</tr>
+<tr>
+
+                  <td> <h3> <a name="Textbooks"></a></h3></td>
+                   <td>
+                        <p style="text-align : justify"> If you need to brush up on elementary
+			probability, we suggest Grinstead and Snell's <i>Introduction to Probability</i>,
+			which is available online here at Dartmouth.
+			
+                  </td>
+
+                </tr>
+
+		<!-- Grading -->
+		
+		<tr>
+		  <td> <h3> <a name="grading">Grading</a></h3></td>
+		  <td>
+			<p style="text-align : justify"> Your grade will be
+			based on homework, class participation (attendance is expected!),
+			midterms, and a final exam.
+		  </td>
+		</tr>
+
+	         <!-- Exams -->
+
+                <tr>
+                  <td> <h3> <a name="exams">Exams</a></h3></td>
+                  <td>
+                        <p style="text-align : justify"> There will be in-class exams
+			on Monday, April 13 and Monday, May 4.  Let your instructor know
+			<i>in advance</i> if you antipate a conflict.  The final exam
+			will be held on the assigned day and time for the course's time
+			slot, namely, 3 pm on Monday, June 8, in our regular classroom (Kemeny 007).
+                  </td>
+                </tr>
+
+		<!-- Homework -->
+		
+		<tr>
+		  <td> <h3> <a name="homework">Homework</a></h3></td>
+		  <td>
+			<p style="text-align : justify"> Homework will be assigned at
+			each class period, due on paper at the <i>beginning</i>
+			of the next class.  If you can't make it to class let the
+			instructor know, and email a PDF of your homework to the instructor and the TA.
+			Late homeworks will be checked off but not graded.
+			</p>
+			
+			<p style="text-align : justify"> 
+
+			</p>
+
+		  </td>
+		</tr>
+
+		<!-- Assignments -->
+		<tr>
+		  <td> <h3> <a name="past assignments">Assignments</a></h3></td>
+                  <td>
+			<p style="text-align : justify">
+			<b>Due Wednesday April 1:</b> Let a permutation of {1,2,...,<i>n</i>}
+			be chosen uniformly at random.  For <i>n</i> large, what is the
+			probability that it contains a cycle of length greater than <i>n</i>/2?
+			</p>
+
+                        <p style="text-align : justify">
+                        <b>Due Friday April 3:</b> Write up a little theorem and proof
+                        to justify the claim that, in the 100 prisoners problem, no matter
+                        how the warden chooses to distribute names in boxes, if the
+			prisoners assign <i>ownership</i> of boxes uniformly at random, then
+                        the resulting permutation (mapping each prisoner to the name
+                        found inside the box he owns) is uniformly random.
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Monday April 6:</b> See if you can fix the insertion
+			algorithm---keeping the spirit of the name---so that its
+			worst-case running time is better than &Theta;(n<sup>2</sup>).
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Wednesday April 8:</b> A classic puzzle presents you
+		  	with 12 coins, one of which is counterfeit and is either
+			lighter or heaver than the others.  The task is to determine
+			which coin is the counterfeit and whether it is lighter or
+			heavier, using just three weighings with a balance scale.
+			<i>Your</i> mission, however, is to prove that it can't
+			be done with 14 coins or (for your second point) even 13.
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Friday April 10:</b> Let x<sub>0</sub>, x<sub>1</sub>,
+			x<sub>2</sub>, x<sub>3</sub>, x<sub>4</sub> be a
+			sequence of integers with positive sum, with indices
+			interpreted modulo 5.  An "operation" consists of selecting
+			a negative term, say x<sub>k</sub>, replacing x<sub>k</sub>
+			by -x<sub>k</sub> (a positive number), replacing x<sub>k-1</sub>
+			by x<sub>k-1</sub> + x<sub>k</sub>, and replacing x<sub>k+1</sub>
+			by x<sub>k+1</sub> + x<sub>k</sub>.  Now, given any sequence
+			x<sub>0</sub>,
+			x<sub>1</sub>, x<sub>2</sub>, x<sub>3</sub>, x<sub>4</sub>,
+			you can create a doubly-infinite sequence ... s<sub>-1</sub>
+			s<sub>0</sub> s<sub>1</sub> with the property that s<sub>n+1</sub>
+			= s<sub>n</sub> + x<sub>n mod 5</sub>.  The question
+			is:  what does an "operation" on x<sub>0</sub>, x<sub>1</sub>, 
+                        x<sub>2</sub>, x<sub>3</sub>, x<sub>4</sub> do to
+			its corresponding infinite sequence?   
+                        </p>
+
+			<p style="text-align : justify">
+                        <b>Due Wednesday April 15:</b> Suppose you start with n items
+			in a row.  You choose one of the items uniformly at random
+			and remove that item along with all the items to its left or
+			all to its right, whichever is the smaller set.  For example,
+			if n = 10 and you choose item 8, items 8 through 10 are removed;
+			but if you choose item 4, items 1 through 4 are removed.
+			You now repeat this procedure on the remaining items, and repeat
+			again, etc., until all the items are gone.  How many "procedures"
+			does this require, on average?
+			</p>
+
+			<p style="text-align : justify">
+                        <b>Due Friday April 17:</b> Consider the following algorithm,
+			which sorts "in place" but not by doing comparisons;
+			instead, the items are numbered 1 through n and the spaces likewise.
+			The algorithm finds (nondeterministically) an item which is not where
+			it belongs, and shoves it in where it belongs---shifting the items in
+			between up or down by one.  For example, suppose item number 8 is found
+			in space number 4.  That item is moved into the 8th position, and the
+			items previously in positions 5,6,7, and 8 are shifted down to positions
+			4,5,6, and 7 respectively.  Note that this could dislodge some items that
+			were previously in the right spot.  Your question is:  Does this algorithm
+			even <i>work</i>?  Clearly, if and when the algorithm terminates,
+			the items will be correctly sorted.  But maybe, if the algorithm makes
+			sufficiently poor choices, it can run forever.  Experiment with the algorithm
+			and try to justify your answer.
+ 			</p>
+
+			<p style="text-align : justify">
+			<b>Due Monday April 20:</b> Draw the Hasse diagram of the state poset
+			for the above algorithm of the last homework, in the case of 4 items.
+			The states for this algorithm are the 4! permutations of {1,2,3,4},
+			with 1234 as the target and therefore the unique minimal element.
+			</p>
+
+                        <p style="text-align : justify">
+                        <b>Due Wednesday April 22:</b> Let P be a finite poset of height h(P)
+			(= size of longest chain) and width w(P) (= size of biggest antichain).
+			Show that |P| (the number of elements of P) cannot exceed the product h(P)w(P).
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Thursday April 23:</b> You need a gallon of paint from the automatic
+			paint dispenser at your local hardward store, which you are supposed to get
+			by selecting a color, putting an empty gallon can under the spigot, and
+			pushing a button.  Today, however, instead of dispensing a gallon of paint,
+			the machine dispenses a uniformly random amount of paint between 0 and 1 gallon.
+			(Luckily, an electric eye shuts off the flow instantly when the can is full.)
+			Guess (and bring in your guess, in your head) the average number of times you
+			will need to push that button to get your gallon can filled.
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Monday April 27:</b> If you are a CS major or CS grad student, simulate
+			Thursday's problem and report (on paper) your estimate of the expected number
+			of times the paint machine button needs to be pushed.  If you are a math major
+			or math grad student, try to derive the exact answer (a hint will be provided
+			at Thursday's class).  If you belong to zero or two of the above categories,
+			it's your choice.
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Wednesday April 29:</b> Draw the Hasse diagram for each of the 16 isomorphism
+			classes of 4-element posets, and for each indicate the number of different labellings,
+			i.e., the number of labelled posets with that diagram.  (You get this by dividing 4!
+			by the number of symmetries of the diagram.)  The sum of these 16 numbers should be 219.
+                        </p>
+
+			<p style="text-align : justify"> <b>Due Friday May 1:</b>
+			Recall that a poset is <i>graded</i> if all of its maximal chains are the same length.
+			But our intuition is that "graded" means it has levels.  Show that P is graded, with
+			height h, iff it can be partitioned into levels L<sub>1</sub> through L<sub>h</sub>
+			so that the minimal elements are in L<sub>1</sub>, maximal in L<sub>h</sub>, and all
+			coverings (that is, all edges of the Hasse diagram) are between consecutive levels.
+			</p>
+
+			<p style="text-align : justify"> <b>Due Wednesday May 6:</b>
+			Recall that the comparability graph CG(P) of a poset P puts x~y (that is, x is
+			adjacent to y) iff x &lt; y or y &lt; x in P. The <i>complement</i> IG(P) of CG(P) has edges
+			wherever CG(P) doesn't, so in IG(P), x~y iff x||y in P, i.e., iff x and y are incomparable.
+			Recall also that the <i>intersection</i> of two linear orderings of the same set of
+			elements is the poset (again on the same set of elements) in which x &lt; y iff x &lt; y in
+			both orderings.  If the orderings are written as permutations using one-line notation,
+			that means x appears to the left of y in both permutations.
+
+			<p> Prove "Allison's Theorem," to wit: IG(P) is itself the comparability graph of some
+			poset iff P has dimension 2 or less, i.e., if there exist two (possibly equal) linear
+			orderings (permutations) of the elements of P whose intersection is P.
+
+			<p>(Scoring: 1 point for each direction (=> or <=) of your proof.)
+			</p>
+
+			<p style="text-align : justify">
+                        <b>Due Monday May 11:</b> Let P be the height-2 poset consisting of minimal elements
+			a<sub>1</sub>, . . . , a<sub>n</sub> and maximal elements b<sub>1</sub>, . . . , b<sub>n</sub>
+			with the relations a<sub>i</sub> &lt; b<sub>j</sub> iff i is not equal to j.  Show
+			that the dimension of P is exactly n.
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Wednesday May 13:</b> Describe the permutations that avoid the pattern 321.
+                        </p>
+
+  			<p style="text-align : justify">
+                        <b>Due Friday May 15:</b> Devise a sorting machine that works iff the permutation
+			to be sorted is 321-avoiding.  Use your machine to show that the number of 321-avoiding
+			permutations of order n is the nth Catalan number (i.e., the number of Dyck paths of
+			length 2n).
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Monday May 18:</b> Compute the pattern densities for all 6 patterns of length 3
+			for the permutation 1324, and for a permutation &sigma; of your choice in S<sub>5</sub>
+			that you think might be close to 1324.  Then compute how close they are with respect
+			to patterns of length 3, by computing the total variation between the two probability
+			distributions on S<sub>3</sub> that the pattern densities give you for 1324 and &sigma;.
+			(Recall that the total variation distance d<sub>TV</sub> between two discrete probability
+			distributions is half the sum of the absolute difference between their values on individual
+			outcomes, and is thus some number between 0 and 1.)
+                        </p>
+
+                        <p style="text-align : justify">
+                        <b>Due Wednesday May 20:</b> Prove that for any class C of permutations
+			there's a set A of permutations (patterns) such that C is the set
+			of permutations that avoid every pattern in A, and moreover, A is an antichain
+			(no pattern in A is found inside any other pattern in A).  Is A unique to C?
+			Why or why not?
+
+                       <p style="text-align : justify">
+                        <b>Due Friday May 22:</b> Describe a random sequence of points on [0,1] with
+			each of the following properties: (1) It converges to a certain point with
+			probability 1; (2) It converges with probability 1, but not always to the same point;
+			(3) With probability 1 it fails to converge, but the distributions do converge;
+			(4) Neither the points nor their distributions converge.
+                        </p>
+
+			<p style="text-align : justify">
+                        <b>Due Wednesday May 27:</b> Compute pattern densities of length 3 for the permuton
+			which is uniform on each of the two squares [0,c] x [0,c] and {c,1] x [c,1].
+			(The six probabilities you get for this will, presumably, each depend on c.)
+			HINT: Condition on the number of samples in each square.  BUT:
+			Instead of computing them you are welcome to estimate them by simulation,
+			for various values of c.
+			</p>
+
+			<p style="text-align : justify">
+                        <b>Due Friday May 29:</b> Compute the expected number of comparisons needed to do
+			binary search on a list of 5 items, (a) starting with item 2 or item 4, and
+			(b) starting with item 3.  It is assumed that the desired item is present, and
+			initially equally likely to be in any position.
+                        </p>
+
+		                        <p style="text-align : justify">
+                        <b>Due Monday June 1:</b> If &sigma; is a permutation of order m and &tau; is
+			a permutation of order n, define &sigma; &oplus; &tau; to be the permutation of order
+			m+n whose 1-line representation is &sigma;<sub>1</sub> &sigma;<sub>2</sub> . . .
+			&sigma;<sub>m</sub> m+&tau;<sub>1</sub> . . . m+&tau;<sub>n</sub>.  Define 
+			&sigma; &ominus; &tau; to be the permutation of order n+m whose 1-line representation
+			is n+&sigma;<sub>1</sub> . . . n+&sigma;<sub>m</sub>; &tau;<sub>1</sub> . . . &tau;<sub>n</sub>.
+
+			Let C be the set of permutations defined in the following recursive manner: The
+			permutation 1 is in C, and if &sigma; and &tau; are in C, so are &sigma; &oplus; &tau;
+			and &sigma; &ominus; &tau;.  Show that C is a "permutation class" by exhibiting, with proof,
+			an antichain of patterns whose avoidance defines C.
+                        </p>
+
+                                          <p style="text-align : justify">
+                        <b>Due Wednesday June 3:</b> Describe and draw the permutons that correspond to the
+			large permutations whose comparability graphs are (a) the complete balanced bipartite graph,
+			and (b) the complete balanced tripartite graph.  (These permutons would represent the
+			two cusps at the low end of the right-hand border of the scalloped triangle.)
+                        </p>
+</pk>
+
+
+                <td>
+		</tr>
+
+		<!-- Honor code -->
+
+		<tr>
+		  <td>
+			<h3><a name="honour">Honor Code</a></h3>
+		  </td>
+		  <td>
+
+			<p style="text-align : justify"> Students are permitted
+			to work together to do homework problems. What is
+			important is a student's eventual understanding of
+			homework problems, and not how that is achieved. The honor
+			principle applies to homework in the following way. <span
+			style="color:#CC0000; font-weight:bold">What a student
+			turns in as a written homework solution is to be his or her own
+			understanding of how to do the problem. Students must
+			state what sources they have consulted, with whom they
+			have collaborated, and from whom they have received
+			help.</span> Students are discouraged from using solutions
+			to problems that may be posted on the web, and as just stated, must
+			reference them if they use them. The solutions you submit
+			must be written by you alone.  Any copying (electronic or
+			otherwise) of another person's solutions, in whole
+			or in part, is a violation of the Honor Code.</p>
+
+                        <p style="text-align : justify">If you employ generative AI,
+			e.g. ChatGPT, say so, and say how you verified that what
+			it told you is correct.
+			
+			<p style="text-align : justify">If you have any questions as to whether some action
+			would be acceptable under the Academic Honor Code, please
+			speak to me, and I will be glad to help clarify things.  It is always easier
+			to ask beforehand than to have trouble later!</p>
+
+		  </td>
+		</tr>
+
+		<!-- Recording Notification -->
+
+                <tr>
+                  <td>
+                        <h3><a name="recording">Notification to Student re Recording</a></h3>
+                  </td>
+                  <td>
+
+                        <p style="text-align : justify"> (1) Consent to recording of course meetings
+			and office hours that are open to multiple students.  By enrolling
+			in this course, a) I affirm my understanding that the instructor may record
+			meetings of this course and any associated meetings open to multiple students
+			and the instructor, including but not limited to scheduled and ad hoc office
+			hours and other consultations, within any digital platform, including those
+			used to offer remote instruction for this course.  b) I further affirm that
+			the instructor owns the copyright to their instructional materials, of which
+			these recordings constitute a part, and my distribution of any of these
+			recordings in whole or in part to any person or entity other than other
+			members of the class without prior written consent of the instructor may
+			be subject to discipline by Dartmouth up to and including separation from
+			Dartmouth.  (2) Requirement of consent to one-on-one recordings: By enrolling
+			in this course, I hereby affirm that I will not make a recording in any
+			medium of any one-on-one meeting with the instructor or another member of
+			the class or group of members of the class without obtaining the prior written
+			consent of all those participating, and I understand that if I violate this
+			prohibition, I will be subject to discipline by Dartmouth up to and including
+			separation from Dartmouth, as well as any other civil or criminal penalties
+			under applicable law. I understand that an exception to this consent applies
+			to accommodations approved by SAS for a student's disability, and that one
+			or more students in a class may record class lectures, discussions, lab
+			sessions, and review sessions and take pictures of essential information,
+			and/or be provided class notes for personal study use only. 
+
+			<p style="text-align : justify">If you have questions, please contact the
+			Office of the Dean of the Faculty of Arts and Sciences.  </p>
+
+                  </td>
+                </tr>
+		
+		<!-- Disabilities-->
+
+		<tr>
+		  <td>
+			<h3><a name="dis">Disabilities</a></h3>
+		  </td>
+		  <td>
+
+			<p style="text-align : justify">I encourage any students
+			with disabilities, including "invisible" disabilities such
+			as chronic diseases and learning disabilities, to discuss
+			appropriate accommodations that might help you
+			with this class, either after class or during office
+			hours. Dartmouth College has an active program to help
+			students with disabilities, and I am happy to do whatever
+			I can to help out, as appropriate.</p>
+
+			<p style="text-align : justify">The Student Disabilities
+			Center is located at 318 Wilson Hall, ext. 6-9900,
+			<a href="http://www.dartmouth.edu/~accessibility">
+                        http://www.dartmouth.edu/~accessibility</a>,
+			if you have any questions. Any student with a documented
+			disability requiring academic adjustments or
+			accommodations is requested to speak with me by the end of
+			the second week of the term. All discussions will remain
+			confidential, although the Academic Skills Center may be
+			consulted to verify the documentation of the disability
+			and advise on an appropriate response to the need. It is
+			important, however, that you talk to me soon, so that I
+			can make whatever arrangements might be needed in a timely
+			fashion.</p>
+
+		  </td>
+		</tr>
+	  </tbody>
+	</table>
+
+	<p>
+	  <small>
+	  </small>
+	</p>
+	
+  </body>
+</html>

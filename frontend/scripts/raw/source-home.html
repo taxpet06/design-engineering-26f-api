@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+	<head>
+		<meta charset="utf-8">
+		<meta name="description" content="Dartmouth Class Search">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<title>Dartmouth Class Search</title>
+		<link rel="stylesheet" href="/js/lfjs.css">
+		<link rel="stylesheet" href="/fonts/font-awesome/font-awesome.min.css">
+		<link rel="stylesheet" href="fose.css?%foseversion%">
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<script>
+			function isIOS() {
+				return ['iPad Simulator', 'iPhone Simulator', 'iPod Simulator',	'iPad',	'iPhone', 'iPod'].includes(navigator.platform) || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+			}
+
+			if(isIOS()){
+				const viewportmeta = document.querySelector('meta[name=viewport]');
+				viewportmeta.setAttribute('content', "initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0");
+			}
+		</script>
+		<script>
+		var foseConfig = {
+			use_section_full_icons: true,
+			countWaitlistAsUnavailable: false,
+			apiURL: "api/?page=fose",
+			context: "fose",
+			canCreateCart: true,
+			become_disable_registration: true,
+			text_become_registration_not_allowed: "Registration on behalf of the student is not allowed",
+			textAPIError: "Sorry, we were unable to process your request",
+			textLoading: "Loading...",
+			textSearching: "Searching...",
+			textNotOffered: "This course is not currently being offered",
+			textTooBroad: "Search too broad, please use the search fields to narrow your results",
+			textCriteriaInvalid: "Search criteria has errors, please fix all errors to continue",
+			textValueVaries: "Varies by section",
+			textAmbiguousCartTerm: "To view your primary cart, please select a specific term first",
+			textInvalidCartName: "Cart name is invalid.  It must not be empty and cannot contain pipe characters.",
+			textCartIsReadOnly: "The specified cart is read-only and cannot be modified",
+			textSectionInCart: "This section is in your cart",
+			textConfirmClearCart: "Are you sure you want to clear the contents of this cart?",
+			textUpdateCartFailed: "Your cart could not be updated, please try again.  Error:",
+			textRegisteredSection: "You are registered for this section",
+			textCourseTaken: "You have taken this course",
+			textCourseTakenEquiv: "You have taken a course that is equivalent to this",
+			textSectionCanceled: "Canceled section",
+			textSectionFull: "This section is full",
+			textSectionFullWaitlistOpen: "This section is full, waitlist is open",
+			textNoResultsFound: "No Results Found",
+			textCartContents: "Cart Contents",
+			textSearchResults: "Search Results",
+			textError: "Error",
+			textCart: "Cart",
+			textPlan: "Plan",
+			textPlanSnapshot: "Snapshot",
+			textPlanNoTermAssigned: null,
+			textPlanCourseNotOffered: "Course Not Offered",
+			textPlanOptionCleanedup: "Squash Old Terms",
+			textCouldNotProcessRequest: "Sorry, something went wrong and we were unable to process your request.  Please try again.",
+			textResetSearch: "Reset Search",
+			textClearCart: "Clear Cart",
+			textDeleteCart: "Delete Cart",
+			textSearchCriteria: "Search Criteria",
+			textShortTerm: "Term",
+			textSectionNumber: "Section Number",
+			textMeets: "Meets",
+			textInstructor: "Instructor",
+			textAddToCart: "ADD TO CART",
+			textRemoveFromCart: "REMOVE FROM CART",
+			textTermCalendar: "Term Calendar",
+			textSelectedSection: "Selected Section",
+			textShowAll: "SHOW ALL",
+			textCourse: "Course",
+			textCalendar: "Calendar",
+			textInstructorStaff: "Staff",
+			textInstructorTeam: "Team",
+			textSectionOnWaitlist: "You are on the waitlist for this section",
+			textSectionOnWaitlistPosition: "You are on the waitlist for this section in position:",
+			textTerm: "Term",
+			textManageCourse: "MANAGE COURSE",
+			textProgramsCatalogLink: "the Catalog",
+			textAdvisingPIN: "Advising PIN",
+			textCartAddSuccess: "Added {{ section.code }}",
+			textCartRemoveSuccess: "Removed {{ section.code }}",
+			textCartAddError: "Error - Could not add {{ section.code }}",
+			textCartRemoveError: "Error - Could not remove {{ section.code }}",
+			textArrangerNoSectionCombinations: "No possible section combinations were found",
+			textArrangerNoAddedSections: "No added sections",
+			textArrangerType: "type:",
+			textArrangerSectionNumber: "Section Number",
+			textArrangerMeets: "Meets",
+			textArrangerInstructor: "Instructor",
+			textArrangerRespectExcludeTimes: "Respect Excluded Times",
+			textArrangerExcludeNoOpenSeats: "Exclude Courses With No Open Seats",
+			textArrangerEditExcludeTimes: "edit...",
+			textArrangerOtherCartOptions: "Other Cart Options",
+			textArrangerAddingSections: "Adding these sections",
+			textArrangerArrange: "Arrange",
+			textArrangerPossibleSchedules: "Possible Schedules",
+			textArrangerScheduleMyPlan: "Schedule My Plan",
+			textArrangerNoTerm: "No Term",
+			textArrangerHideSchedules: "Hide schedules",
+			textArrangerShowSchedules: "Show schedules",
+			textArrangerMultitermError: "Unable to arrange multiterm",
+			textArrangerCalendarView: "Calendar View",
+			textArrangerPrimaryCartCourses: "Primary Cart Courses",
+			textArrangerPickPlanCourses: "Pick Plan Courses To Add To The Cart",
+			textArrangerGenerateSchedules: "Generate Schedules",
+			textArrangerSelectCourseToMerge: "Select to pick this course to merge into the cart",
+			textArrangerSectionWillBeAdded: "This section will be added to your cart",
+			textArrangerSectionWillBeRemoved: "This section will be removed from your cart",
+			textArrangerCartApplyCancel: "Cancel",
+			textArrangerCartApplyOk: "OK",
+			textArrangerAcceptNewCart: "Accept New Cart",
+			textArrangerChangesStagedForCart: "These are the changes you have staged for your cart.",
+			textPlanArrangerChangesStagedForCart: "These are the changes you have staged for your cart. Please be aware that any classes already in your primary cart will automatically be included in this new cart. If you wish to change a class already in your primary cart, please remove it first and then select \"Generate Schedules\" again.",
+			textArrangerCourseTaken: "You have taken this course",
+			textArrangerCart: "Cart",
+			textArrangerSectionInCart: "This section is in your cart",
+			textArrangerRegisteredSection: "You are registered for this section",
+			textArrangerWaitlistSection: "You are on the waitlist for this section",
+			textArrangerPlanCourseNotOffered: "Course Not Offered",
+			textArrangerDetails: "Details",
+			textArrangerTotalCourses: "Total Courses",
+			textArrangerCourses: "Courses",
+			textArrangerSchedulesProcessed: "Schedules Processed",
+			textArrangerSchedulesReturned: "Schedules Returned",
+			textArrangerTotalCombinations: "Total Combinations",
+			notifyOnCartOperations: false,
+			calendarGroups: "LEC,SEM,LAB",
+			calendarColors: ["#c6dbef,#08519c","#c7e9c0,#006d2c","#fee6ce,#d94801","#d9d9d9,#252525"],
+			calendarAssocSections: false,
+			calendarAssocSectionsIcon: true,
+			calendarAssocSectionsCrn: true,
+			calendarAssocSectionsMp: true,
+			calendarAssocSectionsInstr: true,
+			calendarAssocUpdateOnClick: false,
+			calendarTbaSections: true,
+			calendarTbaSectionsIcon: true,
+			calendarTbaSectionsTerm: false,
+			calendarTbaSectionsSectionNo: true,
+			calendarTbaSectionsSchd: true,
+			calendarTbaSectionsInstr: true,
+			calendarTbaUpdateOnClick: false,
+			planningHideSquashOldTerms: true,
+			planningToolHideAuditView: true,
+			planningToolHideCreateSnapshot: false,
+			planningToolHideSchedulePlan: false,
+			planningToolHideValidate: true,
+			itemName: "course",
+			itemsName: "courses",
+			courseAliasRegex: "[A-Z-]{2,4}\\s\\d{1,5}(\\.\\d{1,2})?[A-Z]{0,4}",
+			searchRegexes: [{"regex":"[A-Z-]{2,4}\\s\\d{1,5}(\\.\\d{1,2})?[A-Z]{0,4}","appearsIn":"keyword","mapsTo":"alias","regexFlags":"i"},{"regex":"^\\d{5,6}$","appearsIn":"keyword","mapsTo":"crn","regexFlags":""}],
+			keepAliveInterval: "300",
+			fixFilteringLinkedSectionsJalot2354: true,
+			textSubmitSchedule: "GO TO REGISTRATION",
+			textAltSubmitSchedule: "GO TO REGISTRATION",
+			haveCART: true,
+			cartSubmitAction: "show-cart-registration",
+			cartShowHistorical: true,
+			cartShowRegistered: true,
+			cartShowWaitlist: true,
+			haveSAMuserEnabled: true,
+			disableSAM: "0",
+			promotedScreens: {},
+			collapse: {"groupByPrimary":"code,title","groupBySecondary":"zz_group,srcdb","keyField":"crn","countFields":"schd","rollupFields":"notes","rollupSomeFields":"hasCartNote,hasRegisteredNote,hasWaitlistNote","rollupEveryFields":"hasFullNote,hasFullWithWaitlistNote,hasWarnNote,isCancelled"},
+			sis: "banner",
+			fuseURL: "api/?page=sisproxy",
+			userRecordURL: "api/?page=sisproxy",
+			codeMapping: {"schd:L":{"singular":"lecture","plural":"lecture"},"schd:5":{"singular":"geisel clinical full-time","plural":"geisel clinical full-time"},"schd:I":{"singular":"independent study","plural":"independent study"},"schd:A":{"singular":"geisel elective non-clinical","plural":"geisel elective non-clinical"},"schd:PE":{"singular":"physical education activity","plural":"physical education activity"},"schd:S":{"singular":"seminar","plural":"seminar"},"schd:2":{"singular":"tuck elective","plural":"tuck elective"},"schd:C":{"singular":"research","plural":"research"},"schd:T":{"singular":"thesis","plural":"thesis"},"schd:K":{"singular":"geisel clerkship","plural":"geisel clerkship"},"schd:H":{"singular":"honors","plural":"honors"},"schd:B":{"singular":"lab","plural":"lab"},"schd:1":{"singular":"tuck core","plural":"tuck core"},"schd:G":{"singular":"teaching","plural":"teaching"},"schd:D":{"singular":"discussion","plural":"discussion"},"schd:Z":{"singular":"geisel core course year 1 &2","plural":"geisel core course year 1 &2"},"schd:N":{"singular":"internship","plural":"internship"},"schd:M":{"singular":"lecture/lab","plural":"lecture/lab"},"schd:OL":{"singular":"online","plural":"online"},"schd:P":{"singular":"practicum","plural":"practicum"},"schd:Q":{"singular":"ug credit/exemption","plural":"ug credit/exemption"},"schd:ST":{"singular":"supervised teaching","plural":"supervised teaching"},"schd:U":{"singular":"geisel course taken as elec","plural":"geisel course taken as elec"},"schd:F":{"singular":"first-year seminar","plural":"first-year seminar"}},
+			srcDBs: [{"code":"202609","name":"Fall 2026","short":"Fall 2026","contains":"","status":"clss-publish","flags":""},{"code":"202606","name":"Summer 2026","short":"Summer 2026","contains":"","status":"historical","flags":""},{"code":"202603","name":"Spring 2026","short":"SP26","contains":"","status":"historical","flags":""}],
+			haveSAM: true,
+			authWindowFeatures: "height=600,width=800,left=100,top=100",
+			authURL: "https://banner.dartmouth.edu/banner/groucho/cl_sso",
+			logoutURL: "https://logout.dartmouth.edu",
+			textTermCalendarDisclaimer: "* Class breaks (including holidays) are not displayed. Consult the academic calendar for class breaks and individual class syllabi for exceptions to the published class meeting dates/times.",
+			displayTermCal: true
+		};
+		</script>
+	</head>
+	<body class="user-anon screens--samenabled--off screens--isprod--on">
+		<div id="modal" class="modal"><div id="modal__content" class="modal__content"></div></div>
+		<header class="banner" role="banner">
+			<h1 class="banner__title">CLASS SEARCH</h1>
+			<div class="banner__icons">
+			</div>
+
+			<div class="banner__auth">
+				<a href="#" data-action="login" class="anon-only">
+					<i class="fa fa-sign-in" aria-hidden="true"></i>
+					Login
+				</a>
+				<div class="authed-only">Welcome, <span class="user-name"></span></div>
+
+
+				<a href="#" data-action="logout" class="authed-only logout-btn">
+					<i class="fa fa-sign-out" aria-hidden="true"></i>
+					Logout
+				</a>
+
+</div>
+		</header>
+
+		<main class="panels">
+			<div class="panel panel--visible">
+				<div class="panel__content" tabindex="0">
+					<div class="panel__head">
+						<h2>Search Classes</h2>
+					</div>
+					<div class="panel__body" data-search-data-provider="search-panel">
+						<form id="search-form">
+	<div id="crit-section-1464624409188" class="section"><div id="crit-content-1464624409188" class="section__content">
+		<div class="form-group">
+<label for="crit-keyword" class="sr-only">Keyword</label><input type="text" id="crit-keyword" class="form-control" placeholder="Keyword">
+		</div>
+		<div class="form-group">
+<label for="crit-srcdb" class="sr-only">Term</label>
+<select id="crit-srcdb" class="form-control" data-type="single-column" required>
+	<option value="202609">Fall 2026</option>	<option value="202606">Summer 2026</option>	<option value="202603">Spring 2026</option></select>
+
+		</div>
+		<div class="form-group">
+<div><input type="checkbox" id="crit-no-overlap-cart" value="Y" data-action="allowdefault;login" > <label for="crit-no-overlap-cart">Don't Allow Overlap With Classes In Cart</label></div>
+		</div>
+		<div class="form-group">
+<button class="btn btn--full" id="search-button" data-action="search" type="submit">SEARCH</button>
+
+		</div>
+		<div class="form-group">
+<button class="btn btn--full" id="restricted-search-button" data-action="search" data-search-data-provider="restricted-search-button" disabled type="button">Search</button>
+
+		</div>
+		<div class="form-group">
+<button class="btn btn--full" id="reset-button" data-action="panel-home" type="button">Reset</button>
+
+		</div>
+		<div class="form-group">
+<button class="btn btn--full" id="grid_search_button" data-action="grid-search" type="button">Grid Search</button>
+
+		</div>
+	</div></div>
+	<div id="crit-section-1592421542903" class="section"><h3 class="section__title">Carts</h3><div id="crit-content-1592421542903" class="section__content">
+		<div class="form-group">
+<button class="btn btn--full" id="primary-cart-button" data-action="login,primary-cart" type="button">Primary Cart</button>
+
+		</div>
+		<div class="form-group">
+<label for="crit-other-carts" class="sr-only">Other Carts</label>
+<select id="crit-other-carts" class="form-control" data-action="allowdefault;login,onchange:other-cart">
+<option value="">Select a Cart...</option>
+</select>
+
+		</div>
+	</div></div>
+	<div id="crit-section-student-based-filters" class="section section--collapsable"><button type="button" class="section__title" data-action="toggle-section-collapse" aria-controls="crit-content-student-based-filters" aria-expanded="true"><i class="fa" aria-hidden="true"></i> Student-Based Filters</button><div id="crit-content-student-based-filters" aria-hidden="false" class="section__content">
+		<div class="form-group">
+<div><input type="checkbox" id="crit-hide_eo_classes" value="Y" > <label for="crit-hide_eo_classes">Hide EO Classes</label></div>
+		</div>
+		<div class="form-group">
+<div><input type="checkbox" id="crit-hide_non_eo_classes" value="Y" > <label for="crit-hide_non_eo_classes">Hide Non-EO Classes</label></div>
+		</div>
+		<div class="form-group">
+<div><input type="checkbox" id="crit-hide_mgmt_classes" value="Y" > <label for="crit-hide_mgmt_classes">Hide MGMT Classes</label></div>
+		</div>
+		<div class="form-group">
+<div><input type="checkbox" id="crit-hide_non_mgmt_classes" value="Y" > <label for="crit-hide_non_mgmt_classes">Hide Non-Mgmt Classes</label></div>
+		</div>
+	</div></div>
+	<div id="crit-section-1464797400962" class="section"><h3 class="section__title">ADVANCED SEARCH</h3><div id="crit-content-1464797400962" class="section__content">
+		<div class="form-group">
+<div class="meet-pat-rec"><input type="checkbox" id="crit-custom-meeting-pattern" value="" data-action="allowdefault;custom-meet" > <label for="crit-custom-meeting-pattern"><span class="label-text">Exclude Times</span><button class="edit-meet-pat-button btn btn--primary" data-action="custom-meet" type="button" aria-label="Edit custom meeting pattern">edit</button></label></div>
+		</div>
+		<div class="form-group">
+<div><input type="checkbox" id="crit-well_pe" value="Y" > <label for="crit-well_pe">Wellness/Physical Education </label></div>
+		</div>
+		<div class="form-group">
+<div><input type="checkbox" id="crit-nro_eligible" value="Y" > <label for="crit-nro_eligible">NRO Eligible</label></div>
+		</div>
+		<div class="form-group">
+<label for="crit-stat" class="sr-only">Open, Full, or Waitlist Classes</label>
+<select id="crit-stat" class="form-control" data-type="single-column">
+<option value="">Any Open, Full, or Waitlist Classes</option>
+	<option value="O">Open Classes Only</option>
+	<option value="W">Closed Classes, Waitlist Open</option>
+	<option value="F">Closed Classes, Waitlist Closed</option>
+</select>
+
+		</div>
+		<div class="form-group">
+<label for="crit-dist_req_attr" class="sr-only">Distributive Requirement</label>
+<select id="crit-dist_req_attr" class="form-control" data-type="multiple-column">
+<option value="">Any Distributive Requirement</option>
+	<option value="dist_req_attr_VART">Arts (ART)</option>
+	<option value="dist_req_attr_VINT">International or Comparative Study (INT)</option>
+	<option value="dist_req_attr_VLIT">Literature (LIT)</option>
+	<option value="dist_req_attr_VSCI_OR_VSLA">Natural &amp; Physical Science (SCI/SLA)</option>
+	<option value="dist_req_attr_VSCI">Natural &amp; Physical Science - no lab (SCI)</option>
+	<option value="dist_req_attr_VSLA">Natural &amp; Physical Science - with lab (SLA)</option>
+	<option value="dist_req_attr_VQDS">Quantitative &amp; Deductive Science (QDS)</option>
+	<option value="dist_req_attr_VSOC">Social Analysis (SOC)</option>
+	<option value="dist_req_attr_VTAS_OR_VTLA">Tech/Applied Science (TAS/TLA)</option>
+	<option value="dist_req_attr_VTAS">Tech/Applied Science - no lab (TAS)</option>
+	<option value="dist_req_attr_VTLA">Tech/Applied Science - with lab (TLA)</option>
+	<option value="dist_req_attr_VTMV">Traditions of Thought, Meaning &amp; Value (TMV)</option>
+</select>
+
+		</div>
+		<div class="form-group">
+<label for="crit-wcult_req_attr" class="sr-only">World Culture Requirement</label>
+<select id="crit-wcult_req_attr" class="form-control" data-type="multiple-column">
+<option value="">Any World Culture Requirement</option>
+	<option value="wcult_req_attr_VCI">Culture &amp; Identity (CI)</option>
+	<option value="wcult_req_attr_VNW">Non-Western (NW)</option>
+	<option value="wcult_req_attr_VW">Western (W)</option>
+</select>
+
+		</div>
+		<div class="form-group">
+<label for="crit-other_attrs" class="sr-only">Other Searchable Requirement</label>
+<select id="crit-other_attrs" class="form-control" data-type="multiple-column">
+<option value="">Any Other Searchable Requirement</option>
+	<option value="other_attrs_LACC">Accelerated Beginner Course (LACC)</option>
+	<option value="other_attrs_LADV">Advanced Language Course (LADV)</option>
+	<option value="other_attrs_VLRP">Language Requirement for Proficient Speakers Course (LRP)</option>
+	<option value="other_attrs_VBL1">Beginning Language Level 1</option>
+	<option value="other_attrs_VBL2">Beginning Language Level 2</option>
+	<option value="other_attrs_VBL3">Beginning Language Level 3</option>
+	<option value="other_attrs_FSEM">First-Year Seminar Requirement</option>
+	<option value="other_attrs_ENGL">First-Year Writing Requirement</option>
+</select>
+
+		</div>
+		<div class="form-group">
+<label for="crit-tuck_reqs" class="sr-only">Tuck Requirement</label>
+<select id="crit-tuck_reqs" class="form-control" data-type="multiple-column">
+<option value="">Any Tuck Requirement</option>
+	<option value="tuck_reqs_BMSQ">MSQM</option>
+	<option value="tuck_reqs_BTTI">T&amp;IM</option>
+	<option value="tuck_reqs_BESR">ESR</option>
+</select>
+
+		</div>
+		<div class="form-group">
+<label for="crit-subject" class="sr-only">Subject</label>
+<select id="crit-subject" class="form-control seligo-desktop" data-type="single-column" data-seligo-label="Subject">
+<option value="">Any Subject</option>
+	<option value="AAAS">AAAS - African and African American Studies</option>
+	<option value="ANTH">ANTH - Anthropology</option>
+	<option value="AQUA">AQUA - Aquatics</option>
+	<option value="ARAB">ARAB - Arabic</option>
+	<option value="ARTH">ARTH - Art History</option>
+	<option value="ASCL">ASCL - Asian Societies, Cultures, and Languages</option>
+	<option value="ASTR">ASTR - Astronomy</option>
+	<option value="BIOC">BIOC - Biochemistry</option>
+	<option value="BIOL">BIOL - Biology</option>
+	<option value="CANB">CANB - Cancer Biology</option>
+	<option value="CHEM">CHEM - Chemistry</option>
+	<option value="CHIN">CHIN - Chinese</option>
+	<option value="CLSP">CLSP - Club Sprts</option>
+	<option value="CLST">CLST - Classical Studies</option>
+	<option value="COCO">COCO - College Course</option>
+	<option value="COGS">COGS - Cognitive Science</option>
+	<option value="COLT">COLT - Comparative Literature</option>
+	<option value="COSC">COSC - Computer Science</option>
+	<option value="CRWT">CRWT - Creative Writing</option>
+	<option value="CSDA">CSDA - Digital Arts</option>
+	<option value="CSMP">CSMP - Computational Sci &amp; Modeling</option>
+	<option value="DOC">DOC - Dartmouth Outing Club</option>
+	<option value="EAPS">EAPS - Earth and Planetary Sciences</option>
+	<option value="EARS">EARS - Earth Sciences</option>
+	<option value="ECON">ECON - Economics</option>
+	<option value="EDUC">EDUC - Education</option>
+	<option value="EEER">EEER - East European, Eurasian &amp; Russian Studies</option>
+	<option value="EEES">EEES - Ecol, Evol, Ecosys &amp; Society</option>
+	<option value="ENGG">ENGG - Engineering</option>
+	<option value="ENGL">ENGL - English</option>
+	<option value="ENGM">ENGM - Engineering Management</option>
+	<option value="ENGS">ENGS - Engineering Sciences</option>
+	<option value="ENTR">ENTR - Energy Transition</option>
+	<option value="ENVS">ENVS - Environmental Studies</option>
+	<option value="FILM">FILM - Film Studies</option>
+	<option value="FLIP">FLIP - FLIP</option>
+	<option value="FREN">FREN - French</option>
+	<option value="FRIT">FRIT - French/Italian in Translation</option>
+	<option value="GENE">GENE - Genetics</option>
+	<option value="GEOG">GEOG - Geography</option>
+	<option value="GERM">GERM - German</option>
+	<option value="GOVT">GOVT - Government</option>
+	<option value="GRK">GRK - Greek</option>
+	<option value="HCDS">HCDS - Health Care Delivery Science</option>
+	<option value="HEBR">HEBR - Hebrew</option>
+	<option value="HIST">HIST - History</option>
+	<option value="HSE">HSE - Health Science Education</option>
+	<option value="HUM">HUM - Humanities</option>
+	<option value="ICE">ICE - Ice Skating</option>
+	<option value="ICSP">ICSP - Intercollegiate Sport</option>
+	<option value="IND">IND - Integrative Neuroscience</option>
+	<option value="INTS">INTS - International Studies</option>
+	<option value="IS">IS - Implementation Science</option>
+	<option value="ITAL">ITAL - Italian</option>
+	<option value="JAPN">JAPN - Japanese</option>
+	<option value="JWST">JWST - Jewish Studies</option>
+	<option value="KOR">KOR - Korean</option>
+	<option value="LACS">LACS - Latin American, Latino and Caribbean Studies</option>
+	<option value="LAT">LAT - Latin</option>
+	<option value="LATS">LATS - Latino Studies</option>
+	<option value="LING">LING - Linguistics</option>
+	<option value="MALS">MALS - MA in Liberal Studies</option>
+	<option value="MATH">MATH - Mathematics</option>
+	<option value="MES">MES - Middle Eastern Studies</option>
+	<option value="MGMT">MGMT - Tuck Course</option>
+	<option value="MHA">MHA - Healthcare Administration</option>
+	<option value="MICR">MICR - Microbiology and Immunology</option>
+	<option value="MUS">MUS - Music</option>
+	<option value="NAIS">NAIS - Native American &amp; Indigenous Studies</option>
+	<option value="PBPL">PBPL - Public Policy</option>
+	<option value="PH">PH - Public Health</option>
+	<option value="PHAR">PHAR - Pharmacology and Toxicology</option>
+	<option value="PHIL">PHIL - Philosophy</option>
+	<option value="PHSL">PHSL - Physiology</option>
+	<option value="PHYS">PHYS - Physics</option>
+	<option value="PORT">PORT - Portuguese</option>
+	<option value="PSYC">PSYC - Psychological &amp; Brain Sciences</option>
+	<option value="QBS">QBS - Quantitative Biomedical Science</option>
+	<option value="QSS">QSS - Quantitative Social Science</option>
+	<option value="RACT">RACT - Racquet and Court</option>
+	<option value="REL">REL - Religion</option>
+	<option value="RUSS">RUSS - Russian</option>
+	<option value="SART">SART - Studio Art</option>
+	<option value="SKI">SKI - Skiing</option>
+	<option value="SOCY">SOCY - Sociology</option>
+	<option value="SPAN">SPAN - Spanish</option>
+	<option value="SPEC">SPEC - Special Interest</option>
+	<option value="SPEE">SPEE - Speech</option>
+	<option value="SRFL">SRFL - Senior Fellow</option>
+	<option value="THEA">THEA - Theater</option>
+	<option value="TUCK">TUCK - Tuck</option>
+	<option value="UKRA">UKRA - Ukrainian</option>
+	<option value="UNSG">UNSG - Unspecified Graduate</option>
+	<option value="WGSS">WGSS - Women's, Gender, and Sexuality</option>
+	<option value="WLNS">WLNS - Wellness Education</option>
+	<option value="WRIT">WRIT - Writing Program</option>
+</select>
+
+		</div>
+		<div class="form-group">
+<label for="crit-session" class="sr-only">School/Course Type</label>
+<select id="crit-session" class="form-control" data-type="single-column">
+<option value="">Any School/Course Type</option>
+	<option value="U">UG – Arts &amp; Sciences School</option>
+	<option value="G">GR – Guarini Graduate School</option>
+	<option value="E,E1,E2,EO">TH – Graduate Courses</option>
+	<option value="4,F,S">TU – Full Term, 1st and 2nd Half Minis</option>
+	<option value="4">TU – Full Term Elective</option>
+	<option value="F">TU – 1st Half Mini Elective</option>
+	<option value="S">TU – 2nd Half Mini Elective</option>
+	<option value="N">TU – Sprint/Intensive Elective</option>
+</select>
+
+		</div>
+		<div class="form-group">
+<label for="crit-instructor" class="sr-only">Instructor</label><input type="text" id="crit-instructor" class="form-control" placeholder="Instructor">
+		</div>
+		<div class="form-group">
+<label for="crit-hours" class="sr-only">Credits</label>
+<select id="crit-hours" class="form-control" data-type="single-column">
+<option value="">Any Credits</option>
+	<option value="0.5">0.5 Credits</option>
+	<option value="1">1 Credit</option>
+	<option value="1.5">1.5 Credits</option>
+	<option value="3">3 Credits</option>
+</select>
+
+		</div>
+		<div class="form-group">
+<label for="crit-time_periods" class="sr-only">Time Period</label>
+<select id="crit-time_periods" class="form-control" data-type="single-column">
+<option value="">Any Time Period</option>
+	<option value="TP_8">8</option>
+	<option value="TP_9">9</option>
+	<option value="TP_10">10</option>
+	<option value="TP_10A">10A</option>
+	<option value="TP_11">11</option>
+	<option value="TP_12">12</option>
+	<option value="TP_2">2</option>
+	<option value="TP_2A">2A</option>
+	<option value="TP_3A">3A</option>
+	<option value="TP_3B">3B</option>
+	<option value="TP_6A">6A</option>
+	<option value="TP_6B">6B</option>
+</select>
+
+		</div>
+	</div></div>
+						</form>
+						<a href="#" id="deep-link-tag" data-group="" data-key="" data-srcdb="" data-action="result-detail" style="display: none;"></a>
+					</div>
+				</div>
+			</div>
+			<div class="empty-space">
+				<div class="empty-space__content">
+					<div class="glass">
+						<div class="glass__content">
+							<h2><strong>Welcome to Courses@Dartmouth</strong></h2>
+						</div>
+					</div>
+				</div>
+				<div class="empty-space__version">
+271.83.91
+				</div>
+			</div>
+		</main>
+		<div id="notifications"></div>
+
+		<div id="sam-login" class="sam-login screen noscript" role="dialog">
+			<div class="sam-login-header">
+				SAM Login
+			</div>
+
+			<div class="sam-login-body">
+				<div class="login-section message">
+					<p>Area for a message of some kind</p>
+				</div>
+
+				<div class="login-section debug" id="debug-area"><p>Some Text</p></div>
+			</div>
+			<div class="buttons clearfix">
+				<div class="cancel">
+					<button class="btn-cancel inline-btn btn">Cancel</button>
+					<button class="inline-btn btn-login btn">Login</button>
+				</div>
+			</div>
+		</div>
+
+		<script src="/sam/core.js?1789693314048"></script>
+		<script src="fose.js?1789693314048"></script>
+		<script src="/js/lfjs.js"></script>
+	</body>
+</html>

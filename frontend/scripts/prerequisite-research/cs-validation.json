@@ -1,0 +1,38 @@
+{
+  "total": 367,
+  "statusCounts": {
+    "unresolved": 277,
+    "unmatched": 21,
+    "verified": 69
+  },
+  "csStatusCounts": {
+    "verified": 35,
+    "unresolved": 9
+  },
+  "auditFailures": [],
+  "unmatched": [
+    "AAAS 7.08",
+    "ANTH 12.01",
+    "ANTH 50.32",
+    "ARTH 7.11",
+    "ARTH 89",
+    "CLST 7.15",
+    "COLT 10.16",
+    "COLT 53.03",
+    "COLT 61.01",
+    "COLT 62.02",
+    "COLT 62.04",
+    "COLT 67.07",
+    "COLT 7.24",
+    "COLT 70.03",
+    "ENGL 7.60",
+    "ENGL 7.63",
+    "ENGL 7.64",
+    "ENGL 7.65",
+    "ENGL 7.66",
+    "FILM 38",
+    "FILM 7.21"
+  ],
+  "retrievedAt": "2026-10-15T18:55:56.778Z",
+  "emptySourceTextReason": "Empty sourceText is preserved only for unmatched courses or the CLST85 page with blank description/prerequisite fields. All remain unresolved/unmatched."
+}
