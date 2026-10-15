@@ -268,7 +268,8 @@ const DEPARTMENTS = ["Computer Science", "Mathematics", "Biology", "Economics", 
 // The demo data has no restricted clubs, workshops or events, so the list is empty.
 const ELIGIBILITY_RULES = [];
 
-// Dartmouth class periods, from class_schedule.txt.
+// Dartmouth class periods, from class_schedule.txt. A period ending in X is the x-hour of the period without
+// the X (10X → 10, 10AX → 10A): it isn't picked on its own, it's extra meeting time for that class.
 const PERIODS = [
   { code: "8S", days: ["Mon", "Tue", "Thu", "Fri"], time: "07:45-08:35" },
   { code: "8SX", days: ["Wed"], time: "07:45-08:35" },
@@ -303,6 +304,10 @@ const periodWhen = (p) => `${p.days.join(", ")} ${fmtRange(p.time)}`;
 // Suggestions read "10A — Tue, Thu …"; only the code is saved.
 const codeOf = (option) => option.split(" — ")[0];
 const periodOf = (code) => PERIODS.find((p) => p.code === code);
+const xHourOf = (p) => periodOf(`${p.code}X`);
+const isXHour = (p) => p.code.endsWith("X") && !!periodOf(p.code.slice(0, -1));
+const basePeriods = () => PERIODS.filter((p) => !isXHour(p));
+const xHourText = (p) => { const x = xHourOf(p); return x ? `x-hour ${x.code} ${periodWhen(x)}` : "no x-hour"; };
 
 const KINDS = {
   clubs: { label: "Clubs", one: "Club", icon: "flag" },
@@ -346,7 +351,9 @@ const STATS_QUESTIONS = [
   { section: "stats", id: "minor", label: "Minor (optional):", options: () => DEPARTMENTS, free: false },
   { section: "stats", id: "interests", label: "Other academic interests:", options: () => DEPARTMENTS, free: true, multi: true },
   { section: "stats", id: "classes", label: "Current class periods:", multi: true, free: false, pick: codeOf,
-    options: () => PERIODS.map((p) => `${p.code} — ${periodWhen(p)}`) },
+    options: () => basePeriods().map((p) => `${p.code} — ${periodWhen(p)} · ${xHourText(p)}`),
+    why: "Each class's x-hour is included automatically.",
+    explain: (typed) => { const x = periodOf(typed.toUpperCase()); return x && isXHour(x) ? `${x.code} is the x-hour for ${x.code.slice(0, -1)}. Add ${x.code.slice(0, -1)} and it's included.` : null; } },
   { section: "stats", id: "clubs", label: "Current club commitments:", options: () => items.filter((i) => i.kind === "clubs").map((c) => c.name), free: false, multi: true },
 ];
 
@@ -494,8 +501,13 @@ const toMinutes = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return
 function scheduleBlocks(all = items, stats = profile.stats) {
   const clubs = (stats.clubs || []).map((n) => all.find((c) => c.kind === "clubs" && c.name === n)).filter(Boolean)
     .map((c) => ({ name: c.name, when: whenText(c), days: [c.meeting_day], time: c.meeting_time }));
-  const classes = (stats.classes || []).map(periodOf).filter(Boolean)
-    .map((p) => ({ name: `your ${p.code} class`, when: periodWhen(p), days: p.days, time: p.time }));
+  const classes = (stats.classes || []).map(periodOf).filter(Boolean).flatMap((p) => {
+    const x = xHourOf(p);
+    return [
+      { name: `your ${p.code} class`, when: periodWhen(p), days: p.days, time: p.time },
+      ...(x ? [{ name: `the x-hour for your ${p.code} class`, when: `${x.code}: ${periodWhen(x)}`, days: x.days, time: x.time }] : []),
+    ];
+  });
   return [...clubs, ...classes];
 }
 function clashesFor(item, all = items, stats = profile.stats) {
@@ -608,7 +620,8 @@ function clubDetails(club) {
 function classRow(code) {
   const period = periodOf(code);
   return `<div class="item">
-    <div><h3>${esc(code)}</h3><p class="meta">${esc(period ? periodWhen(period) : "Not a period on the class schedule")}</p></div>
+    <div><h3>${esc(code)}</h3><p class="meta">${esc(period ? periodWhen(period) : "Not a period on the class schedule")}</p>
+      ${period ? `<p class="meta">${esc(xHourOf(period) ? `X-hour (${xHourOf(period).code}): ${periodWhen(xHourOf(period))}` : "No x-hour")}</p>` : ""}</div>
     <button class="btn" data-remove="stats:classes" data-value="${esc(code)}">Remove</button>
   </div>`;
 }
@@ -872,7 +885,7 @@ function confirmTyped(input) {
     return answer(key, exact);
   }
   if (q.free) return answer(key, typed);
-  showError(key, "Please choose one of the suggestions.");
+  showError(key, q.explain?.(typed) || "Please choose one of the suggestions.");
 }
 
 /* ---------- Interest Tree ---------- */
@@ -1212,6 +1225,9 @@ async function load() {
   const tueClub = normalize([{ id: 9, name: "Tue Club", category: "Recreation", meeting_day: "Tue", meeting_time: "10:30-11:00" }], [], [])[0];
   console.assert(clashesFor(tueClub, all, { classes: ["10A"] })[0]?.name === "your 10A class", "a club during one of your classes clashes");
   console.assert(clashesFor(tueClub, all, { classes: ["10"] }).length === 0, "classes on other days don't clash");
+  const thuClub = normalize([{ id: 8, name: "Thu Club", category: "Recreation", meeting_day: "Thu", meeting_time: "12:30-13:00" }], [], [])[0];
+  console.assert(clashesFor(thuClub, all, { classes: ["10"] })[0]?.name === "the x-hour for your 10 class", "a class's x-hour (10X) counts as class time");
+  console.assert(basePeriods().every((p) => !p.code.endsWith("X")) && PERIODS.filter(isXHour).every((x) => periodOf(x.code.slice(0, -1))), "every x-hour links to a base period");
   const pool = normalize([{ ...sat, id: 3, category: "Recreation" }, { id: 4, name: "Sun Hike", category: "Recreation", meeting_day: "Sun", meeting_time: "10:30-11:30" }], [], []);
   const hikes = matchesFor(sports, { all: [all[0], ...pool], stats: { clubs: ["Women's Rugby"] }, identity: {} });
   console.assert(hikes[0].item.name === "Sun Hike" && hikes[1].clashes.length === 1, "things that fit your schedule come first");
